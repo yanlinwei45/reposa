@@ -1,6 +1,6 @@
 {
   "name": "reposa",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "PORT=9527 next dev",
@@ -9,7 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.71.2",
+    "axios": "^1.7.9",
     "next": "15.5.9",
     "react": "19.1.0",
     "react-dom": "19.1.0"
