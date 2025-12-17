@@ -1,0 +1,10 @@
+{
+  "model": "doubao-seed-code-preview-251028",
+  "system": "你是Doubao，我的编程助手。",
+  "messages": [
+    {
+      "role": "user",
+      "content": "Hello!"
+    }
+  ]
+}

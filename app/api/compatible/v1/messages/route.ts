@@ -112,36 +112,25 @@ export async function POST(req: Request) {
 			);
 		}
 
-		// 3. 调整 thinking 参数
-		body = adjustThinkingParams(body);
-
-		// 4. 从环境变量获取 API Key
-		const apiKey = process.env.ANTHROPIC_API_KEY;
-		if (!apiKey) {
-			console.error('[/api/compatible/v1/messages] 错误: ANTHROPIC_API_KEY 未配置');
-			return NextResponse.json(
-				{
-					type: 'error',
-					error: {
-						type: 'api_error',
-						message: 'Server configuration error: ANTHROPIC_API_KEY not set'
-					}
-				},
-				{ status: 500 }
-			);
+		// 3. 优先使用环境变量中的 model
+		const envModel = process.env.ANTHROPIC_MODEL;
+		if (envModel) {
+			console.log(`[/api/compatible/v1/messages] 使用环境变量 model: ${envModel} (原始 model: ${body.model})`);
+			body.model = envModel;
 		}
 
-		// 5. 配置 Anthropic API 请求
+		// 4. 调整 thinking 参数
+		body = adjustThinkingParams(body);
+
+		// 6. 配置 Anthropic API 请求
 		const baseURL = process.env.ANTHROPIC_API_URL || 'https://api.anthropic.com';
 		const apiUrl = `${baseURL}/v1/messages`;
 
 		console.log('[/api/compatible/v1/messages] API URL:', apiUrl);
-		console.log('[/api/compatible/v1/messages] API Key (前10位):', apiKey.substring(0, 10) + '...');
 
-		// 6. 准备请求头
+		// 7. 准备请求头
 		const requestHeaders: Record<string, string> = {
 			'Content-Type': 'application/json',
-			'x-api-key': apiKey,
 			'anthropic-version': req.headers.get('anthropic-version') || '2023-06-01',
 		};
 
@@ -152,7 +141,7 @@ export async function POST(req: Request) {
 			console.log('[/api/compatible/v1/messages] 使用 Beta 功能:', betaHeader);
 		}
 
-		// 7. 检查是否需要流式响应
+		// 8. 检查是否需要流式响应
 		const isStreaming = body.stream === true;
 		console.log('[/api/compatible/v1/messages] 响应模式:', isStreaming ? '流式' : '标准');
 
@@ -219,7 +208,10 @@ async function handleNonStreamingRequest(
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
 			const response = await axios.post(apiUrl, requestConfig, {
-				headers,
+				headers: {
+					...headers,
+					'x-api-key': process.env.API_KEY,
+				},
 				timeout: 600000, // 10 分钟超时
 			});
 
@@ -325,7 +317,10 @@ async function handleStreamingRequest(
 	for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
 		try {
 			response = await axios.post(apiUrl, requestConfig, {
-				headers,
+				headers: {
+					...headers,
+					'x-api-key': process.env.API_KEY,
+				},
 				responseType: 'stream',
 				timeout: 600000, // 10 分钟超时
 			});
