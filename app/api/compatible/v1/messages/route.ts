@@ -450,6 +450,7 @@ async function handleStreamingRequest(
 	// 返回流式响应
 	return new Response(readable, {
 		headers: {
+			...response.headers,
 			'Content-Type': 'text/event-stream',
 			'Cache-Control': 'no-cache',
 			'Connection': 'keep-alive',
