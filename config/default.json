@@ -37,7 +37,7 @@
     "buyMaxChangePercent": 9.5,
     "buyMinHistoryScore": 60,
     "takeProfitPct": 12,
-    "takeProfitPartialPct": 8,
+    "takeProfitPartialPct": 6,
     "stopLossPct": -4,
     "exitScoreThreshold": 65,
     "exitDrawdownFromHighPct": 5,
