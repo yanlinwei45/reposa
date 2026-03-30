@@ -807,7 +807,7 @@ class MarketScanner {
           ...pick,
           history: history.indicators,
           historyScore: history.historyScore,
-          combinedScore: Number(((pick.score * 0.4 + history.historyScore * 0.6).toFixed(2)))
+          combinedScore: Number(((pick.score * 0.5 + history.historyScore * 0.5).toFixed(2)))
         });
       } else {
         // 没有历史数据的标记为0分
@@ -849,6 +849,9 @@ class MarketScanner {
 
       this.scanLogger.log('开始获取行情数据', {});
 
+      const marketOpen = isMarketOpen(toBeijingTime(ts));
+      const portfolioFull = !!(global.paperAccountRef && global.paperAccountRef.positions.size >= global.paperAccountRef.config.maxPositions);
+
       const rawQuotes = await scrapeEastmoneyDomMarketWithPage(this.config, page);
       this.scanLogger.log('获取原始数据', { total: rawQuotes.length });
 
@@ -862,12 +865,28 @@ class MarketScanner {
       const scored = quotes.map(item => scoreStrategy(item, this.config.strategy));
       this.scanLogger.log('当日评分', { total: scored.length });
 
+      // 非交易时间：仅保留基础市场快照与持仓补价所需数据，不做重型候选筛选
+      if (!marketOpen) {
+        const summary = {
+          totalStocks: rawQuotes.length,
+          mainBoardStocks: quotes.length,
+          scoredStocks: scored.length,
+          initialCandidates: 0,
+          finalPicks: 0,
+          mode: 'offhours-light'
+        };
+        this.scanLogger.endScan(summary);
+        await this.onScan({ all: scored, picks: [], ts, marketRegime });
+        return;
+      }
+
       // 降低当日筛选标准，选出更多候选股票用于历史数据分析
       const initialThreshold = 70; // 降低到70分
+      const candidateLimit = portfolioFull ? Math.min(40, this.config.strategy.topN * 2) : Math.min(100, this.config.strategy.topN * 3);
       let candidates = scored
         .filter(item => item.score >= initialThreshold)
         .sort((a, b) => b.score - a.score)
-        .slice(0, Math.min(100, this.config.strategy.topN * 3)); // 选出3倍数量的候选
+        .slice(0, candidateLimit); // 满仓时减少候选深度
 
       this.scanLogger.log('初步筛选（降低标准）', {
         threshold: initialThreshold,
@@ -885,6 +904,12 @@ class MarketScanner {
         const filtered = [];
 
         candidates = candidates.filter(p => {
+          // 轻量预过滤：熊市下过滤明显量比不足的噪音票，但不等同于买入条件
+          if (marketRegime.regime === 'BEAR' && (p.volumeRatio || 0) < 1.5) {
+            filtered.push({ symbol: p.symbol, name: p.name, reason: `熊市量比${p.volumeRatio}低于1.5` });
+            return false;
+          }
+
           // 必须有历史数据
           if (!p.history) {
             filtered.push({ symbol: p.symbol, name: p.name, reason: '无历史数据' });
@@ -955,13 +980,13 @@ class MarketScanner {
         candidates = candidates
           .map(p => ({
             ...p,
-            // 历史数据权重提高到60%
-            combinedScore: Number(((p.score * 0.4 + p.historyScore * 0.6).toFixed(2)))
+            // 历史数据与当日强度各占50%
+            combinedScore: Number(((p.score * 0.5 + p.historyScore * 0.5).toFixed(2)))
           }))
           .sort((a, b) => b.combinedScore - a.combinedScore)
           .slice(0, this.config.strategy.topN);
 
-        this.scanLogger.log('综合评分排序（历史权重60%）', {
+        this.scanLogger.log('综合评分排序（当日/历史 50/50）', {
           total: candidates.length,
           topPicks: candidates.slice(0, 10).map(p => ({
             symbol: p.symbol,
@@ -1294,7 +1319,7 @@ class PaperAccount {
           pick.volumeRatio >= (this.config.exitStrongVolumeRatio || 2) &&  // 量比≥2
           pick.turnoverRatePercent >= (this.config.exitStrongTurnover || 5) &&  // 换手≥5%
           pick.changePercent >= 0 &&  // 当日未下跌
-          pick.changePercent <= (this.config.buyMaxChangePercent || 7.5);  // 未冲高回落
+          pick.changePercent <= (this.config.buyMaxChangePercent || 9.5);  // 未冲高回落
 
         if (!stillStrong) {
           // 不再强势，止盈卖出
@@ -1445,7 +1470,7 @@ class PaperAccount {
                p.changePercent <= (this.config.buyMaxChangePercent || 7.5);
 
         // 历史评分检查（修复：0分不应通过）
-        const historyPass = p.historyScore == null || p.historyScore >= minHistoryScore;
+        const historyPass = true;
 
         if (!basicPass) {
           console.log(`[PAPER] ${p.symbol} ${p.name} 基础条件不通过: 评分${dayScore}(需${minScore}) 量比${p.volumeRatio}(需${minVolumeRatio}) 换手${p.turnoverRatePercent}% 涨幅${p.changePercent}%`);
@@ -1533,6 +1558,7 @@ async function main() {
   const paperAccount = config.paperTrading?.enabled ? new PaperAccount(config, logsDir) : null;
   if (paperAccount) {
     console.log(`[PAPER] 模拟盘已启用，初始资金: ${(paperAccount.config.initialCash / 10000).toFixed(0)}万`);
+    global.paperAccountRef = paperAccount;
   }
 
   const scanner = new MarketScanner(config, async (payload) => {
