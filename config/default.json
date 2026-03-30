@@ -1,0 +1,59 @@
+{
+  "marketData": {
+    "source": "eastmoney-dom"
+  },
+  "marketScan": {
+    "pageSize": 200,
+    "maxPages": 25,
+    "scanIntervalMs": 60000,
+    "scanIntervalOffHoursMs": 600000,
+    "pageLoadWaitMs": 2000,
+    "pageTurnWaitMs": 1200,
+    "headless": true,
+    "listUrl": "https://quote.eastmoney.com/center/gridlist.html#hs_a_board"
+  },
+  "strategy": {
+    "minTurnoverRatePercent": 5,
+    "minVolumeRatio": 2.0,
+    "minChangePercent": 3,
+    "maxChangePercent": 9.5,
+    "minAmount": 300000000,
+    "topN": 30,
+    "gradeAThreshold": 85,
+    "gradeBThreshold": 70,
+    "gradeCThreshold": 60,
+    "enableHistoryScore": true
+  },
+  "paperTrading": {
+    "enabled": true,
+    "initialCash": 10000000,
+    "maxPositions": 5,
+    "maxPositionValue": 2000000,
+    "minCashReserve": 1000000,
+    "buyMinScore": 75,
+    "buyMinVolumeRatio": 2.0,
+    "buyMinTurnoverRatePercent": 5,
+    "buyMinChangePercent": 3,
+    "buyMaxChangePercent": 9.5,
+    "buyMinHistoryScore": 60,
+    "takeProfitPct": 12,
+    "takeProfitPartialPct": 8,
+    "stopLossPct": -4,
+    "exitScoreThreshold": 65,
+    "exitDrawdownFromHighPct": 5,
+    "exitStrongScoreThreshold": 80,
+    "exitStrongVolumeRatio": 2,
+    "exitStrongTurnover": 5,
+    "maxHoldDays": 7,
+    "weakStockHoldDays": 5,
+    "weakStockMinProfit": 3,
+    "maxHoldScanRounds": 999,
+    "buyCooldownMinutes": 60,
+    "slippageBp": 10,
+    "feeBp": 3,
+    "lotSize": 100
+  },
+  "server": {
+    "port": 3088
+  }
+}

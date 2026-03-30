@@ -1,28 +1,13 @@
 {
-  "name": "reposa",
-  "version": "1.0.0",
-  "private": true,
+  "name": "quant-paper-trading-nodejs",
+  "version": "0.2.0",
+  "description": "A-share realtime evaluation watcher via Eastmoney web + Playwright",
+  "main": "src/index.js",
+  "type": "commonjs",
   "scripts": {
-    "dev": "PORT=9257 next dev",
-    "build": "next build",
-    "start": "PORT=9257 next start",
-    "lint": "eslint"
+    "start": "node src/index.js"
   },
   "dependencies": {
-    "axios": "^1.7.9",
-    "next": "15.5.9",
-    "react": "19.1.0",
-    "react-dom": "19.1.0"
-  },
-  "devDependencies": {
-    "@eslint/eslintrc": "^3",
-    "@tailwindcss/postcss": "^4",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
-    "eslint-config-next": "15.5.9",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "playwright": "^1.58.2"
   }
 }

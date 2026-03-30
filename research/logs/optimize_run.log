@@ -1,0 +1,363 @@
+/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+[build_universe] attempt 1/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 2/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 3/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 4/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 5/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] fallback activated due to: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+universe saved: /Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/data/universe/universe.csv rows=30 source=fallback_seed
+/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+[fetch_history] 601012 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601012 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601012 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601012 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002594 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002594 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002594 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002594 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300750 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300750 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300750 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300750 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601166 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601166 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601166 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601166 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600276 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600276 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600276 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600276 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600030 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600030 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600030 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600030 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 000858 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 000858 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 000858 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 000858 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601398 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601398 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601398 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601398 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601288 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601288 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601288 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601288 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601988 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601988 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601988 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601988 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601857 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601857 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601857 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601857 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600809 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600809 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600809 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600809 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002714 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002714 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002714 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002714 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002475 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002475 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002475 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002475 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 603259 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 603259 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 603259 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 603259 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+progress 20/30 ok=5
+[fetch_history] 300308 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300308 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300308 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300308 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300033 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300033 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300033 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300033 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002230 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002230 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002230 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002230 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601668 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601668 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601668 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 601668 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600887 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600887 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600887 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600887 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600309 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600309 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600309 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 600309 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688111 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688111 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688111 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688111 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688981 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688981 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688981 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 688981 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002371 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002371 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002371 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 002371 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300274 attempt 1/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300274 attempt 2/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300274 attempt 3/3 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[fetch_history] 300274 failed permanently: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+done ok=5/30
+/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/scripts/build_features.py:51: FutureWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  feat = df.groupby('symbol', group_keys=False).apply(add_features).reset_index(drop=True)
+features saved: /Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/data/features/daily_features.parquet rows=605
+trial 1/243 objective=-0.1117 top_n=3 hold_days=5 total_return=-0.0783 max_dd=-0.2787 win_rate=0.4107
+trial 2/243 objective=-0.2862 top_n=3 hold_days=7 total_return=-0.1691 max_dd=-0.4028 win_rate=0.4259
+trial 3/243 objective=-0.6959 top_n=3 hold_days=10 total_return=-0.4166 max_dd=-0.5601 win_rate=0.3922
+trial 4/243 objective=-0.0844 top_n=5 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 5/243 objective=-0.2328 top_n=5 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 6/243 objective=-0.6006 top_n=5 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 7/243 objective=-0.0844 top_n=8 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 8/243 objective=-0.2328 top_n=8 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 9/243 objective=-0.6006 top_n=8 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 10/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 11/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 12/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 13/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 14/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 15/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 16/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 17/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 18/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 19/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 20/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 21/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 22/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 23/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 24/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 25/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 26/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 27/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 28/243 objective=-0.4486 top_n=3 hold_days=5 total_return=-0.2611 max_dd=-0.3996 win_rate=0.2679
+trial 29/243 objective=-0.5848 top_n=3 hold_days=7 total_return=-0.3317 max_dd=-0.4998 win_rate=0.2963
+trial 30/243 objective=-0.9422 top_n=3 hold_days=10 total_return=-0.5354 max_dd=-0.6232 win_rate=0.2353
+trial 31/243 objective=-0.4512 top_n=5 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 32/243 objective=-0.5752 top_n=5 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 33/243 objective=-0.9279 top_n=5 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 34/243 objective=-0.4512 top_n=8 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 35/243 objective=-0.5752 top_n=8 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 36/243 objective=-0.9279 top_n=8 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 37/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 38/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 39/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 40/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 41/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 42/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 43/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 44/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 45/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 46/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 47/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 48/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 49/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 50/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 51/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 52/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 53/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 54/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 55/243 objective=-0.3193 top_n=3 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 56/243 objective=-0.4927 top_n=3 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 57/243 objective=-0.7781 top_n=3 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 58/243 objective=-0.3193 top_n=5 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 59/243 objective=-0.4927 top_n=5 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 60/243 objective=-0.7781 top_n=5 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 61/243 objective=-0.3193 top_n=8 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 62/243 objective=-0.4927 top_n=8 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 63/243 objective=-0.7781 top_n=8 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 64/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 65/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 66/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 67/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 68/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 69/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 70/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 71/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 72/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 73/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 74/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 75/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 76/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 77/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 78/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 79/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 80/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 81/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 82/243 objective=-0.1117 top_n=3 hold_days=5 total_return=-0.0783 max_dd=-0.2787 win_rate=0.4107
+trial 83/243 objective=-0.2862 top_n=3 hold_days=7 total_return=-0.1691 max_dd=-0.4028 win_rate=0.4259
+trial 84/243 objective=-0.6959 top_n=3 hold_days=10 total_return=-0.4166 max_dd=-0.5601 win_rate=0.3922
+trial 85/243 objective=-0.0844 top_n=5 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 86/243 objective=-0.2328 top_n=5 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 87/243 objective=-0.6006 top_n=5 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 88/243 objective=-0.0844 top_n=8 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 89/243 objective=-0.2328 top_n=8 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 90/243 objective=-0.6006 top_n=8 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 91/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 92/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 93/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 94/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 95/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 96/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 97/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 98/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 99/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 100/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 101/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 102/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 103/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 104/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 105/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 106/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 107/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 108/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 109/243 objective=-0.4486 top_n=3 hold_days=5 total_return=-0.2611 max_dd=-0.3996 win_rate=0.2679
+trial 110/243 objective=-0.5848 top_n=3 hold_days=7 total_return=-0.3317 max_dd=-0.4998 win_rate=0.2963
+trial 111/243 objective=-0.9422 top_n=3 hold_days=10 total_return=-0.5354 max_dd=-0.6232 win_rate=0.2353
+trial 112/243 objective=-0.4512 top_n=5 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 113/243 objective=-0.5752 top_n=5 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 114/243 objective=-0.9279 top_n=5 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 115/243 objective=-0.4512 top_n=8 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 116/243 objective=-0.5752 top_n=8 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 117/243 objective=-0.9279 top_n=8 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 118/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 119/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 120/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 121/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 122/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 123/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 124/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 125/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 126/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 127/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 128/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 129/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 130/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 131/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 132/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 133/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 134/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 135/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 136/243 objective=-0.3193 top_n=3 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 137/243 objective=-0.4927 top_n=3 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 138/243 objective=-0.7781 top_n=3 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 139/243 objective=-0.3193 top_n=5 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 140/243 objective=-0.4927 top_n=5 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 141/243 objective=-0.7781 top_n=5 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 142/243 objective=-0.3193 top_n=8 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 143/243 objective=-0.4927 top_n=8 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 144/243 objective=-0.7781 top_n=8 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 145/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 146/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 147/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 148/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 149/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 150/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 151/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 152/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 153/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 154/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 155/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 156/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 157/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 158/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 159/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 160/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 161/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 162/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 163/243 objective=-0.1117 top_n=3 hold_days=5 total_return=-0.0783 max_dd=-0.2787 win_rate=0.4107
+trial 164/243 objective=-0.2862 top_n=3 hold_days=7 total_return=-0.1691 max_dd=-0.4028 win_rate=0.4259
+trial 165/243 objective=-0.6959 top_n=3 hold_days=10 total_return=-0.4166 max_dd=-0.5601 win_rate=0.3922
+trial 166/243 objective=-0.0844 top_n=5 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 167/243 objective=-0.2328 top_n=5 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 168/243 objective=-0.6006 top_n=5 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 169/243 objective=-0.0844 top_n=8 hold_days=5 total_return=-0.0615 max_dd=-0.2655 win_rate=0.4107
+trial 170/243 objective=-0.2328 top_n=8 hold_days=7 total_return=-0.1357 max_dd=-0.3788 win_rate=0.4259
+trial 171/243 objective=-0.6006 top_n=8 hold_days=10 total_return=-0.3606 max_dd=-0.5178 win_rate=0.3922
+trial 172/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 173/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 174/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 175/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 176/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 177/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 178/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 179/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 180/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 181/243 objective=-0.1327 top_n=3 hold_days=5 total_return=-0.0899 max_dd=-0.2915 win_rate=0.4107
+trial 182/243 objective=-0.3055 top_n=3 hold_days=7 total_return=-0.1818 max_dd=-0.4099 win_rate=0.4259
+trial 183/243 objective=-0.7195 top_n=3 hold_days=10 total_return=-0.4329 max_dd=-0.5650 win_rate=0.3922
+trial 184/243 objective=-0.1082 top_n=5 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 185/243 objective=-0.2594 top_n=5 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 186/243 objective=-0.6279 top_n=5 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 187/243 objective=-0.1082 top_n=8 hold_days=5 total_return=-0.0748 max_dd=-0.2797 win_rate=0.4107
+trial 188/243 objective=-0.2594 top_n=8 hold_days=7 total_return=-0.1531 max_dd=-0.3892 win_rate=0.4259
+trial 189/243 objective=-0.6279 top_n=8 hold_days=10 total_return=-0.3795 max_dd=-0.5240 win_rate=0.3922
+trial 190/243 objective=-0.4486 top_n=3 hold_days=5 total_return=-0.2611 max_dd=-0.3996 win_rate=0.2679
+trial 191/243 objective=-0.5848 top_n=3 hold_days=7 total_return=-0.3317 max_dd=-0.4998 win_rate=0.2963
+trial 192/243 objective=-0.9422 top_n=3 hold_days=10 total_return=-0.5354 max_dd=-0.6232 win_rate=0.2353
+trial 193/243 objective=-0.4512 top_n=5 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 194/243 objective=-0.5752 top_n=5 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 195/243 objective=-0.9279 top_n=5 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 196/243 objective=-0.4512 top_n=8 hold_days=5 total_return=-0.2627 max_dd=-0.4009 win_rate=0.2679
+trial 197/243 objective=-0.5752 top_n=8 hold_days=7 total_return=-0.3259 max_dd=-0.4954 win_rate=0.2963
+trial 198/243 objective=-0.9279 top_n=8 hold_days=10 total_return=-0.5275 max_dd=-0.6168 win_rate=0.2353
+trial 199/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 200/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 201/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 202/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 203/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 204/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 205/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 206/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 207/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 208/243 objective=-0.4993 top_n=3 hold_days=5 total_return=-0.2902 max_dd=-0.4263 win_rate=0.2679
+trial 209/243 objective=-0.6345 top_n=3 hold_days=7 total_return=-0.3620 max_dd=-0.5208 win_rate=0.2963
+trial 210/243 objective=-0.9753 top_n=3 hold_days=10 total_return=-0.5539 max_dd=-0.6374 win_rate=0.2353
+trial 211/243 objective=-0.5018 top_n=5 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 212/243 objective=-0.6252 top_n=5 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 213/243 objective=-0.9615 top_n=5 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 214/243 objective=-0.5018 top_n=8 hold_days=5 total_return=-0.2917 max_dd=-0.4276 win_rate=0.2679
+trial 215/243 objective=-0.6252 top_n=8 hold_days=7 total_return=-0.3565 max_dd=-0.5167 win_rate=0.2963
+trial 216/243 objective=-0.9615 top_n=8 hold_days=10 total_return=-0.5463 max_dd=-0.6312 win_rate=0.2353
+trial 217/243 objective=-0.3193 top_n=3 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 218/243 objective=-0.4927 top_n=3 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 219/243 objective=-0.7781 top_n=3 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 220/243 objective=-0.3193 top_n=5 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 221/243 objective=-0.4927 top_n=5 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 222/243 objective=-0.7781 top_n=5 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 223/243 objective=-0.3193 top_n=8 hold_days=5 total_return=-0.1658 max_dd=-0.2990 win_rate=0.1429
+trial 224/243 objective=-0.4927 top_n=8 hold_days=7 total_return=-0.2611 max_dd=-0.4024 win_rate=0.1481
+trial 225/243 objective=-0.7781 top_n=8 hold_days=10 total_return=-0.4156 max_dd=-0.5293 win_rate=0.0980
+trial 226/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 227/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 228/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 229/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 230/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 231/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 232/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 233/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 234/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 235/243 objective=-0.3831 top_n=3 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 236/243 objective=-0.6031 top_n=3 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 237/243 objective=-0.9110 top_n=3 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 238/243 objective=-0.3831 top_n=5 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 239/243 objective=-0.6031 top_n=5 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 240/243 objective=-0.9110 top_n=5 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+trial 241/243 objective=-0.3831 top_n=8 hold_days=5 total_return=-0.1936 max_dd=-0.3629 win_rate=0.1607
+trial 242/243 objective=-0.6031 top_n=8 hold_days=7 total_return=-0.3292 max_dd=-0.4613 win_rate=0.1667
+trial 243/243 objective=-0.9110 top_n=8 hold_days=10 total_return=-0.4912 max_dd=-0.5902 win_rate=0.0980
+best= {'trial': 4, 'objective': -0.08444870600203504, 'top_n': 5, 'hold_days': 5, 'observations': 56, 'total_return': -0.06147235159930253, 'max_drawdown': -0.26549745080298526, 'win_rate': 0.4107142857142857, 'avg_period_return': -0.0009284854901176664, 'params': {'min_avg_amount_20': 200000000.0, 'min_price_above_ma20': True, 'min_trend_quality': 1, 'ret20_min': -0.05, 'ret20_max': 0.2, 'ret5_min': -0.03, 'ret5_max': 0.15, 'ret10_w': 0.24, 'ret20_w': 0.18, 'ret5_w': 0.14, 'avg_turnover_5_w': 0.12, 'volume_ratio_5_w': 0.08, 'volatility_10_w': 0.1, 'pullback_10_w': 0.08, 'close_vs_ma20_w': 0.04, 'close_vs_ma60_w': 0.02}}
+ranking saved: /Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/data/results/latest_ranking.csv rows=3 latest_date=2026-03-20 params={'min_avg_amount_20': 200000000.0, 'min_price_above_ma20': True, 'min_trend_quality': 1, 'ret20_min': -0.05, 'ret20_max': 0.2, 'ret5_min': -0.03, 'ret5_max': 0.15, 'ret10_w': 0.24, 'ret20_w': 0.18, 'ret5_w': 0.14, 'avg_turnover_5_w': 0.12, 'volume_ratio_5_w': 0.08, 'volatility_10_w': 0.1, 'pullback_10_w': 0.08, 'close_vs_ma20_w': 0.04, 'close_vs_ma60_w': 0.02}
+{'top_n': 5, 'hold_days': 5, 'observations': 56, 'total_return': -0.06147235159930253, 'max_drawdown': -0.26549745080298526, 'win_rate': 0.4107142857142857, 'avg_period_return': -0.0009284854901176664, 'params': {'min_avg_amount_20': 200000000.0, 'min_price_above_ma20': True, 'min_trend_quality': 1, 'ret20_min': -0.05, 'ret20_max': 0.2, 'ret5_min': -0.03, 'ret5_max': 0.15, 'ret10_w': 0.24, 'ret20_w': 0.18, 'ret5_w': 0.14, 'avg_turnover_5_w': 0.12, 'volume_ratio_5_w': 0.08, 'volatility_10_w': 0.1, 'pullback_10_w': 0.08, 'close_vs_ma20_w': 0.04, 'close_vs_ma60_w': 0.02}}
+watchlist exported count=3

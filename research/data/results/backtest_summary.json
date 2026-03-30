@@ -1,0 +1,27 @@
+{
+  "top_n": 5,
+  "hold_days": 5,
+  "observations": 56,
+  "total_return": -0.06147235159930253,
+  "max_drawdown": -0.26549745080298526,
+  "win_rate": 0.4107142857142857,
+  "avg_period_return": -0.0009284854901176664,
+  "params": {
+    "min_avg_amount_20": 200000000.0,
+    "min_price_above_ma20": true,
+    "min_trend_quality": 1,
+    "ret20_min": -0.05,
+    "ret20_max": 0.2,
+    "ret5_min": -0.03,
+    "ret5_max": 0.15,
+    "ret10_w": 0.24,
+    "ret20_w": 0.18,
+    "ret5_w": 0.14,
+    "avg_turnover_5_w": 0.12,
+    "volume_ratio_5_w": 0.08,
+    "volatility_10_w": 0.1,
+    "pullback_10_w": 0.08,
+    "close_vs_ma20_w": 0.04,
+    "close_vs_ma60_w": 0.02
+  }
+}

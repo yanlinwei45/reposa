@@ -1,0 +1,75 @@
+/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/__init__.py:35: NotOpenSSLWarning: urllib3 v2 only supports OpenSSL 1.1.1+, currently the 'ssl' module is compiled with 'LibreSSL 2.8.3'. See: https://github.com/urllib3/urllib3/issues/3020
+  warnings.warn(
+[build_universe] attempt 1/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 2/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 3/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 4/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+[build_universe] attempt 5/5 failed: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+Traceback (most recent call last):
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1349, in getresponse
+    response.begin()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 316, in begin
+    version, status, reason = self._read_status()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 285, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+http.client.RemoteDisconnected: Remote end closed connection without response
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/requests/adapters.py", line 644, in send
+    resp = conn.urlopen(
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/util/retry.py", line 490, in increment
+    raise reraise(type(error), error, _stacktrace)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/util/util.py", line 38, in reraise
+    raise value.with_traceback(tb)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connectionpool.py", line 534, in _make_request
+    response = conn.getresponse()
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/urllib3/connection.py", line 571, in getresponse
+    httplib_response = super().getresponse()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 1349, in getresponse
+    response.begin()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 316, in begin
+    version, status, reason = self._read_status()
+  File "/Library/Developer/CommandLineTools/Library/Frameworks/Python3.framework/Versions/3.9/lib/python3.9/http/client.py", line 285, in _read_status
+    raise RemoteDisconnected("Remote end closed connection without"
+urllib3.exceptions.ProtocolError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/scripts/build_universe.py", line 54, in <module>
+    main()
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/scripts/build_universe.py", line 22, in main
+    df = fetch_spot_with_retry()
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/scripts/build_universe.py", line 18, in fetch_spot_with_retry
+    raise last_err
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/scripts/build_universe.py", line 13, in fetch_spot_with_retry
+    return ak.stock_zh_a_spot_em()
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/akshare/stock_feature/stock_hist_em.py", line 36, in stock_zh_a_spot_em
+    temp_df = fetch_paginated_data(url, params)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/akshare/utils/func.py", line 34, in fetch_paginated_data
+    r = request_with_retry(url, params=params, timeout=timeout)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/akshare/utils/request.py", line 64, in request_with_retry
+    raise last_exception
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/akshare/utils/request.py", line 52, in request_with_retry
+    response = session.get(url, params=params, timeout=timeout)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/requests/sessions.py", line 602, in get
+    return self.request("GET", url, **kwargs)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/requests/sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/requests/sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+  File "/Users/yanlinwei.vendor/Desktop/quant-paper-trading-nodejs/research/.venv/lib/python3.9/site-packages/requests/adapters.py", line 659, in send
+    raise ConnectionError(err, request=request)
+requests.exceptions.ConnectionError: ('Connection aborted.', RemoteDisconnected('Remote end closed connection without response'))

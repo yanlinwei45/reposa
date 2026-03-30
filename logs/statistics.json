@@ -1,0 +1,11 @@
+{
+  "totalTrades": 10,
+  "winTrades": 6,
+  "lossTrades": 4,
+  "totalPnl": 366342.22220049996,
+  "totalWinPnl": 540034.6157947,
+  "totalLossPnl": 173692.3935942,
+  "maxGain": 21.852368594578234,
+  "maxLoss": -7.424888237130727,
+  "totalHoldDays": 16
+}
