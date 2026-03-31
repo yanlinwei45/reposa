@@ -351,7 +351,15 @@ function renderHtml(state, config) {
   const regimeColor = marketRegime.regime === 'BULL' ? '#ef4444' : marketRegime.regime === 'BEAR' ? '#22c55e' : '#9ca3af';
   const regimeText = marketRegime.regime === 'BULL' ? '牛市' : marketRegime.regime === 'BEAR' ? '熊市' : marketRegime.regime === 'NEUTRAL' ? '震荡' : '未知';
 
-  const rows = state.strategyPicks.map((item, idx) => {
+  const fallbackPicks = Array.isArray(state.market)
+    ? state.market
+        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .slice(0, 30)
+    : [];
+  const displayPicks = state.strategyPicks.length > 0 ? state.strategyPicks : fallbackPicks;
+  const usingFallback = state.strategyPicks.length === 0;
+
+  const rows = displayPicks.map((item, idx) => {
     const strategy = item.strategy || {};
     const history = item.history || {};
     const positiveTags = Array.isArray(strategy.positiveTags) ? strategy.positiveTags.join('、') : '';
@@ -362,9 +370,9 @@ function renderHtml(state, config) {
     const gain60d = history.gain60d != null ? history.gain60d.toFixed(1) + '%' : '-';
     const macd = history.macd != null ? history.macd.toFixed(3) : '-';
     const rsi = history.rsi != null ? history.rsi.toFixed(1) : '-';
-    return `<tr><td>${idx + 1}</td><td>${item.symbol || ''}</td><td>${item.name || ''}</td><td style="font-size:12px;color:#9ca3af">${item.sector || '-'}</td><td>${item.price ?? ''}</td><td class="${(item.changePercent || 0) >= 0 ? 'up' : 'down'}">${item.changePercent ?? ''}%</td><td>${item.turnoverRatePercent ?? ''}%</td><td>${item.volumeBurstRatio ?? item.volumeRatio ?? ''}</td><td>${item.turnover ? (item.turnover/1e8).toFixed(2) : ''}亿</td><td>${item.score ?? ''}</td><td>${historyScore}</td><td><strong>${combinedScore}</strong></td><td>${gain60d}</td><td>${macd}</td><td>${rsi}</td><td><span class="badge grade grade-${String(grade).toLowerCase()}">${grade || '-'}</span></td><td class="tags">${positiveTags || '-'}</td><td><a href="${item.eastmoneyUrl}" target="_blank" rel="noreferrer">东财</a></td></tr>`;
+    return `<tr><td>${idx + 1}</td><td>${item.symbol || ''}</td><td>${item.name || ''}</td><td style="font-size:12px;color:#9ca3af">${item.sector || '-'}</td><td>${item.price ?? ''}</td><td class="${(item.changePercent || 0) >= 0 ? 'up' : 'down'}">${item.changePercent ?? ''}%</td><td>${item.turnoverRatePercent ?? ''}%</td><td>${item.volumeBurstRatio ?? item.volumeRatio ?? ''}</td><td>${item.turnover ? (item.turnover/1e8).toFixed(2) : ''}亿</td><td>${item.score ?? ''}</td><td>${historyScore}</td><td><strong>${combinedScore}</strong></td><td>${gain60d}</td><td>${macd}</td><td>${rsi}</td><td><span class="badge grade grade-${String(grade).toLowerCase()}">${grade || '-'}</span></td><td class="tags">${positiveTags || '-'}</td><td><div style="display:flex;gap:8px;align-items:center"><a href="${item.eastmoneyUrl}" target="_blank" rel="noreferrer">东财</a><button data-symbol="${item.symbol}" data-name="${(item.name || '').replace(/"/g, '&quot;')}" data-price="${item.price ?? ''}" onclick="manualBuy(this)" style="padding:4px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">买入</button></div></td></tr>`;
   }).join('');
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta http-equiv="refresh" content="15" /><title>A股扫描</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1800px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}h1{margin:0 0 16px;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px}.big{font-size:24px;font-weight:700;margin-top:8px}.rule{margin:10px 0 0;line-height:1.7}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:10px 8px;border-bottom:1px solid #1f2937;font-size:13px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1;position:sticky;top:0;font-weight:600}.up{color:#ef4444}.down{color:#22c55e}.badge{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:600;display:inline-block}.badge.strong{background:rgba(239,68,68,.15);color:#fca5a5}.badge.watch{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-a{background:rgba(34,197,94,.15);color:#86efac}.badge.grade-b{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-c{background:rgba(250,204,21,.15);color:#fde68a}.badge.grade-drop{background:rgba(156,163,175,.15);color:#d1d5db}.tags{max-width:200px;white-space:normal;line-height:1.5}.tags.risk{color:#fca5a5}a{color:#93c5fd;text-decoration:none}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}}@media(max-width:640px){.grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/" class="active">扫描看板</a><a href="/paper">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>A股主板强势异动扫描（东方财富口径）</h1><div class="muted rule">硬过滤：仅沪深主板、非ST、10%涨跌幅标的；换手率 ≥ ${config.strategy.minTurnoverRatePercent}%；量比 ≥ ${config.strategy.minVolumeRatio}；涨幅 ${config.strategy.minChangePercent}% ~ ${config.strategy.maxChangePercent}%；成交额 ≥ ${(config.strategy.minAmount / 1e8).toFixed(1)}亿</div><div class="grid"><div class="card"><div class="muted">市场环境</div><div class="big" style="color:${regimeColor}">${regimeText}</div><div class="muted" style="margin-top:4px;font-size:12px">上证 ${marketRegime.current || '-'}</div></div><div class="card"><div class="muted">股票池数量</div><div class="big">${state.marketCount}</div></div><div class="card"><div class="muted">命中数量</div><div class="big">${state.strategyPicks.length}</div></div><div class="card"><div class="muted">最后扫描时间</div><div class="big" style="font-size:16px">${state.lastScanAt || '-'}</div></div><div class="card"><div class="muted">扫描轮次</div><div class="big">${state.scanRounds}</div></div></div><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交额</th><th>日评分</th><th>历史分</th><th>综合分</th><th>60日涨幅</th><th>MACD</th><th>RSI</th><th>等级</th><th>标签</th><th>链接</th></tr></thead><tbody>${rows || '<tr><td colspan="18" class="muted">等待扫描数据...</td></tr>'}</tbody></table></div></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta http-equiv="refresh" content="15" /><title>A股扫描</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1800px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}h1{margin:0 0 16px;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px}.big{font-size:24px;font-weight:700;margin-top:8px}.rule{margin:10px 0 0;line-height:1.7}.notice{margin:14px 0;padding:12px 14px;background:#111827;border:1px solid #334155;border-radius:12px;color:#cbd5e1}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:10px 8px;border-bottom:1px solid #1f2937;font-size:13px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1;position:sticky;top:0;font-weight:600}.up{color:#ef4444}.down{color:#22c55e}.badge{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:600;display:inline-block}.badge.strong{background:rgba(239,68,68,.15);color:#fca5a5}.badge.watch{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-a{background:rgba(34,197,94,.15);color:#86efac}.badge.grade-b{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-c{background:rgba(250,204,21,.15);color:#fde68a}.badge.grade-drop{background:rgba(156,163,175,.15);color:#d1d5db}.tags{max-width:200px;white-space:normal;line-height:1.5}.tags.risk{color:#fca5a5}a{color:#93c5fd;text-decoration:none}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}}@media(max-width:640px){.grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/" class="active">扫描看板</a><a href="/paper">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>A股主板强势异动扫描（东方财富口径）</h1><div class="muted rule">硬过滤：仅沪深主板、非ST、10%涨跌幅标的；换手率 ≥ ${config.strategy.minTurnoverRatePercent}%；量比 ≥ ${config.strategy.minVolumeRatio}；涨幅 ${config.strategy.minChangePercent}% ~ ${config.strategy.maxChangePercent}%；成交额 ≥ ${(config.strategy.minAmount / 1e8).toFixed(1)}亿</div>${usingFallback ? '<div class="notice">当前无最终策略候选，以下展示市场中评分靠前的股票，便于观察盘面。</div>' : ''}<div class="grid"><div class="card"><div class="muted">市场环境</div><div class="big" style="color:${regimeColor}">${regimeText}</div><div class="muted" style="margin-top:4px;font-size:12px">上证 ${marketRegime.current || '-'}</div></div><div class="card"><div class="muted">股票池数量</div><div class="big">${state.marketCount}</div></div><div class="card"><div class="muted">命中数量</div><div class="big">${state.strategyPicks.length}</div></div><div class="card"><div class="muted">最后扫描时间</div><div class="big" style="font-size:16px">${state.lastScanAt || '-'}</div></div><div class="card"><div class="muted">扫描轮次</div><div class="big">${state.scanRounds}</div></div></div><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交额</th><th>日评分</th><th>历史分</th><th>综合分</th><th>60日涨幅</th><th>MACD</th><th>RSI</th><th>等级</th><th>标签</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="18" class="muted">等待扫描数据...</td></tr>'}</tbody></table></div><script>async function manualBuy(button){const symbol=button.dataset.symbol;const name=button.dataset.name;const price=Number(button.dataset.price);if(!price){alert('无法获取价格');return;}const amountInput=prompt('请输入买入金额（万元）:','20');if(!amountInput)return;const amount=parseFloat(amountInput);if(isNaN(amount)||amount<=0){alert('金额无效');return;}const amountInYuan=amount*10000;const estimatedQty=Math.floor(amountInYuan/price/100)*100;if(estimatedQty<100){alert('金额不足买入一手');return;}if(!confirm('买入 '+symbol+' '+name+'\\n价格: '+price+'\\n金额: '+amount+'万元\\n预计: '+estimatedQty+'股\\n\\n确认买入?'))return;try{const resp=await fetch('/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,name,price,amount:amountInYuan})});const result=await resp.json();if(result.success){alert('买入成功: '+result.message);location.reload();}else{alert('买入失败: '+result.error);}}catch(err){alert('买入失败: '+err.message);}}</script></body></html>`;
 }
 
 function renderPaperHtml(state, portfolio, config) {
@@ -1641,6 +1649,75 @@ async function main() {
     if (paperAccount && req.url === '/alerts') {
       const alerts = fs.existsSync(paperAccount.alertsPath) ? fs.readFileSync(paperAccount.alertsPath, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch(_) { return null } }).filter(Boolean).reverse().slice(0, 50) : [];
       res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(alerts)); return;
+    }
+
+    if (paperAccount && req.method === 'POST' && req.url === '/buy') {
+      let body = '';
+      req.on('data', chunk => { body += chunk; });
+      req.on('end', () => {
+        try {
+          const { symbol, name, price, amount } = JSON.parse(body);
+          const normalizedSymbol = normalizeSymbol(symbol);
+          const marketItem = state.market.find(item => item.symbol === normalizedSymbol);
+          if (!marketItem) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `扫描池中没有 ${normalizedSymbol}` }));
+            return;
+          }
+          if (paperAccount.positions.has(normalizedSymbol)) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 已在持仓中` }));
+            return;
+          }
+          if (paperAccount.positions.size >= paperAccount.config.maxPositions) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `持仓数量已达上限 ${paperAccount.config.maxPositions}` }));
+            return;
+          }
+          const lastSellTs = paperAccount.sellCooldown.get(normalizedSymbol);
+          if (lastSellTs) {
+            const minutesSinceSell = (Date.now() - new Date(lastSellTs).getTime()) / (1000 * 60);
+            const cooldownMinutes = paperAccount.config.buyCooldownMinutes || 60;
+            if (minutesSinceSell < cooldownMinutes) {
+              res.writeHead(400, { 'Content-Type': 'application/json' });
+              res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 仍在冷却期内` }));
+              return;
+            }
+          }
+          const orderPrice = Number(price) || Number(marketItem.price);
+          if (!orderPrice || orderPrice <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 当前价格无效` }));
+            return;
+          }
+          const requestedAmount = Number(amount);
+          if (!requestedAmount || requestedAmount <= 0) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `买入金额无效` }));
+            return;
+          }
+          const availableCash = paperAccount.cash - paperAccount.config.minCashReserve;
+          if (requestedAmount > availableCash) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `可用资金不足，最多可用 ${(availableCash / 10000).toFixed(2)}万` }));
+            return;
+          }
+          const lotSize = paperAccount.config.lotSize || 100;
+          const quantity = Math.floor(requestedAmount / orderPrice / lotSize) * lotSize;
+          if (quantity < lotSize) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 可买数量不足一手` }));
+            return;
+          }
+          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, '手动买入');
+          res.writeHead(200, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: true, message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已买入 ${quantity}股 @${orderPrice}` }));
+        } catch (err) {
+          res.writeHead(500, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: err.message }));
+        }
+      });
+      return;
     }
 
     if (paperAccount && req.method === 'POST' && req.url === '/sell') {
