@@ -466,7 +466,7 @@ function renderPaperHtml(state, portfolio, config) {
   `;
   }).join('');
 
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>模拟盘看板</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1680px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}.muted{color:#9ca3af}h1{margin:0 0 8px;font-size:28px}h3{margin:0 0 12px;font-size:18px}.sub{margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px}.big{font-size:28px;font-weight:700;margin-top:8px}.big.up{color:#ef4444}.big.down{color:#22c55e}.panel{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px;margin-bottom:16px}.market-info{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.market-item{background:#0f172a;padding:10px;border-radius:8px}.market-item .label{font-size:12px;color:#9ca3af;margin-bottom:4px}.market-item .value{font-size:18px;font-weight:600}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:12px 10px;border-bottom:1px solid #1f2937;font-size:14px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1}.up{color:#ef4444}.down{color:#22c55e}.svgbox{width:100%;min-height:280px;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:8px;box-sizing:border-box}.empty{padding:24px 0;color:#9ca3af;text-align:center}.tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #1f2937}.tab{padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;transition:all .2s}.tab.active{color:#60a5fa;border-bottom-color:#60a5fa}.tab-content{display:none}.tab-content.active{display:block}.diagnosis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.mini-list{list-style:none;margin:0;padding:0}.mini-list li{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;margin-bottom:6px;background:#0f172a;border-radius:8px;font-size:13px}.mini-list .label{color:#cbd5e1}.mini-list .value{color:#f59e0b;font-weight:600}.mini-list .value.up{color:#ef4444}.mini-list .value.down{color:#22c55e}.mini-list .sub{display:block;color:#9ca3af;font-size:12px;margin-top:4px}.hint{font-size:12px;color:#9ca3af;line-height:1.7}.section-title{font-size:14px;font-weight:600;margin:0 0 10px;color:#cbd5e1}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}.diagnosis-grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/">扫描看板</a><a href="/paper" class="active">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>模拟盘可视化看板</h1><div class="sub muted">最后扫描时间：${state.lastScanAt || '-'} · 扫描轮次：${state.scanRounds}</div><div class="panel"><h3>市场环境</h3><div style="display:flex;align-items:center;gap:16px;margin-bottom:12px"><div style="font-size:32px;font-weight:700;color:${regimeColor}">${regimeText}</div><div class="muted">上证指数 ${marketRegime.current || '-'}</div></div><div class="market-info"><div class="market-item"><div class="label">MA20</div><div class="value">${marketRegime.ma20 || '-'}</div></div><div class="market-item"><div class="label">MA60</div><div class="value">${marketRegime.ma60 || '-'}</div></div><div class="market-item"><div class="label">趋势</div><div class="value" style="font-size:14px">${marketRegime.aboveMA20 ? '✓ 站上MA20' : '✗ 跌破MA20'}<br/>${marketRegime.aboveMA60 ? '✓ 站上MA60' : '✗ 跌破MA60'}</div></div></div></div><div class="grid"><div class="card"><div class="muted">总权益</div><div class="big">${formatWan(portfolio?.totalEquity)}</div></div><div class="card"><div class="muted">账户现金</div><div class="big">${formatWan(portfolio?.cash)}</div></div><div class="card"><div class="muted">总收益率</div><div class="big ${(portfolio?.pnlPct || 0) >= 0 ? 'up' : 'down'}">${formatPct(portfolio?.pnlPct)}</div></div><div class="card"><div class="muted">持仓 / 上限</div><div class="big">${portfolio?.positionCount ?? 0} / ${portfolio?.maxPositions ?? 0}</div></div><div class="card" id="statsCard"><div class="muted">胜率</div><div class="big">-</div></div><div class="card" id="avgHoldCard"><div class="muted">平均持有</div><div class="big">-</div></div><div class="card" id="profitFactorCard"><div class="muted">盈亏比</div><div class="big">-</div></div><div class="card" id="maxGainCard"><div class="muted">最大盈利</div><div class="big">-</div></div><div class="card" id="maxLossCard"><div class="muted">最大亏损</div><div class="big">-</div></div><div class="card" id="totalTradesCard"><div class="muted">总交易数</div><div class="big">-</div></div><div class="card"><div class="muted">近期表现</div><div class="muted" style="margin-top:8px;font-size:13px;line-height:1.8">最近20笔：胜率 ${(performanceFeedback.recentWinRate || 0).toFixed(1)}% · 平均持有 ${(performanceFeedback.avgHoldDays || 0).toFixed(1)}天<br/>高分段(80+)：${performanceFeedback.highBand?.trades || 0}笔，胜率 ${(performanceFeedback.highBand?.winRate || 0).toFixed(1)}%，平均盈亏 ${(performanceFeedback.highBand?.avgPnlPct || 0).toFixed(2)}%<br/>低分段(<80)：${performanceFeedback.lowBand?.trades || 0}笔，惩罚分 ${(performanceFeedback.lowBandPenalty || 0).toFixed(1)}</div></div></div><div class="panel"><h3>策略缺陷面板</h3><div class="diagnosis-grid"><div><div class="section-title">策略健康度</div><ul class="mini-list"><li><span class="label">市场环境</span><span class="value ${marketRegime.regime === 'BEAR' ? 'down' : marketRegime.regime === 'BULL' ? 'up' : ''}">${regimeText}</span></li><li><span class="label">最近样本数</span><span class="value">${performanceFeedback.tradeCount || 0}笔</span></li><li><span class="label">高分段优势</span><span class="value ${(performanceFeedback.highBandBonus || 0) > 0 ? 'up' : ''}">+${(performanceFeedback.highBandBonus || 0).toFixed(1)}</span></li><li><span class="label">低分段惩罚</span><span class="value ${(performanceFeedback.lowBandPenalty || 0) > 0 ? 'down' : ''}">${(performanceFeedback.lowBandPenalty || 0).toFixed(1)}</span></li><li><span class="label">回撤压力</span><span class="value ${(performanceFeedback.drawdownPressure || 0) > 3 ? 'down' : ''}">${(performanceFeedback.drawdownPressure || 0).toFixed(2)}%</span></li></ul><div class="hint">如果低分段惩罚高、回撤压力大，说明当前策略在弱信号阶段仍有改进空间。</div></div><div><div class="section-title">错失机会样本</div><ul class="mini-list">${missedSamples.length ? missedSamples.map(item => `<li><span class="label">${item.symbol} ${item.name}<span class="sub">${item.reason || '未通过60日筛选'}</span></span><span class="value">拦截</span></li>`).join('') : '<li><span class="label">暂无错失样本</span><span class="value">-</span></li>'}</ul><div class="hint">这里展示通过日内初筛、但被60日历史筛选拦截的样本，方便判断是否存在错杀。</div></div><div><div class="section-title">主要缺陷来源</div><ul class="mini-list">${filterRanking.length ? filterRanking.map(item => `<li><span class="label">${item.label}</span><span class="value">${item.count}只</span></li>`).join('') : '<li><span class="label">暂无过滤统计</span><span class="value">-</span></li>'}</ul><div id="lossDiagnosis" class="hint">最近亏损归因加载中...</div></div></div></div><div class="panel"><h3>持仓列表</h3><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>买入价</th><th>现价</th><th>止损价</th><th>止盈价</th><th>最高价</th><th>距高点</th><th>数量</th><th>市值</th><th>浮盈亏</th><th>持有天数</th><th>建仓日期</th><th>操作</th></tr></thead><tbody>${positionRows || '<tr><td colspan="16" class="empty">当前没有持仓</td></tr>'}</tbody></table></div><div class="panel"><h3>权益曲线</h3><div id="equityChart" class="svgbox"></div></div><div class="panel"><div class="tabs"><div class="tab active" onclick="switchTab('settlement')">交割单</div><div class="tab" onclick="switchTab('trades')">订单流水</div><div class="tab" onclick="switchTab('alerts')">告警记录</div></div><div id="settlement" class="tab-content active"><table id="settlementTable"><thead><tr><th>日期</th><th>代码</th><th>名称</th><th>买入价</th><th>卖出价</th><th>数量</th><th>盈亏</th><th>盈亏%</th><th>持有天数</th><th>卖出原因</th></tr></thead><tbody><tr><td colspan="10" class="empty">加载中...</td></tr></tbody></table></div><div id="trades" class="tab-content"><table id="tradesTable"><thead><tr><th>时间</th><th>方向</th><th>代码</th><th>名称</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>原因</th></tr></thead><tbody><tr><td colspan="9" class="empty">加载中...</td></tr></tbody></table></div><div id="alerts" class="tab-content"><table id="alertsTable"><thead><tr><th>时间</th><th>类型</th><th>代码</th><th>名称</th><th>消息</th></tr></thead><tbody><tr><td colspan="5" class="empty">加载中...</td></tr></tbody></table></div></div></div><script>
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>模拟盘看板</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1680px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}.muted{color:#9ca3af}h1{margin:0 0 8px;font-size:28px}h3{margin:0 0 12px;font-size:18px}.sub{margin-bottom:16px}.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px}.big{font-size:28px;font-weight:700;margin-top:8px}.big.up{color:#ef4444}.big.down{color:#22c55e}.panel{background:#111827;border:1px solid #1f2937;border-radius:14px;padding:16px;margin-bottom:16px}.market-info{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:12px}.market-item{background:#0f172a;padding:10px;border-radius:8px}.market-item .label{font-size:12px;color:#9ca3af;margin-bottom:4px}.market-item .value{font-size:18px;font-weight:600}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:12px 10px;border-bottom:1px solid #1f2937;font-size:14px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1}.up{color:#ef4444}.down{color:#22c55e}.svgbox{width:100%;min-height:280px;background:#0f172a;border:1px solid #1f2937;border-radius:12px;padding:8px;box-sizing:border-box}.empty{padding:24px 0;color:#9ca3af;text-align:center}.tabs{display:flex;gap:8px;margin-bottom:16px;border-bottom:1px solid #1f2937}.tab{padding:10px 16px;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;transition:all .2s}.tab.active{color:#60a5fa;border-bottom-color:#60a5fa}.tab-content{display:none}.tab-content.active{display:block}.diagnosis-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.mini-list{list-style:none;margin:0;padding:0}.mini-list li{display:flex;justify-content:space-between;gap:10px;padding:8px 10px;margin-bottom:6px;background:#0f172a;border-radius:8px;font-size:13px}.mini-list .label{color:#cbd5e1}.mini-list .value{color:#f59e0b;font-weight:600}.mini-list .value.up{color:#ef4444}.mini-list .value.down{color:#22c55e}.mini-list .sub{display:block;color:#9ca3af;font-size:12px;margin-top:4px}.hint{font-size:12px;color:#9ca3af;line-height:1.7}.section-title{font-size:14px;font-weight:600;margin:0 0 10px;color:#cbd5e1}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}.diagnosis-grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/">扫描看板</a><a href="/paper" class="active">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>模拟盘可视化看板</h1><div class="sub muted">最后扫描时间：${state.lastScanAt || '-'} · 扫描轮次：${state.scanRounds}</div><div class="panel"><h3>市场环境</h3><div style="display:flex;align-items:center;gap:16px;margin-bottom:12px"><div style="font-size:32px;font-weight:700;color:${regimeColor}">${regimeText}</div><div class="muted">上证指数 ${marketRegime.current || '-'}</div></div><div class="market-info"><div class="market-item"><div class="label">MA20</div><div class="value">${marketRegime.ma20 || '-'}</div></div><div class="market-item"><div class="label">MA60</div><div class="value">${marketRegime.ma60 || '-'}</div></div><div class="market-item"><div class="label">趋势</div><div class="value" style="font-size:14px">${marketRegime.aboveMA20 ? '✓ 站上MA20' : '✗ 跌破MA20'}<br/>${marketRegime.aboveMA60 ? '✓ 站上MA60' : '✗ 跌破MA60'}</div></div></div></div><div class="grid"><div class="card"><div class="muted">总权益</div><div class="big">${formatWan(portfolio?.totalEquity)}</div></div><div class="card"><div class="muted">账户现金</div><div class="big">${formatWan(portfolio?.cash)}</div></div><div class="card"><div class="muted">总收益率</div><div class="big ${(portfolio?.pnlPct || 0) >= 0 ? 'up' : 'down'}">${formatPct(portfolio?.pnlPct)}</div></div><div class="card"><div class="muted">持仓 / 上限</div><div class="big">${portfolio?.positionCount ?? 0} / ${portfolio?.maxPositions ?? 0}</div></div><div class="card" id="statsCard"><div class="muted">胜率</div><div class="big">-</div></div><div class="card" id="avgHoldCard"><div class="muted">平均持有</div><div class="big">-</div></div><div class="card" id="profitFactorCard"><div class="muted">盈亏比</div><div class="big">-</div></div><div class="card" id="maxGainCard"><div class="muted">最大盈利</div><div class="big">-</div></div><div class="card" id="maxLossCard"><div class="muted">最大亏损</div><div class="big">-</div></div><div class="card" id="totalTradesCard"><div class="muted">总交易数</div><div class="big">-</div></div><div class="card"><div class="muted">近期表现</div><div class="muted" style="margin-top:8px;font-size:13px;line-height:1.8">最近20笔：胜率 ${(performanceFeedback.recentWinRate || 0).toFixed(1)}% · 平均持有 ${(performanceFeedback.avgHoldDays || 0).toFixed(1)}天<br/>高分段(80+)：${performanceFeedback.highBand?.trades || 0}笔，胜率 ${(performanceFeedback.highBand?.winRate || 0).toFixed(1)}%，平均盈亏 ${(performanceFeedback.highBand?.avgPnlPct || 0).toFixed(2)}%<br/>低分段(<80)：${performanceFeedback.lowBand?.trades || 0}笔，惩罚分 ${(performanceFeedback.lowBandPenalty || 0).toFixed(1)}</div></div></div><div class="panel"><h3>策略缺陷面板</h3><div class="diagnosis-grid"><div><div class="section-title">策略健康度</div><ul class="mini-list"><li><span class="label">市场环境</span><span class="value ${marketRegime.regime === 'BEAR' ? 'down' : marketRegime.regime === 'BULL' ? 'up' : ''}">${regimeText}</span></li><li><span class="label">最近样本数</span><span class="value">${performanceFeedback.tradeCount || 0}笔</span></li><li><span class="label">高分段优势</span><span class="value ${(performanceFeedback.highBandBonus || 0) > 0 ? 'up' : ''}">+${(performanceFeedback.highBandBonus || 0).toFixed(1)}</span></li><li><span class="label">低分段惩罚</span><span class="value ${(performanceFeedback.lowBandPenalty || 0) > 0 ? 'down' : ''}">${(performanceFeedback.lowBandPenalty || 0).toFixed(1)}</span></li><li><span class="label">回撤压力</span><span class="value ${(performanceFeedback.drawdownPressure || 0) > 3 ? 'down' : ''}">${(performanceFeedback.drawdownPressure || 0).toFixed(2)}%</span></li></ul><div class="hint">如果低分段惩罚高、回撤压力大，说明当前策略在弱信号阶段仍有改进空间。</div></div><div><div class="section-title">错失机会样本</div><ul class="mini-list">${missedSamples.length ? missedSamples.map(item => `<li><span class="label">${item.symbol} ${item.name}<span class="sub">日分${item.score || 0} 历史${item.historyScore || 0} 价格${item.price || '-'} · ${item.reason || '未通过60日筛选'}</span></span><span class="value">拦截</span></li>`).join('') : '<li><span class="label">暂无错失样本</span><span class="value">-</span></li>'}</ul><div class="hint">这里展示通过日内初筛、但被60日历史筛选拦截的样本，方便判断是否存在错杀。</div></div><div><div class="section-title">主要缺陷来源</div><ul class="mini-list">${filterRanking.length ? filterRanking.map(item => `<li><span class="label">${item.label}</span><span class="value">${item.count}只</span></li>`).join('') : '<li><span class="label">暂无过滤统计</span><span class="value">-</span></li>'}</ul><div id="lossDiagnosis" class="hint">最近亏损归因加载中...</div></div></div></div><div class="panel"><h3>持仓列表</h3><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>买入价</th><th>现价</th><th>止损价</th><th>止盈价</th><th>最高价</th><th>距高点</th><th>数量</th><th>市值</th><th>浮盈亏</th><th>持有天数</th><th>建仓日期</th><th>操作</th></tr></thead><tbody>${positionRows || '<tr><td colspan="16" class="empty">当前没有持仓</td></tr>'}</tbody></table></div><div class="panel"><h3>权益曲线</h3><div id="equityChart" class="svgbox"></div></div><div class="panel"><div class="tabs"><div class="tab active" onclick="switchTab('settlement')">交割单</div><div class="tab" onclick="switchTab('trades')">订单流水</div><div class="tab" onclick="switchTab('alerts')">告警记录</div></div><div id="settlement" class="tab-content active"><table id="settlementTable"><thead><tr><th>日期</th><th>代码</th><th>名称</th><th>买入价</th><th>卖出价</th><th>数量</th><th>盈亏</th><th>盈亏%</th><th>持有天数</th><th>卖出原因</th></tr></thead><tbody><tr><td colspan="10" class="empty">加载中...</td></tr></tbody></table></div><div id="trades" class="tab-content"><table id="tradesTable"><thead><tr><th>时间</th><th>方向</th><th>代码</th><th>名称</th><th>价格</th><th>数量</th><th>金额</th><th>手续费</th><th>原因</th></tr></thead><tbody><tr><td colspan="9" class="empty">加载中...</td></tr></tbody></table></div><div id="alerts" class="tab-content"><table id="alertsTable"><thead><tr><th>时间</th><th>类型</th><th>代码</th><th>名称</th><th>消息</th></tr></thead><tbody><tr><td colspan="5" class="empty">加载中...</td></tr></tbody></table></div></div></div><script>
 const AUTO_REFRESH_MS=15000;const SCROLL_KEY='scroll:'+location.pathname;const saveScroll=()=>sessionStorage.setItem(SCROLL_KEY,String(window.scrollY||0));window.addEventListener('scroll',saveScroll,{passive:true});window.addEventListener('beforeunload',saveScroll);window.addEventListener('load',()=>{const y=Number(sessionStorage.getItem(SCROLL_KEY)||0);if(y>0) window.scrollTo(0,y);setTimeout(()=>{saveScroll();location.reload();},AUTO_REFRESH_MS);});
 function switchTab(name){const tabs=document.querySelectorAll('.tab');const contents=document.querySelectorAll('.tab-content');tabs.forEach(t=>t.classList.remove('active'));contents.forEach(c=>c.classList.remove('active'));document.querySelector('.tab[onclick*="'+name+'"]').classList.add('active');document.getElementById(name).classList.add('active');}
 async function manualSell(symbol,name){if(!confirm('确认手动卖出 '+symbol+' '+name+' ?'))return;try{const resp=await fetch('/sell',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol})});const result=await resp.json();if(result.success){alert('卖出成功: '+result.message);location.reload();}else{alert('卖出失败: '+result.error);}}catch(err){alert('卖出失败: '+err.message);}}
@@ -559,14 +559,22 @@ function renderLossDiagnosis(settlements){
   const el = document.getElementById('lossDiagnosis');
   if(!losses.length){ el.textContent = '最近无亏损交易，策略表现良好。'; return; }
   const commonReasons = {};
+  const confidenceStats = {};
+  const regimeStats = {};
   losses.forEach(r => {
     const key = r.reason || '未知原因';
     commonReasons[key] = (commonReasons[key] || 0) + 1;
+    const confidence = r.confidence || '未知置信度';
+    confidenceStats[confidence] = (confidenceStats[confidence] || 0) + 1;
+    const regime = r.entryMarketRegime || '未知环境';
+    regimeStats[regime] = (regimeStats[regime] || 0) + 1;
   });
   const topReason = Object.entries(commonReasons).sort((a,b) => b[1] - a[1])[0];
+  const topConfidence = Object.entries(confidenceStats).sort((a,b) => b[1] - a[1])[0];
+  const topRegime = Object.entries(regimeStats).sort((a,b) => b[1] - a[1])[0];
   const avgLoss = (losses.reduce((sum, r) => sum + r.pnlPct, 0) / losses.length).toFixed(2);
   const avgHold = (losses.reduce((sum, r) => sum + r.holdDays, 0) / losses.length).toFixed(1);
-  el.innerHTML = '最近'+losses.length+'笔亏损：平均亏'+Math.abs(avgLoss)+'%，平均持有'+avgHold+'天。主要原因：'+topReason[0]+'('+topReason[1]+'笔)。';
+  el.innerHTML = '最近'+losses.length+'笔亏损：平均亏'+Math.abs(avgLoss)+'%，平均持有'+avgHold+'天。主要原因：'+topReason[0]+'('+topReason[1]+'笔)；集中在'+topConfidence[0]+'、'+topRegime[0]+'环境。';
 }
 loadData();
 </script></body></html>`;
@@ -1056,16 +1064,17 @@ class MarketScanner {
         };
 
         candidates = candidates.filter(p => {
+          const sampleBase = { symbol: p.symbol, name: p.name, score: p.score || 0, historyScore: p.historyScore || 0, price: p.price || 0 };
           // 轻量预过滤：熊市下过滤明显量比不足的噪音票，但不等同于买入条件
           if (marketRegime.regime === 'BEAR' && (p.volumeRatio || 0) < 1.5) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `熊市量比${p.volumeRatio}低于1.5` });
+            filtered.push({ ...sampleBase, reason: `熊市量比${p.volumeRatio}低于1.5` });
             filterStats.bearMarketVolume++;
             return false;
           }
 
           // 必须有历史数据
           if (!p.history) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: '无历史数据' });
+            filtered.push({ ...sampleBase, reason: '无历史数据' });
             filterStats.noHistory++;
             return false;
           }
@@ -1075,56 +1084,56 @@ class MarketScanner {
 
           // 1. 60日涨幅必须为正（移除上限，不限制强势股）
           if (h.gain60d === null || h.gain60d < 0) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `60日涨幅${h.gain60d}%为负` });
+            filtered.push({ ...sampleBase, gain60d: h.gain60d, reason: `60日涨幅${h.gain60d}%为负` });
             filterStats.gain60dNegative++;
             return false;
           }
 
           // 2. 近期必须有上涨趋势
           if (h.gain10d !== null && h.gain10d < 0) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `10日涨幅${h.gain10d}%为负` });
+            filtered.push({ ...sampleBase, gain10d: h.gain10d, reason: `10日涨幅${h.gain10d}%为负` });
             filterStats.gain10dNegative++;
             return false;
           }
 
           // 3. 最大回撤不能太大（放宽到70%，允许波动较大的强势股）
           if (h.maxDrawdown > 70) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `最大回撤${h.maxDrawdown}%过大` });
+            filtered.push({ ...sampleBase, maxDrawdown: h.maxDrawdown, reason: `最大回撤${h.maxDrawdown}%过大` });
             filterStats.maxDrawdownHigh++;
             return false;
           }
 
           // 4. 连续下跌天数不能太多
           if (h.consecutiveDownDays >= 5) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `连续下跌${h.consecutiveDownDays}天` });
+            filtered.push({ ...sampleBase, consecutiveDownDays: h.consecutiveDownDays, reason: `连续下跌${h.consecutiveDownDays}天` });
             filterStats.consecutiveDown++;
             return false;
           }
 
           // 5. 60日平均换手率要足够
           if (h.avgTurnover60d < 3) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `60日平均换手率${h.avgTurnover60d}%过低` });
+            filtered.push({ ...sampleBase, avgTurnover60d: h.avgTurnover60d, reason: `60日平均换手率${h.avgTurnover60d}%过低` });
             filterStats.avgTurnoverLow++;
             return false;
           }
 
           // 6. 近5日必须放量
           if (h.volumeRatio5d < 1.2) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `近5日放量倍数${h.volumeRatio5d}不足` });
+            filtered.push({ ...sampleBase, volumeRatio5d: h.volumeRatio5d, reason: `近5日放量倍数${h.volumeRatio5d}不足` });
             filterStats.volumeRatio5dLow++;
             return false;
           }
 
           // 7. 上涨天数占比要合理
           if (h.upDaysRatio < 40) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `上涨天数占比${h.upDaysRatio}%过低` });
+            filtered.push({ ...sampleBase, upDaysRatio: h.upDaysRatio, reason: `上涨天数占比${h.upDaysRatio}%过低` });
             filterStats.upDaysRatioLow++;
             return false;
           }
 
           // 8. 历史评分要达标
           if (p.historyScore < 60) {
-            filtered.push({ symbol: p.symbol, name: p.name, reason: `历史评分${p.historyScore}分不足` });
+            filtered.push({ ...sampleBase, reason: `历史评分${p.historyScore}分不足` });
             filterStats.historyScoreLow++;
             return false;
           }
@@ -1606,7 +1615,9 @@ class PaperAccount {
         highPrice: executedPrice,
         lowPrice: executedPrice,
         confidence: metadata.confidence || 'UNKNOWN',
+        entryScore: metadata.entryScore || 0,
         combinedScore: metadata.combinedScore || 0,
+        marketRegime: metadata.marketRegime || 'UNKNOWN',
         sector: metadata.sector || 'UNKNOWN'
       });
       this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
@@ -1642,6 +1653,10 @@ class PaperAccount {
           holdDays,
           fee: Number(fee.toFixed(2)),
           reason,
+          confidence: pos.confidence || 'UNKNOWN',
+          entryScore: Number(pos.entryScore || 0),
+          combinedScore: Number(pos.combinedScore || pos.entryScore || 0),
+          entryMarketRegime: pos.marketRegime || 'UNKNOWN',
           bjTime
         };
         appendJsonLine(this.settlementPath, settlement);
@@ -1873,7 +1888,9 @@ class PaperAccount {
         buyDecisionLog.accepted.push({ symbol: pick.symbol, name: pick.name, confidence, reason: pick.tradeDecision.reason, positionValue: maxBuyValue, dayScore: pick.score || 0, historyScore: pick.historyScore || 0 });
         this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', quantity, buyReason, {
           confidence,
+          entryScore: pick.score || 0,
           combinedScore,
+          marketRegime,
           sector: pick.sector || 'UNKNOWN'
         });
 
