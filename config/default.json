@@ -51,7 +51,29 @@
     "buyCooldownMinutes": 60,
     "slippageBp": 10,
     "feeBp": 3,
-    "lotSize": 100
+    "lotSize": 100,
+    "adaptive": {
+      "enabled": true,
+      "performanceWindow": 20,
+      "confidenceBands": {
+        "high": { "minScore": 85, "minHistoryScore": 70, "positionMultiplier": 1.25 },
+        "medium": { "minScore": 75, "minHistoryScore": 60, "positionMultiplier": 1.0 },
+        "low": { "minScore": 70, "minHistoryScore": 50, "positionMultiplier": 0.5 }
+      },
+      "exitUrgencyWeights": {
+        "stopLoss": 100,
+        "trailingStop": 80,
+        "scoreDrop": 40,
+        "holdTooLong": 50,
+        "weakStock": 60
+      },
+      "exitUrgencyThreshold": 100,
+      "regimeMultipliers": {
+        "BULL": { "positionSize": 1.0, "maxPositions": 5, "allowLowConfidence": true },
+        "NEUTRAL": { "positionSize": 0.7, "maxPositions": 4, "allowLowConfidence": false },
+        "BEAR": { "positionSize": 0.5, "maxPositions": 2, "allowLowConfidence": false }
+      }
+    }
   },
   "server": {
     "port": 3088

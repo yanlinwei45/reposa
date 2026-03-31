@@ -1070,7 +1070,7 @@ class PaperAccount {
     this.config = config.paperTrading;
     this.logsDir = logsDir;
     this.cash = this.config.initialCash;
-    this.positions = new Map(); // symbol => { symbol, name, entryPrice, currentPrice, quantity, value, pnlPct, entryTs, entryDate, holdRounds, holdDays, highPrice, lowPrice, sector }
+    this.positions = new Map(); // symbol => { symbol, name, entryPrice, currentPrice, quantity, value, pnlPct, entryTs, entryDate, holdRounds, holdDays, highPrice, lowPrice, sector, confidence }
     this.orders = [];
     this.trades = []; // 完整交割单（买入+卖出配对）
     this.equityHistory = [];
@@ -1088,6 +1088,11 @@ class PaperAccount {
       maxGain: 0,
       maxLoss: 0,
       totalHoldDays: 0
+    };
+    // 近期表现追踪器
+    this.recentPerformance = {
+      closedTrades: [], // 最近N笔已平仓交易
+      scoreRangeStats: new Map() // 分数区间统计
     };
     this.ordersPath = path.join(logsDir, 'orders.json');
     this.tradesPath = path.join(logsDir, 'trades.log');
@@ -1114,6 +1119,12 @@ class PaperAccount {
         this.sellCooldown = new Map(data.sellCooldown || []);
         this.statistics = data.statistics || this.statistics;
         this.peakEquity = data.peakEquity || this.getTotalEquity();
+        const recentClosedTrades = Array.isArray(data.recentPerformance?.closedTrades) ? data.recentPerformance.closedTrades : [];
+        const scoreRangeEntries = Array.isArray(data.recentPerformance?.scoreRangeStats) ? data.recentPerformance.scoreRangeStats : [];
+        this.recentPerformance = {
+          closedTrades: recentClosedTrades,
+          scoreRangeStats: new Map(scoreRangeEntries)
+        };
         const posCount = this.positions.size;
         const orderCount = this.orders.length;
         if (posCount > 0 || orderCount > 0) {
@@ -1131,14 +1142,255 @@ class PaperAccount {
       sellCooldown: Array.from(this.sellCooldown.entries()),
       statistics: this.statistics,
       peakEquity: this.peakEquity,
+      recentPerformance: {
+        closedTrades: this.recentPerformance.closedTrades,
+        scoreRangeStats: Array.from(this.recentPerformance.scoreRangeStats.entries())
+      },
       savedAt: new Date().toISOString()
     };
     fs.writeFileSync(this.ordersPath, JSON.stringify(state, null, 2));
   }
 
+  getAdaptiveConfig() {
+    const adaptive = this.config.adaptive || {};
+    return {
+      enabled: adaptive.enabled !== false,
+      performanceWindow: adaptive.performanceWindow || 20,
+      confidenceBands: adaptive.confidenceBands || {
+        high: { minScore: 85, minHistoryScore: 70, positionMultiplier: 1.25 },
+        medium: { minScore: 75, minHistoryScore: 60, positionMultiplier: 1.0 },
+        low: { minScore: 70, minHistoryScore: 50, positionMultiplier: 0.5 }
+      },
+      exitUrgencyWeights: adaptive.exitUrgencyWeights || {
+        stopLoss: 100,
+        trailingStop: 80,
+        scoreDrop: 40,
+        holdTooLong: 50,
+        weakStock: 60
+      },
+      exitUrgencyThreshold: adaptive.exitUrgencyThreshold || 100,
+      regimeMultipliers: adaptive.regimeMultipliers || {
+        BULL: { positionSize: 1.0, maxPositions: this.config.maxPositions, allowLowConfidence: true },
+        NEUTRAL: { positionSize: 0.7, maxPositions: Math.max(1, this.config.maxPositions - 1), allowLowConfidence: false },
+        BEAR: { positionSize: 0.5, maxPositions: 2, allowLowConfidence: false }
+      }
+    };
+  }
+
+  getScoreRangeKey(score) {
+    if (score >= 90) return '90+';
+    if (score >= 80) return '80-89';
+    if (score >= 70) return '70-79';
+    return '<70';
+  }
+
+  recordClosedTradePerformance(trade) {
+    const adaptive = this.getAdaptiveConfig();
+    const score = trade.combinedScore || trade.entryScore || 0;
+    const scoreRangeKey = this.getScoreRangeKey(score);
+    const closedTrade = {
+      symbol: trade.symbol,
+      pnlPct: trade.pnlPct || 0,
+      holdDays: trade.holdDays || 0,
+      score,
+      scoreRangeKey,
+      confidence: trade.confidence || 'UNKNOWN',
+      soldAt: trade.ts || new Date().toISOString()
+    };
+
+    this.recentPerformance.closedTrades.push(closedTrade);
+    if (this.recentPerformance.closedTrades.length > adaptive.performanceWindow) {
+      this.recentPerformance.closedTrades = this.recentPerformance.closedTrades.slice(-adaptive.performanceWindow);
+    }
+
+    const rangeStats = this.recentPerformance.scoreRangeStats.get(scoreRangeKey) || {
+      trades: 0,
+      wins: 0,
+      totalPnlPct: 0,
+      totalHoldDays: 0
+    };
+    rangeStats.trades += 1;
+    rangeStats.totalPnlPct += closedTrade.pnlPct;
+    rangeStats.totalHoldDays += closedTrade.holdDays;
+    if (closedTrade.pnlPct > 0) rangeStats.wins += 1;
+    this.recentPerformance.scoreRangeStats.set(scoreRangeKey, rangeStats);
+  }
+
+  getPerformanceFeedback() {
+    const trades = this.recentPerformance.closedTrades;
+    if (!trades.length) {
+      return {
+        tradeCount: 0,
+        winRate: 50,
+        avgHoldDays: 0,
+        avgPnlPct: 0,
+        avgWinPct: 0,
+        avgLossPct: 0,
+        lowBandPenalty: 0,
+        highBandBonus: 0,
+        drawdownPressure: 0,
+        scoreRangeStats: {}
+      };
+    }
+
+    const wins = trades.filter(t => t.pnlPct > 0);
+    const losses = trades.filter(t => t.pnlPct <= 0);
+    const scoreRangeStats = {};
+    for (const [key, value] of this.recentPerformance.scoreRangeStats.entries()) {
+      scoreRangeStats[key] = {
+        trades: value.trades,
+        winRate: value.trades > 0 ? Number(((value.wins / value.trades) * 100).toFixed(2)) : 0,
+        avgPnlPct: value.trades > 0 ? Number((value.totalPnlPct / value.trades).toFixed(2)) : 0,
+        avgHoldDays: value.trades > 0 ? Number((value.totalHoldDays / value.trades).toFixed(1)) : 0
+      };
+    }
+
+    const lowBand = scoreRangeStats['70-79'] || scoreRangeStats['<70'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
+    const highBand = scoreRangeStats['90+'] || scoreRangeStats['80-89'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
+    const totalEquity = this.getTotalEquity();
+    const drawdownPressure = this.peakEquity > 0 ? Math.max(0, ((this.peakEquity - totalEquity) / this.peakEquity) * 100) : 0;
+
+    return {
+      tradeCount: trades.length,
+      winRate: Number(((wins.length / trades.length) * 100).toFixed(2)),
+      avgHoldDays: Number((trades.reduce((sum, t) => sum + t.holdDays, 0) / trades.length).toFixed(1)),
+      avgPnlPct: Number((trades.reduce((sum, t) => sum + t.pnlPct, 0) / trades.length).toFixed(2)),
+      avgWinPct: wins.length ? Number((wins.reduce((sum, t) => sum + t.pnlPct, 0) / wins.length).toFixed(2)) : 0,
+      avgLossPct: losses.length ? Number((losses.reduce((sum, t) => sum + t.pnlPct, 0) / losses.length).toFixed(2)) : 0,
+      lowBandPenalty: lowBand.trades >= 3 && lowBand.avgPnlPct < 0 ? Math.min(8, Math.abs(lowBand.avgPnlPct)) : 0,
+      highBandBonus: highBand.trades >= 3 && highBand.avgPnlPct > 0 ? Math.min(8, highBand.avgPnlPct / 2) : 0,
+      drawdownPressure: Number(drawdownPressure.toFixed(2)),
+      scoreRangeStats
+    };
+  }
+
   getTotalEquity() {
     const positionValue = Array.from(this.positions.values()).reduce((sum, pos) => sum + pos.value, 0);
     return this.cash + positionValue;
+  }
+
+  assessBuyConfidence(pick, marketRegime, performanceFeedback) {
+    const adaptive = this.getAdaptiveConfig();
+    if (!adaptive.enabled) {
+      return { confidence: 'MEDIUM', reason: '自适应未启用' };
+    }
+
+    const combinedScore = pick.combinedScore || pick.score || 0;
+    const historyScore = pick.historyScore || 0;
+    const volumeRatio = pick.volumeRatio || pick.volumeBurstRatio || 0;
+    const turnoverRate = pick.turnoverRatePercent || 0;
+    const changePercent = pick.changePercent || 0;
+    const bands = adaptive.confidenceBands;
+
+    // 基础置信度判断
+    let baseConfidence = 'LOW';
+    let baseReason = [];
+
+    if (combinedScore >= bands.high.minScore && historyScore >= bands.high.minHistoryScore) {
+      baseConfidence = 'HIGH';
+      baseReason.push(`综合${combinedScore}分≥${bands.high.minScore}`);
+      baseReason.push(`历史${historyScore}分≥${bands.high.minHistoryScore}`);
+    } else if (combinedScore >= bands.medium.minScore && historyScore >= bands.medium.minHistoryScore) {
+      baseConfidence = 'MEDIUM';
+      baseReason.push(`综合${combinedScore}分≥${bands.medium.minScore}`);
+      baseReason.push(`历史${historyScore}分≥${bands.medium.minHistoryScore}`);
+    } else if (combinedScore >= bands.low.minScore && historyScore >= bands.low.minHistoryScore) {
+      baseConfidence = 'LOW';
+      baseReason.push(`综合${combinedScore}分≥${bands.low.minScore}`);
+      baseReason.push(`历史${historyScore}分≥${bands.low.minHistoryScore}`);
+    } else {
+      return { confidence: 'REJECT', reason: `综合${combinedScore}分或历史${historyScore}分不足` };
+    }
+
+    // 市场环境调整
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    if (baseConfidence === 'LOW' && !regimeConfig.allowLowConfidence) {
+      return { confidence: 'REJECT', reason: `${marketRegime}环境不允许低置信度入场` };
+    }
+
+    // 近期表现反馈调整
+    if (performanceFeedback.tradeCount >= 10) {
+      if (performanceFeedback.lowBandPenalty > 5 && baseConfidence === 'LOW') {
+        return { confidence: 'REJECT', reason: `近期低分段表现差(${performanceFeedback.lowBandPenalty.toFixed(1)}分惩罚)` };
+      }
+      if (performanceFeedback.drawdownPressure > 3 && baseConfidence === 'LOW') {
+        return { confidence: 'REJECT', reason: `组合回撤压力${performanceFeedback.drawdownPressure.toFixed(1)}%` };
+      }
+    }
+
+    // 信号强度检查
+    const signalStrength = [];
+    if (volumeRatio >= 3) signalStrength.push('强放量');
+    if (turnoverRate >= 10) signalStrength.push('高换手');
+    if (changePercent >= 5 && changePercent <= 7.5) signalStrength.push('适度涨幅');
+    if (pick.history?.macdBullish) signalStrength.push('MACD多头');
+    if (pick.history?.isBreakoutHigh) signalStrength.push('突破新高');
+
+    return {
+      confidence: baseConfidence,
+      reason: [...baseReason, ...signalStrength].join(','),
+      signalStrength: signalStrength.length
+    };
+  }
+
+  calculateExitUrgency(pos, pick, marketRegime) {
+    const adaptive = this.getAdaptiveConfig();
+    if (!adaptive.enabled) {
+      return { urgency: 0, reasons: [] };
+    }
+
+    const weights = adaptive.exitUrgencyWeights;
+    let totalUrgency = 0;
+    const reasons = [];
+
+    // 1. 止损触发
+    const stopLoss = pos.pnlPct <= (this.config.stopLossPct || -5);
+    if (stopLoss) {
+      totalUrgency += weights.stopLoss;
+      reasons.push({ type: '止损', weight: weights.stopLoss, detail: `${pos.pnlPct.toFixed(2)}%` });
+    }
+
+    // 2. 移动止盈
+    const trailingStopThreshold = this.config.takeProfitPartialPct || 8;
+    const drawdownFromHigh = pos.highPrice ? (((pos.highPrice - pos.currentPrice) / pos.highPrice) * 100) : 0;
+    const trailingStop = pos.pnlPct > trailingStopThreshold && drawdownFromHigh >= (this.config.exitDrawdownFromHighPct || 5);
+    if (trailingStop) {
+      totalUrgency += weights.trailingStop;
+      reasons.push({ type: '移动止盈', weight: weights.trailingStop, detail: `最高${((pos.highPrice/pos.entryPrice-1)*100).toFixed(2)}%,回撤${drawdownFromHigh.toFixed(2)}%` });
+    }
+
+    // 3. 评分下跌
+    if (pick) {
+      const dayScore = pick.score || pick.strategy?.score || 0;
+      const scoreDrop = dayScore < (this.config.exitScoreThreshold || 65);
+      if (scoreDrop) {
+        totalUrgency += weights.scoreDrop;
+        reasons.push({ type: '评分下跌', weight: weights.scoreDrop, detail: `${dayScore}分` });
+      }
+    }
+
+    // 4. 时间止损
+    const maxHoldDays = this.config.maxHoldDays || 7;
+    const holdTooLong = pos.holdDays >= maxHoldDays;
+    if (holdTooLong) {
+      totalUrgency += weights.holdTooLong;
+      reasons.push({ type: '持有超时', weight: weights.holdTooLong, detail: `${pos.holdDays}天` });
+    }
+
+    // 5. 弱势股
+    const weakStockDays = this.config.weakStockHoldDays || 5;
+    const weakStockProfit = this.config.weakStockMinProfit || 3;
+    const weakStock = !holdTooLong && pos.holdDays >= weakStockDays && pos.pnlPct < weakStockProfit;
+    if (weakStock) {
+      totalUrgency += weights.weakStock;
+      reasons.push({ type: '弱势股', weight: weights.weakStock, detail: `${pos.holdDays}天仅${pos.pnlPct.toFixed(2)}%` });
+    }
+
+    return {
+      urgency: totalUrgency,
+      reasons,
+      shouldExit: totalUrgency >= adaptive.exitUrgencyThreshold
+    };
   }
 
   logEquity(ts) {
@@ -1156,7 +1408,7 @@ class PaperAccount {
     console.log(`[ALERT] ${type} ${symbol} ${name}: ${message}`);
   }
 
-  placeOrder(symbol, name, price, side, quantity, reason = '') {
+  placeOrder(symbol, name, price, side, quantity, reason = '', metadata = {}) {
     const orderId = `ORD_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const ts = new Date().toISOString();
     const bjTime = formatBeijingTime(ts);
@@ -1176,7 +1428,8 @@ class PaperAccount {
       status: 'FILLED',
       reason,
       ts,
-      bjTime
+      bjTime,
+      ...metadata
     };
     this.orders.push(order);
     appendJsonLine(this.tradesPath, order);
@@ -1196,7 +1449,10 @@ class PaperAccount {
         holdRounds: 0,
         holdDays: 0,
         highPrice: executedPrice,
-        lowPrice: executedPrice
+        lowPrice: executedPrice,
+        confidence: metadata.confidence || 'UNKNOWN',
+        combinedScore: metadata.combinedScore || 0,
+        sector: metadata.sector || 'UNKNOWN'
       });
       this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
     } else {
@@ -1211,6 +1467,8 @@ class PaperAccount {
         order.entryPrice = pos.entryPrice;
         order.entryTs = pos.entryTs;
         order.entryBjTime = formatBeijingTime(pos.entryTs);
+        order.combinedScore = pos.combinedScore || 0;
+        order.confidence = pos.confidence || 'UNKNOWN';
         this.cash += (order.amount - fee);
         this.positions.delete(symbol);
         this.sellCooldown.set(symbol, ts);
@@ -1246,6 +1504,17 @@ class PaperAccount {
           this.statistics.totalLossPnl = (this.statistics.totalLossPnl || 0) + Math.abs(pnl);
           if (order.pnlPct < this.statistics.maxLoss) this.statistics.maxLoss = order.pnlPct;
         }
+
+        // 记录近期表现
+        this.recordClosedTradePerformance({
+          symbol,
+          pnlPct: order.pnlPct,
+          holdDays,
+          combinedScore: pos.combinedScore,
+          confidence: pos.confidence,
+          ts
+        });
+
         const alertType = order.pnlPct >= 0 ? 'SELL_PROFIT' : 'SELL_LOSS';
         this.logAlert(alertType, symbol, name, `卖出 ${quantity}股 @${executedPrice.toFixed(3)} 盈亏${order.pnlPct.toFixed(2)}% (${reason})`);
         fs.writeFileSync(this.statisticsPath, JSON.stringify(this.statistics, null, 2));
@@ -1258,6 +1527,8 @@ class PaperAccount {
   runTradeCycle(strategyPicks, ts, marketRegime = 'UNKNOWN', allMarketData = []) {
     const currentTime = new Date(ts);
     const marketOpen = isMarketOpen(currentTime);
+    const adaptive = this.getAdaptiveConfig();
+    const performanceFeedback = this.getPerformanceFeedback();
 
     // 先更新持仓价格（无论是否交易时间，都要更新持仓价格）
     const symbolToPick = new Map(strategyPicks.map(p => [p.symbol, p]));
@@ -1267,15 +1538,12 @@ class PaperAccount {
       const pick = symbolToPick.get(symbol);
       const marketData = symbolToMarket.get(symbol);
 
-      // 优先从全市场数据更新价格，其次从picks，最后保持不变
       if (marketData && marketData.price) {
         pos.currentPrice = marketData.price;
       } else if (pick && pick.price) {
         pos.currentPrice = pick.price;
       }
-      // 如果都没有，保持 pos.currentPrice 不变
 
-      // 更新最高价和最低价
       if (pos.currentPrice > (pos.highPrice || 0)) {
         pos.highPrice = pos.currentPrice;
       }
@@ -1287,114 +1555,17 @@ class PaperAccount {
       pos.pnlPct = ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100;
     }
 
-    // 非交易时间，只更新价格，不执行交易逻辑
     if (!marketOpen) {
       console.log(`[PAPER] 非交易时间，跳过交易 ts=${formatBeijingTime(ts)}`);
       this.logEquity(ts);
       return;
     }
 
-    // 交易时间：更新持有天数并执行交易逻辑
-    const toSell = [];
-    for (const [symbol, pos] of this.positions.entries()) {
-      const pick = symbolToPick.get(symbol);
-      pos.holdRounds += 1;
-      pos.holdDays = getTradingDaysBetween(pos.entryTs, currentTime);
-
-      // T+1检查：当天买入的不能当天卖出
-      const canSell = canSellToday(pos.entryTs, currentTime);
-      if (!canSell) {
-        console.log(`[PAPER] T+1限制: ${symbol} 当天买入不能卖出`);
-        continue;
-      }
-
-      // 跌停检测：跌停时无法卖出
-      if (pick && pick.changePercent <= -9.5) {
-        console.log(`[PAPER] 跌停限制: ${symbol} ${pos.name} 跌停${pick.changePercent}%无法卖出`);
-        continue;
-      }
-
-      // 7日短线卖出策略
-      const reasons = [];
-
-      // 1. 智能止盈（12%）- 综合分析多个指标
-      const reachedProfitTarget = pos.pnlPct >= (this.config.takeProfitPct || 12);
-      if (reachedProfitTarget && pick) {
-        // 检查是否仍然强势，可以继续持有
-        const dayScore = pick.score || pick.strategy?.score || 0;
-        const stillStrong =
-          dayScore >= (this.config.exitStrongScoreThreshold || 80) &&  // 评分仍然≥80
-          pick.volumeRatio >= (this.config.exitStrongVolumeRatio || 2) &&  // 量比≥2
-          pick.turnoverRatePercent >= (this.config.exitStrongTurnover || 5) &&  // 换手≥5%
-          pick.changePercent >= 0 &&  // 当日未下跌
-          pick.changePercent <= (this.config.buyMaxChangePercent || 9.5);  // 未冲高回落
-
-        if (!stillStrong) {
-          // 不再强势，止盈卖出
-          const weakReasons = [];
-          if (dayScore < 80) weakReasons.push(`评分${dayScore}`);
-          if (pick.volumeRatio < 2) weakReasons.push(`量比${pick.volumeRatio}`);
-          if (pick.turnoverRatePercent < 5) weakReasons.push(`换手${pick.turnoverRatePercent}%`);
-          if (pick.changePercent < 0) weakReasons.push(`下跌${pick.changePercent}%`);
-          if (pick.changePercent > 7.5) weakReasons.push(`冲高${pick.changePercent}%`);
-          reasons.push(`智能止盈${pos.pnlPct.toFixed(2)}%(${weakReasons.join(',')})`);
-        } else {
-          console.log(`[PAPER] ${symbol} ${pos.name} 盈利${pos.pnlPct.toFixed(2)}%但仍强势，继续持有 (评分${dayScore} 量比${pick.volumeRatio} 换手${pick.turnoverRatePercent}%)`);
-        }
-      } else if (reachedProfitTarget && !pick) {
-        // 找不到当日数据，保守止盈
-        reasons.push(`止盈${pos.pnlPct.toFixed(2)}%(无当日数据)`);
-      }
-
-      // 2. 固定止损（-5%）
-      const stopLoss = pos.pnlPct <= (this.config.stopLossPct || -5);
-      if (stopLoss) reasons.push(`止损${pos.pnlPct.toFixed(2)}%`);
-
-      // 3. 移动止盈（盈利>8%后，从最高点回撤5%）
-      const trailingStopThreshold = this.config.takeProfitPartialPct || 8;
-      const drawdownFromHigh = pos.highPrice ? (((pos.highPrice - pos.currentPrice) / pos.highPrice) * 100) : 0;
-      const trailingStop = pos.pnlPct > trailingStopThreshold && drawdownFromHigh >= (this.config.exitDrawdownFromHighPct || 5);
-      if (trailingStop) reasons.push(`移动止盈(最高${((pos.highPrice/pos.entryPrice-1)*100).toFixed(2)}%,回撤${drawdownFromHigh.toFixed(2)}%)`);
-
-      // 4. 时间止损（持有≥7天）
-      const maxHoldDays = this.config.maxHoldDays || 7;
-      const holdTooLong = pos.holdDays >= maxHoldDays;
-      if (holdTooLong) reasons.push(`持有${pos.holdDays}天超时`);
-
-      // 5. 弱势股止损（持有≥5天且盈利<3%，但不与时间止损重复）
-      const weakStockDays = this.config.weakStockHoldDays || 5;
-      const weakStockProfit = this.config.weakStockMinProfit || 3;
-      const weakStock = !holdTooLong && pos.holdDays >= weakStockDays && pos.pnlPct < weakStockProfit;
-      if (weakStock) reasons.push(`弱势股(${pos.holdDays}天仅${pos.pnlPct.toFixed(2)}%)`);
-
-      // 6. 评分下跌（仅当股票在今日扫描中且评分低时触发）
-      if (pick) {
-        const dayScore = pick.score || pick.strategy?.score || 0;
-        const scoreDrop = dayScore < (this.config.exitScoreThreshold || 65);
-        if (scoreDrop) reasons.push(`评分${dayScore}分过低`);
-      }
-
-      if (reasons.length > 0) {
-        toSell.push({ ...pos, reason: reasons.join(',') });
-      }
-    }
-
-    // 执行卖出
-    for (const pos of toSell) {
-      this.placeOrder(pos.symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, pos.reason);
-    }
-
-    // 执行买入（增加组合风险控制、动态仓位、行业分散）
-    const availablePositions = this.config.maxPositions - this.positions.size;
-    const cooldownMinutes = this.config.buyCooldownMinutes || 60;
     const currentEquity = this.getTotalEquity();
-
-    // 更新峰值权益
     if (currentEquity > this.peakEquity) {
       this.peakEquity = currentEquity;
     }
 
-    // 组合风险控制：总回撤超过5%停止新开仓，超过8%清仓
     const portfolioDrawdown = ((this.peakEquity - currentEquity) / this.peakEquity) * 100;
     if (portfolioDrawdown > 8) {
       if (this.lastAlertDrawdown < 8) {
@@ -1415,112 +1586,105 @@ class PaperAccount {
         this.lastAlertDrawdown = 5;
       }
       console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，停止新开仓`);
-      this.logEquity(ts);
-      return;
-    }
-
-    // 回撤恢复，重置告警状态
-    if (portfolioDrawdown < 3 && this.lastAlertDrawdown > 0) {
+    } else if (portfolioDrawdown < 3 && this.lastAlertDrawdown > 0) {
       this.lastAlertDrawdown = 0;
     }
 
-    // 熊市：提高门槛、降低仓位，但不完全停止交易
-    const isBearMarket = marketRegime === 'BEAR';
-    if (isBearMarket && this.lastAlertRegime !== 'BEAR') {
-      this.logAlert('MARKET_REGIME', '', '', `熊市环境，提高入场门槛，仓位减半`);
-      this.lastAlertRegime = 'BEAR';
-    } else if (!isBearMarket && this.lastAlertRegime === 'BEAR') {
-      this.lastAlertRegime = null;
+    const toSell = [];
+    for (const [symbol, pos] of this.positions.entries()) {
+      const pick = symbolToPick.get(symbol);
+      pos.holdRounds += 1;
+      pos.holdDays = getTradingDaysBetween(pos.entryTs, currentTime);
+
+      const canSell = canSellToday(pos.entryTs, currentTime);
+      if (!canSell) {
+        console.log(`[PAPER] T+1限制: ${symbol} 当天买入不能卖出`);
+        continue;
+      }
+
+      if (pick && pick.changePercent <= -9.5) {
+        console.log(`[PAPER] 跌停限制: ${symbol} ${pos.name} 跌停${pick.changePercent}%无法卖出`);
+        continue;
+      }
+
+      const exitDecision = this.calculateExitUrgency(pos, pick, marketRegime);
+      if (exitDecision.shouldExit) {
+        const reasonText = exitDecision.reasons.map(r => `${r.type}${r.detail ? `(${r.detail})` : ''}`).join(',');
+        toSell.push({ ...pos, reason: `卖出紧迫度${exitDecision.urgency}: ${reasonText}` });
+      } else if (exitDecision.reasons.length > 0) {
+        console.log(`[PAPER] 持有观察: ${symbol} ${pos.name} 紧迫度${exitDecision.urgency}/${adaptive.exitUrgencyThreshold} ${exitDecision.reasons.map(r => `${r.type}(${r.detail})`).join(',')}`);
+      }
     }
 
-    // 统计当前持仓的行业分布
+    for (const pos of toSell) {
+      this.placeOrder(pos.symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, pos.reason);
+    }
+
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
+    const availablePositions = dynamicMaxPositions - this.positions.size;
+    const cooldownMinutes = this.config.buyCooldownMinutes || 60;
+
     const sectorCount = new Map();
     for (const pos of this.positions.values()) {
       const sector = pos.sector || 'UNKNOWN';
       sectorCount.set(sector, (sectorCount.get(sector) || 0) + 1);
     }
 
-    if (availablePositions > 0 && this.cash > this.config.minCashReserve) {
-      // 熊市限制：最多2个仓位
-      const maxBuyCount = isBearMarket ? Math.min(2, availablePositions) : availablePositions;
+    if (availablePositions > 0 && this.cash > this.config.minCashReserve && portfolioDrawdown <= 5) {
+      const buyCandidates = strategyPicks
+        .filter(p => {
+          if (this.positions.has(p.symbol)) return false;
 
-      const buyCandidates = strategyPicks.filter(p => {
-        // 检查是否在持仓中
-        if (this.positions.has(p.symbol)) return false;
+          const lastSellTs = this.sellCooldown.get(p.symbol);
+          if (lastSellTs) {
+            const minutesSinceSell = (currentTime - new Date(lastSellTs)) / (1000 * 60);
+            if (minutesSinceSell < cooldownMinutes) {
+              console.log(`[PAPER] ${p.symbol} ${p.name} 在冷却期内，跳过`);
+              return false;
+            }
+          }
 
-        // 检查冷却期
-        const lastSellTs = this.sellCooldown.get(p.symbol);
-        if (lastSellTs) {
-          const minutesSinceSell = (currentTime - new Date(lastSellTs)) / (1000 * 60);
-          if (minutesSinceSell < cooldownMinutes) {
-            console.log(`[PAPER] ${p.symbol} ${p.name} 在冷却期内，跳过`);
+          const sector = p.sector || 'UNKNOWN';
+          if ((sectorCount.get(sector) || 0) >= 2) {
+            console.log(`[PAPER] ${p.symbol} ${p.name} 行业${sector}已有2只，跳过`);
             return false;
           }
-        }
 
-        // 行业分散：同一行业最多2只
-        const sector = p.sector || 'UNKNOWN';
-        if ((sectorCount.get(sector) || 0) >= 2) {
-          console.log(`[PAPER] ${p.symbol} ${p.name} 行业${sector}已有2只，跳过`);
-          return false;
-        }
-
-        // 策略条件（熊市提高门槛）
-        const dayScore = p.score || p.strategy?.score || 0;
-        const minScore = isBearMarket ? 70 : (this.config.buyMinScore || 75);
-        const minVolumeRatio = isBearMarket ? 2.0 : (this.config.buyMinVolumeRatio || 2.0);
-        const minHistoryScore = isBearMarket ? 65 : (this.config.buyMinHistoryScore || 60);
-
-        const basicPass = dayScore >= minScore &&
-               p.volumeRatio >= minVolumeRatio &&
-               p.turnoverRatePercent >= (this.config.buyMinTurnoverRatePercent || 5) &&
-               p.changePercent >= (this.config.buyMinChangePercent || 3) &&
-               p.changePercent <= (this.config.buyMaxChangePercent || 7.5);
-
-        // 历史评分检查（修复：0分不应通过）
-        const historyPass = true;
-
-        if (!basicPass) {
-          console.log(`[PAPER] ${p.symbol} ${p.name} 基础条件不通过: 评分${dayScore}(需${minScore}) 量比${p.volumeRatio}(需${minVolumeRatio}) 换手${p.turnoverRatePercent}% 涨幅${p.changePercent}%`);
-        }
-        if (!historyPass) {
-          console.log(`[PAPER] ${p.symbol} ${p.name} 历史评分${p.historyScore}不足（需要${minHistoryScore}）`);
-        }
-
-        return basicPass && historyPass;
-      }).slice(0, maxBuyCount);
+          const confidenceDecision = this.assessBuyConfidence(p, marketRegime, performanceFeedback);
+          p.tradeDecision = confidenceDecision;
+          if (confidenceDecision.confidence === 'REJECT') {
+            console.log(`[PAPER] ${p.symbol} ${p.name} 拒绝买入: ${confidenceDecision.reason}`);
+            return false;
+          }
+          return true;
+        })
+        .sort((a, b) => {
+          const confidenceRank = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+          const aRank = confidenceRank[a.tradeDecision?.confidence] || 0;
+          const bRank = confidenceRank[b.tradeDecision?.confidence] || 0;
+          if (bRank !== aRank) return bRank - aRank;
+          return (b.combinedScore || b.score || 0) - (a.combinedScore || a.score || 0);
+        })
+        .slice(0, availablePositions);
 
       for (const pick of buyCandidates) {
-        // 动态仓位：根据综合评分和波动率调整
+        const confidence = pick.tradeDecision?.confidence || 'LOW';
+        const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
         const combinedScore = pick.combinedScore || pick.score || 70;
         const maxDrawdown = pick.history?.maxDrawdown || 20;
 
-        let basePositionValue = this.config.maxPositionValue;
+        let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
+        basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
 
-        // 根据评分调整仓位
-        if (combinedScore >= 90) {
-          basePositionValue = basePositionValue * 1.25; // 90+分：125%
-        } else if (combinedScore >= 85) {
-          basePositionValue = basePositionValue * 1.0;  // 85-90分：100%
-        } else if (combinedScore >= 80) {
-          basePositionValue = basePositionValue * 0.75; // 80-85分：75%
-        } else {
-          basePositionValue = basePositionValue * 0.5;  // 80分以下：50%
+        if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
+          basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
         }
-
-        // 根据波动率调整仓位
+        if (performanceFeedback.drawdownPressure > 3) {
+          basePositionValue *= 0.8;
+        }
         if (maxDrawdown > 20) {
-          basePositionValue = basePositionValue * 0.5; // 高波动：减半
-        }
-
-        // 熊市减仓
-        if (isBearMarket) {
-          basePositionValue = basePositionValue * 0.5; // 熊市：减半
-        }
-
-        // 震荡市减仓
-        if (marketRegime === 'NEUTRAL') {
-          basePositionValue = basePositionValue * 0.7; // 震荡市：70%
+          basePositionValue *= 0.7;
         }
 
         const maxBuyValue = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
@@ -1528,18 +1692,61 @@ class PaperAccount {
         const quantity = Math.floor(maxBuyValue / (pick.price * this.config.lotSize)) * this.config.lotSize;
         if (quantity < this.config.lotSize) continue;
 
-        const historyInfo = pick.history ? `历史${pick.historyScore}分(60日${pick.history.gain60d}%)` : '无历史';
         const positionPct = (maxBuyValue / currentEquity * 100).toFixed(1);
-        console.log(`[PAPER] 买入: ${pick.symbol} ${pick.name} 综合${combinedScore.toFixed(1)}分 ${historyInfo} 仓位${positionPct}% 市场${marketRegime}`);
-        this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', quantity, `策略信号(综合${combinedScore.toFixed(1)}分,市场${marketRegime})`);
+        const buyReason = `置信度${confidence}(综合${combinedScore.toFixed(1)}分,${pick.tradeDecision.reason})`;
+        console.log(`[PAPER] 买入: ${pick.symbol} ${pick.name} ${buyReason} 仓位${positionPct}% 市场${marketRegime}`);
+        this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', quantity, buyReason, {
+          confidence,
+          combinedScore,
+          sector: pick.sector || 'UNKNOWN'
+        });
 
-        // 更新行业计数
         const sector = pick.sector || 'UNKNOWN';
         sectorCount.set(sector, (sectorCount.get(sector) || 0) + 1);
       }
     }
 
     this.logEquity(ts);
+  }
+
+  getSuggestedPositionValue(pick, marketRegime = 'NEUTRAL') {
+    const adaptive = this.getAdaptiveConfig();
+    const performanceFeedback = this.getPerformanceFeedback();
+    const confidenceDecision = this.assessBuyConfidence(pick, marketRegime, performanceFeedback);
+    if (confidenceDecision.confidence === 'REJECT') {
+      return {
+        allowed: false,
+        confidence: 'REJECT',
+        suggestedAmount: 0,
+        reason: confidenceDecision.reason
+      };
+    }
+
+    const confidence = confidenceDecision.confidence;
+    const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    const maxDrawdown = pick.history?.maxDrawdown || 20;
+
+    let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
+    basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
+
+    if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
+      basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
+    }
+    if (performanceFeedback.drawdownPressure > 3) {
+      basePositionValue *= 0.8;
+    }
+    if (maxDrawdown > 20) {
+      basePositionValue *= 0.7;
+    }
+
+    const suggestedAmount = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
+    return {
+      allowed: suggestedAmount > 0,
+      confidence,
+      suggestedAmount: Math.max(0, suggestedAmount),
+      reason: confidenceDecision.reason
+    };
   }
 
   getPortfolio() {
@@ -1549,7 +1756,8 @@ class PaperAccount {
       pnlPct: ((this.getTotalEquity() / this.config.initialCash) - 1) * 100,
       positions: Array.from(this.positions.values()).sort((a, b) => b.value - a.value),
       positionCount: this.positions.size,
-      maxPositions: this.config.maxPositions
+      maxPositions: this.config.maxPositions,
+      performanceFeedback: this.getPerformanceFeedback()
     };
   }
 }
@@ -1669,9 +1877,12 @@ async function main() {
             res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 已在持仓中` }));
             return;
           }
-          if (paperAccount.positions.size >= paperAccount.config.maxPositions) {
+          const adaptive = paperAccount.getAdaptiveConfig();
+          const regimeConfig = adaptive.regimeMultipliers[state.marketRegime?.regime || 'NEUTRAL'] || adaptive.regimeMultipliers.NEUTRAL;
+          const dynamicMaxPositions = Math.min(paperAccount.config.maxPositions, regimeConfig.maxPositions || paperAccount.config.maxPositions);
+          if (paperAccount.positions.size >= dynamicMaxPositions) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `持仓数量已达上限 ${paperAccount.config.maxPositions}` }));
+            res.end(JSON.stringify({ success: false, error: `持仓数量已达上限 ${dynamicMaxPositions}` }));
             return;
           }
           const lastSellTs = paperAccount.sellCooldown.get(normalizedSymbol);
@@ -1690,6 +1901,14 @@ async function main() {
             res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 当前价格无效` }));
             return;
           }
+
+          const suggestion = paperAccount.getSuggestedPositionValue(marketItem, state.marketRegime?.regime || 'NEUTRAL');
+          if (!suggestion.allowed) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `自适应系统拒绝买入: ${suggestion.reason}` }));
+            return;
+          }
+
           const requestedAmount = Number(amount);
           if (!requestedAmount || requestedAmount <= 0) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -1709,9 +1928,23 @@ async function main() {
             res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 可买数量不足一手` }));
             return;
           }
-          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, '手动买入');
+          const combinedScore = marketItem.combinedScore || marketItem.score || 0;
+          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动买入(置信度${suggestion.confidence})`, {
+            confidence: suggestion.confidence,
+            combinedScore,
+            sector: marketItem.sector || 'UNKNOWN'
+          });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已买入 ${quantity}股 @${orderPrice}` }));
+          res.end(JSON.stringify({
+            success: true,
+            message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已买入 ${quantity}股 @${orderPrice}`,
+            suggestion: {
+              confidence: suggestion.confidence,
+              suggestedAmount: (suggestion.suggestedAmount / 10000).toFixed(2) + '万',
+              actualAmount: (requestedAmount / 10000).toFixed(2) + '万',
+              reason: suggestion.reason
+            }
+          }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: err.message }));
