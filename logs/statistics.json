@@ -1,11 +1,11 @@
 {
-  "totalTrades": 15,
+  "totalTrades": 18,
   "winTrades": 6,
-  "lossTrades": 9,
-  "totalPnl": 213636.16656460022,
+  "lossTrades": 12,
+  "totalPnl": 58009.14239250067,
   "totalWinPnl": 540034.6157947,
-  "totalLossPnl": 326398.4492300997,
+  "totalLossPnl": 482025.4734021992,
   "maxGain": 21.852368594578234,
   "maxLoss": -17.608816054411914,
-  "totalHoldDays": 23
+  "totalHoldDays": 26
 }

@@ -113,6 +113,19 @@ function isSameDay(date1, date2) {
          d1.getUTCDate() === d2.getUTCDate();
 }
 
+function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
+  return items.map(item => {
+    const cachedHistory = historyMap?.get(item.symbol);
+    if (!cachedHistory) return item;
+    return {
+      ...item,
+      history: cachedHistory.indicators,
+      historyScore: cachedHistory.historyScore,
+      combinedScore: Number((((item.score || 0) * 0.5) + (cachedHistory.historyScore || 0) * 0.5).toFixed(2))
+    };
+  });
+}
+
 function getTradingDaysBetween(startDate, endDate) {
   const start = toBeijingTime(startDate);
   const end = toBeijingTime(endDate);
@@ -375,7 +388,12 @@ function renderHtml(state, config) {
 
   const fallbackPicks = Array.isArray(state.market)
     ? state.market
-        .sort((a, b) => (b.score || 0) - (a.score || 0))
+        .sort((a, b) => {
+          const aHasHistory = a.historyScore != null ? 1 : 0;
+          const bHasHistory = b.historyScore != null ? 1 : 0;
+          if (bHasHistory !== aHasHistory) return bHasHistory - aHasHistory;
+          return (b.combinedScore || b.score || 0) - (a.combinedScore || a.score || 0);
+        })
         .slice(0, 30)
     : [];
   const displayPicks = state.strategyPicks.length > 0 ? state.strategyPicks : fallbackPicks;
@@ -1185,6 +1203,18 @@ class MarketScanner {
         });
       }
 
+      if (this.config.strategy.enableHistoryScore !== false && candidates.length === 0) {
+        const fallbackForDashboard = scored
+          .filter(item => item.score >= initialThreshold)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 30);
+        const fallbackMissingHistory = fallbackForDashboard.filter(item => !this.historyCache.get(item.symbol));
+        if (fallbackMissingHistory.length > 0) {
+          console.log(`[HISTORY] picks=0，补充首页候选历史数据: ${fallbackMissingHistory.length}只`);
+          await this.enrichWithHistory(fallbackMissingHistory, context);
+        }
+      }
+
       const summary = {
         totalStocks: rawQuotes.length,
         mainBoardStocks: quotes.length,
@@ -1989,7 +2019,7 @@ async function main() {
   const scanner = new MarketScanner(config, async (payload) => {
     state.scanRounds += 1;
     state.lastScanAt = formatBeijingTime(payload.ts);
-    state.market = payload.all;
+    state.market = mergeHistoryIntoMarketItems(payload.all, scanner.historyCache);
     state.strategyPicks = payload.picks;
     state.marketCount = payload.all.length;
     state.marketRegime = payload.marketRegime;

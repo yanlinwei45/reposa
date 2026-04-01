@@ -1,61 +1,6 @@
 {
-  "cash": 7607268.048711101,
-  "positions": [
-    [
-      "sh603017",
-      {
-        "symbol": "sh603017",
-        "name": "中衡设计",
-        "entryPrice": 17.03702,
-        "currentPrice": 16.97,
-        "quantity": 117500,
-        "value": 1993974.9999999998,
-        "pnlPct": -0.39337865424821605,
-        "entryTs": "2026-03-31T02:34:13.390Z",
-        "entryDate": "2026-03-31",
-        "holdRounds": 11,
-        "holdDays": 1,
-        "highPrice": 17.1,
-        "lowPrice": 16.79
-      }
-    ],
-    [
-      "sz000995",
-      {
-        "symbol": "sz000995",
-        "name": "皇台酒业",
-        "entryPrice": 15.34533,
-        "currentPrice": 15.43,
-        "quantity": 13000,
-        "value": 200590,
-        "pnlPct": 0.5517639568520138,
-        "entryTs": "2026-03-31T02:48:23.555Z",
-        "entryDate": "2026-03-31",
-        "holdRounds": 9,
-        "holdDays": 1,
-        "highPrice": 15.56,
-        "lowPrice": 15.19
-      }
-    ],
-    [
-      "sh600343",
-      {
-        "symbol": "sh600343",
-        "name": "航天动力",
-        "entryPrice": 35.10507,
-        "currentPrice": 35.10507,
-        "quantity": 11400,
-        "value": 400197.79799999995,
-        "pnlPct": 0,
-        "entryTs": "2026-03-31T02:59:18.981Z",
-        "entryDate": "2026-03-31",
-        "holdRounds": 0,
-        "holdDays": 0,
-        "highPrice": 35.10507,
-        "lowPrice": 35.10507
-      }
-    ]
-  ],
+  "cash": 10053177.962539,
+  "positions": [],
   "orders": [
     {
       "orderId": "ORD_1774332760312_asmett",
@@ -656,6 +601,78 @@
       "reason": "手动买入",
       "ts": "2026-03-31T02:59:18.981Z",
       "bjTime": "2026-03-31 10:59:18"
+    },
+    {
+      "orderId": "ORD_1775007433458_n2stmv",
+      "symbol": "sh603017",
+      "name": "中衡设计",
+      "side": "SELL",
+      "price": 16.01,
+      "executedPrice": 15.993990000000002,
+      "quantity": 117500,
+      "amount": 1879293.8250000002,
+      "fee": 563.7881475,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-6.03%)",
+      "ts": "2026-04-01T01:37:13.458Z",
+      "bjTime": "2026-04-01 09:37:13",
+      "pnl": -123119.81314749958,
+      "pnlPct": -6.122138730834362,
+      "holdDays": 1,
+      "holdRounds": 12,
+      "entryPrice": 17.03702,
+      "entryTs": "2026-03-31T02:34:13.390Z",
+      "entryBjTime": "2026-03-31 10:34:13",
+      "combinedScore": 0,
+      "confidence": "UNKNOWN"
+    },
+    {
+      "orderId": "ORD_1775007433462_jt648o",
+      "symbol": "sz000995",
+      "name": "皇台酒业",
+      "side": "SELL",
+      "price": 14.16,
+      "executedPrice": 14.14584,
+      "quantity": 13000,
+      "amount": 183895.91999999998,
+      "fee": 55.16877599999999,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-7.72%)",
+      "ts": "2026-04-01T01:37:13.462Z",
+      "bjTime": "2026-04-01 09:37:13",
+      "pnl": -15648.538776000012,
+      "pnlPct": -7.816645194336001,
+      "holdDays": 1,
+      "holdRounds": 10,
+      "entryPrice": 15.34533,
+      "entryTs": "2026-03-31T02:48:23.555Z",
+      "entryBjTime": "2026-03-31 10:48:23",
+      "combinedScore": 0,
+      "confidence": "UNKNOWN"
+    },
+    {
+      "orderId": "ORD_1775007502973_6wog9n",
+      "symbol": "sh600343",
+      "name": "航天动力",
+      "side": "SELL",
+      "price": 33.67,
+      "executedPrice": 33.63633,
+      "quantity": 11400,
+      "amount": 383454.162,
+      "fee": 115.0362486,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-4.09%)",
+      "ts": "2026-04-01T01:38:22.973Z",
+      "bjTime": "2026-04-01 09:38:22",
+      "pnl": -16858.672248599963,
+      "pnlPct": -4.183840111983816,
+      "holdDays": 1,
+      "holdRounds": 2,
+      "entryPrice": 35.10507,
+      "entryTs": "2026-03-31T02:59:18.981Z",
+      "entryBjTime": "2026-03-31 10:59:18",
+      "combinedScore": 0,
+      "confidence": "UNKNOWN"
     }
   ],
   "sellCooldown": [
@@ -710,19 +727,73 @@
     [
       "sz001367",
       "2026-03-31T02:20:51.577Z"
+    ],
+    [
+      "sh603017",
+      "2026-04-01T01:37:13.458Z"
+    ],
+    [
+      "sz000995",
+      "2026-04-01T01:37:13.462Z"
+    ],
+    [
+      "sh600343",
+      "2026-04-01T01:38:22.973Z"
     ]
   ],
   "statistics": {
-    "totalTrades": 15,
+    "totalTrades": 18,
     "winTrades": 6,
-    "lossTrades": 9,
-    "totalPnl": 213636.16656460022,
+    "lossTrades": 12,
+    "totalPnl": 58009.14239250067,
     "totalWinPnl": 540034.6157947,
-    "totalLossPnl": 326398.4492300997,
+    "totalLossPnl": 482025.4734021992,
     "maxGain": 21.852368594578234,
     "maxLoss": -17.608816054411914,
-    "totalHoldDays": 23
+    "totalHoldDays": 26
   },
   "peakEquity": 10402119.853255402,
-  "savedAt": "2026-03-31T02:59:18.986Z"
+  "recentPerformance": {
+    "closedTrades": [
+      {
+        "symbol": "sh603017",
+        "pnlPct": -6.122138730834362,
+        "holdDays": 1,
+        "score": 0,
+        "scoreRangeKey": "<70",
+        "confidence": "UNKNOWN",
+        "soldAt": "2026-04-01T01:37:13.458Z"
+      },
+      {
+        "symbol": "sz000995",
+        "pnlPct": -7.816645194336001,
+        "holdDays": 1,
+        "score": 0,
+        "scoreRangeKey": "<70",
+        "confidence": "UNKNOWN",
+        "soldAt": "2026-04-01T01:37:13.462Z"
+      },
+      {
+        "symbol": "sh600343",
+        "pnlPct": -4.183840111983816,
+        "holdDays": 1,
+        "score": 0,
+        "scoreRangeKey": "<70",
+        "confidence": "UNKNOWN",
+        "soldAt": "2026-04-01T01:38:22.973Z"
+      }
+    ],
+    "scoreRangeStats": [
+      [
+        "<70",
+        {
+          "trades": 3,
+          "wins": 0,
+          "totalPnlPct": -18.12262403715418,
+          "totalHoldDays": 3
+        }
+      ]
+    ]
+  },
+  "savedAt": "2026-04-01T01:38:22.974Z"
 }
