@@ -1,33 +1,81 @@
 const fs = require('fs');
 const path = require('path');
 
-// 获取大盘指数数据（上证指数，使用 context.request 绕过 CORS）
-async function fetchIndexData(context) {
-  const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=1.000001&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&lmt=60&_=${Date.now()}`;
+// 获取大盘指数数据（上证指数，优先使用 page.evaluate 带浏览器 Cookie/Referer）
+async function fetchIndexData(context, page) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const cb = `jQuery${Date.now()}_${Math.random().toString().slice(2)}`;
+      const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=${cb}&secid=1.000001&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&smplmt=460&lmt=1000000&_=${Date.now()}`;
 
-  try {
-    const response = await context.request.get(url);
-    const text = await response.text();
-    const data = JSON.parse(text);
+      let text;
+      if (page) {
+        // 使用 XMLHttpRequest 而不是 fetch
+        text = await page.evaluate(async (u) => {
+          return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', u, true);
+            xhr.withCredentials = true;
+            xhr.setRequestHeader('Accept', '*/*');
+            xhr.setRequestHeader('Referer', 'https://quote.eastmoney.com/');
+            xhr.timeout = 15000;
 
-    if (!data || !data.data || !data.data.klines) {
+            xhr.onload = function() {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.responseText);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = function() {
+              reject(new Error('Network error'));
+            };
+
+            xhr.ontimeout = function() {
+              reject(new Error('Timeout'));
+            };
+
+            xhr.send();
+          });
+        }, url);
+      } else {
+        const response = await context.request.get(url, { timeout: 15000 });
+        text = await response.text();
+      }
+
+      const jsonText = text.replace(/^jQuery\d+_\d+\(/, '').replace(/\);?$/, '');
+      const data = JSON.parse(jsonText);
+
+      if (!data || !data.data || !data.data.klines) {
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+          continue;
+        }
+        return null;
+      }
+
+      const klines = data.data.klines.map(line => {
+        const parts = line.split(',');
+        return {
+          date: parts[0],
+          close: Number(parts[2]),
+          changePercent: Number(parts[8])
+        };
+      }).slice(-60);
+
+      return klines;
+    } catch (err) {
+      if (attempt < 3) {
+        console.error(`[INDEX] 获取上证指数失败 (尝试${attempt}/3):`, err.message);
+        await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+        continue;
+      }
+      console.error(`[INDEX] 获取上证指数最终失败:`, err.message);
       return null;
     }
-
-    const klines = data.data.klines.map(line => {
-      const parts = line.split(',');
-      return {
-        date: parts[0],
-        close: Number(parts[2]),
-        changePercent: Number(parts[8])
-      };
-    }).slice(-60);
-
-    return klines;
-  } catch (err) {
-    console.error(`[INDEX] 获取上证指数失败:`, err.message);
-    return null;
   }
+  return null;
 }
 
 // 判断市场环境
@@ -126,44 +174,100 @@ function calculateRSI(prices, period = 14) {
 }
 
 // 获取股票60日K线数据
-async function fetch60DayKline(symbol, context) {
+async function fetch60DayKline(symbol, context, page) {
   const code = symbol.replace(/^(sh|sz)/, '');
   const market = symbol.startsWith('sh') ? 1 : 0;
   const secid = `${market}.${code}`;
+  const cb = `jQuery${Date.now()}_${Math.random().toString().slice(2)}`;
 
-  const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?secid=${secid}&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&lmt=60&_=${Date.now()}`;
+  const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=${cb}&secid=${secid}&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&smplmt=460&lmt=1000000&_=${Date.now()}`;
 
-  try {
-    const response = await context.request.get(url);
-    const text = await response.text();
-    const data = JSON.parse(text);
-    if (!data || !data.data || !data.data.klines) {
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    let text = null;
+    try {
+      if (page) {
+        // 使用 XMLHttpRequest 而不是 fetch，更接近真实浏览器行为
+        text = await page.evaluate(async (u) => {
+          return new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', u, true);
+            xhr.withCredentials = true;
+            xhr.setRequestHeader('Accept', '*/*');
+            xhr.setRequestHeader('Referer', 'https://quote.eastmoney.com/');
+            xhr.timeout = 15000;
+
+            xhr.onload = function() {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(xhr.responseText);
+              } else {
+                reject(new Error(`HTTP ${xhr.status}`));
+              }
+            };
+
+            xhr.onerror = function() {
+              reject(new Error('Network error'));
+            };
+
+            xhr.ontimeout = function() {
+              reject(new Error('Timeout'));
+            };
+
+            xhr.send();
+          });
+        }, url);
+      } else {
+        const response = await context.request.get(url, { timeout: 20000 });
+        text = await response.text();
+      }
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+        continue;
+      }
+      console.error(`[KLINE] 获取${symbol}历史数据失败:`, err.message);
       return null;
     }
 
-    const klines = data.data.klines.map(line => {
-      const parts = line.split(',');
-      return {
-        date: parts[0],           // 日期
-        open: Number(parts[1]),   // 开盘价
-        close: Number(parts[2]),  // 收盘价
-        high: Number(parts[3]),   // 最高价
-        low: Number(parts[4]),    // 最低价
-        volume: Number(parts[5]), // 成交量
-        amount: Number(parts[6]), // 成交额
-        amplitude: Number(parts[7]), // 振幅
-        changePercent: Number(parts[8]), // 涨跌幅
-        changeAmount: Number(parts[9]),  // 涨跌额
-        turnoverRate: Number(parts[10])  // 换手率
-      };
-    });
+    try {
+      // 去掉 JSONP callback 包装
+      const jsonText = text.replace(/^jQuery\d+_\d+\(/, '').replace(/\);?$/, '');
+      const data = JSON.parse(jsonText);
+      if (!data || !data.data || !data.data.klines) {
+        if (attempt < 3) {
+          await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+          continue;
+        }
+        return null;
+      }
 
-    // 只取最近60天的数据（API的lmt参数不可靠）
-    return klines.slice(-60);
-  } catch (err) {
-    console.error(`[KLINE] 获取${symbol}历史数据失败:`, err.message);
-    return null;
+      const klines = data.data.klines.map(line => {
+        const parts = line.split(',');
+        return {
+          date: parts[0],
+          open: Number(parts[1]),
+          close: Number(parts[2]),
+          high: Number(parts[3]),
+          low: Number(parts[4]),
+          volume: Number(parts[5]),
+          amount: Number(parts[6]),
+          amplitude: Number(parts[7]),
+          changePercent: Number(parts[8]),
+          changeAmount: Number(parts[9]),
+          turnoverRate: Number(parts[10])
+        };
+      });
+
+      return klines.slice(-60);
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise(resolve => setTimeout(resolve, 400 * attempt));
+        continue;
+      }
+      console.error(`[KLINE] 解析${symbol}历史数据失败:`, err.message);
+      return null;
+    }
   }
+  return null;
 }
 
 // 计算60日技术指标

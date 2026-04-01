@@ -896,8 +896,8 @@ async function scrapeEastmoneyDomMarketWithPage(config, page, context) {
     if (!success || !text) {
       failedPages++;
       console.error(`[EMAPI] page=${pn} 最终失败，跳过该页`);
-      if (failedPages >= 3 && dedup.size < 200) {
-        console.error(`[EMAPI] 连续失败过多且样本不足，提前结束，本轮仅保留${dedup.size}只`);
+      if (failedPages >= 5 && dedup.size < 100) {
+        console.error(`[EMAPI] 连续失败过多且样本严重不足(<100)，提前结束，本轮仅保留${dedup.size}只`);
         break;
       }
       continue;
@@ -1003,56 +1003,84 @@ class MarketScanner {
 
     console.log(`[HISTORY] 开始获取${picks.length}只股票的历史数据`);
 
-    for (const pick of picks) {
-      let history = this.historyCache.get(pick.symbol);
+    // 先让页面访问一次东财首页，建立会话
+    if (this.page && picks.length > 0) {
+      try {
+        await this.page.evaluate(() => {
+          // 在页面上下文中预热，确保 Cookie 和会话状态正常
+          return fetch('https://quote.eastmoney.com/', { credentials: 'include' }).catch(() => {});
+        });
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (err) {
+        // 忽略预热失败
+      }
+    }
 
-      // 如果缓存中没有，则获取（不限制数量）
-      if (!history) {
-        console.log(`[HISTORY] 获取${pick.symbol} ${pick.name}的60日数据 (${fetchCount + 1}/${picks.length})`);
-        const klines = await fetch60DayKline(pick.symbol, context);
-        if (klines && klines.length >= 30) {
-          const indicators = calculate60DayIndicators(klines);
-          const historyScore = score60DayHistory(indicators);
-          history = { indicators, historyScore, fetchedAt: now };
-          this.historyCache.set(pick.symbol, history);
-          historyFetched.push({
-            symbol: pick.symbol,
-            name: pick.name,
-            historyScore,
-            gain60d: indicators.gain60d,
-            gain10d: indicators.gain10d,
-            maxDrawdown: indicators.maxDrawdown,
-            avgTurnover60d: indicators.avgTurnover60d
-          });
-          fetchCount++;
-        } else {
-          console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，跳过`);
+    // 分批处理，每批5只，避免并发过高触发限流
+    const batchSize = 5;
+    for (let i = 0; i < picks.length; i += batchSize) {
+      const batch = picks.slice(i, i + batchSize);
+
+      for (const pick of batch) {
+        let history = this.historyCache.get(pick.symbol);
+
+        // 如果缓存中没有，则获取
+        if (!history) {
+          console.log(`[HISTORY] 获取${pick.symbol} ${pick.name}的60日数据 (${fetchCount + 1}/${picks.length})`);
+          const klines = await fetch60DayKline(pick.symbol, context, this.page);
+          if (klines && klines.length >= 30) {
+            const indicators = calculate60DayIndicators(klines);
+            const historyScore = score60DayHistory(indicators);
+            history = { indicators, historyScore, fetchedAt: now };
+            this.historyCache.set(pick.symbol, history);
+            historyFetched.push({
+              symbol: pick.symbol,
+              name: pick.name,
+              historyScore,
+              gain60d: indicators.gain60d,
+              gain10d: indicators.gain10d,
+              maxDrawdown: indicators.maxDrawdown,
+              avgTurnover60d: indicators.avgTurnover60d
+            });
+            fetchCount++;
+          } else {
+            console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，给予降级分数`);
+            // 给个降级分数，避免完全丢失候选
+            history = { indicators: { degraded: true }, historyScore: 50, fetchedAt: now };
+            this.historyCache.set(pick.symbol, history);
+          }
+          // 每次请求后延迟600ms，避免触发限流
+          await new Promise(resolve => setTimeout(resolve, 600));
         }
-        // 每次请求后延迟300ms，避免触发限流
-        await new Promise(resolve => setTimeout(resolve, 300));
+
+        if (history) {
+          const enrichedItem = {
+            ...pick,
+            history: history.indicators,
+            historyScore: history.historyScore,
+            combinedScore: Number(((pick.score * 0.5 + history.historyScore * 0.5).toFixed(2)))
+          };
+          // 重新生成标签（基于历史数据）
+          if (enrichedItem.strategy) {
+            enrichedItem.strategy.positiveTags = buildPositiveTags(enrichedItem);
+            enrichedItem.strategy.riskTags = buildRiskTags(enrichedItem);
+          }
+          enriched.push(enrichedItem);
+        } else {
+          // 历史数据获取失败时给降级分数，避免完全丢失候选
+          // 降级候选的综合分以当日分为主，避免因历史分过低被排除
+          enriched.push({
+            ...pick,
+            history: { degraded: true },
+            historyScore: 50,
+            combinedScore: Number(((pick.score * 0.85 + 50 * 0.15).toFixed(2)))
+          });
+        }
       }
 
-      if (history) {
-        const enrichedItem = {
-          ...pick,
-          history: history.indicators,
-          historyScore: history.historyScore,
-          combinedScore: Number(((pick.score * 0.5 + history.historyScore * 0.5).toFixed(2)))
-        };
-        // 重新生成标签（基于历史数据）
-        if (enrichedItem.strategy) {
-          enrichedItem.strategy.positiveTags = buildPositiveTags(enrichedItem);
-          enrichedItem.strategy.riskTags = buildRiskTags(enrichedItem);
-        }
-        enriched.push(enrichedItem);
-      } else {
-        // 没有历史数据的标记为0分
-        enriched.push({
-          ...pick,
-          history: null,
-          historyScore: 0,
-          combinedScore: pick.score * 0.4
-        });
+      // 每批之间额外延迟
+      if (i + batchSize < picks.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
@@ -1077,9 +1105,10 @@ class MarketScanner {
     this.scanLogger.startScan(ts, bjTime);
 
     const { browser, context, page } = await openEastmoneyListPage(this.config);
+    this.page = page;
     try {
       // 获取大盘环境
-      const indexKlines = await fetchIndexData(context);
+      const indexKlines = await fetchIndexData(context, page);
       const marketRegime = analyzeMarketRegime(indexKlines);
       console.log(`[MARKET] 上证指数: ${marketRegime.current} MA20: ${marketRegime.ma20} MA60: ${marketRegime.ma60} 环境: ${marketRegime.regime}`);
 
@@ -1154,6 +1183,11 @@ class MarketScanner {
           }
 
           const h = p.history;
+
+          // 降级候选（历史数据获取失败但给了降级分数）：直接放行，避免东财历史接口异常时整个候选池清空
+          if (h.degraded) {
+            return true;
+          }
 
           // 1. 中期趋势必须向上
           if (h.gain60d === null || h.gain60d < 2) {
@@ -1625,14 +1659,14 @@ class PaperAccount {
     const reasons = [];
 
     // 1. 止损触发
-    const stopLoss = pos.pnlPct <= (this.config.stopLossPct || -5);
+    const stopLoss = pos.pnlPct <= (this.config.paperTrading?.stopLossPct || -5);
     if (stopLoss) {
       totalUrgency += weights.stopLoss;
       reasons.push({ type: '止损', weight: weights.stopLoss, detail: `${pos.pnlPct.toFixed(2)}%` });
     }
 
     // 2. 移动止盈
-    const trailingStopThreshold = this.config.takeProfitPartialPct || 7;
+    const trailingStopThreshold = this.config.paperTrading?.takeProfitPartialPct || 7;
     const drawdownFromHigh = pos.highPrice ? (((pos.highPrice - pos.currentPrice) / pos.highPrice) * 100) : 0;
     const trailingStop = pos.pnlPct > trailingStopThreshold && drawdownFromHigh >= (this.config.exitDrawdownFromHighPct || 4);
     if (trailingStop) {
