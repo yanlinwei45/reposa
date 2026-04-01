@@ -4,6 +4,11 @@ const http = require('http');
 const { chromium } = require('playwright');
 const { fetch60DayKline, calculate60DayIndicators, score60DayHistory, fetchIndexData, analyzeMarketRegime } = require('./history');
 const ScanLogger = require('./scanLogger');
+const { toBeijingTime, formatBeijingTime, isSameDay, getHistoryCacheDateKey, getTradingDaysBetween, canSellToday } = require('./utils/time');
+const { formatWan, formatPct } = require('./utils/format');
+const { normalizeSymbol, isMainBoardCode, isLikelyStName, toEastmoneyUrl } = require('./utils/symbol');
+const { createApiRoutes, serveFrontend } = require('./server/routes');
+const { renderHtml, renderPaperHtml, renderLogsHtml } = require('./render/legacyPages');
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -64,32 +69,6 @@ function parseAmountText(text) {
   return n;
 }
 
-function normalizeSymbol(symbol) {
-  const raw = String(symbol).trim().toLowerCase();
-  if (/^(sh|sz)\d{6}$/.test(raw)) return raw;
-  const pure = raw.replace(/^(sh|sz)/, '');
-  return pure.startsWith('6') || pure.startsWith('9') ? `sh${pure}` : `sz${pure}`;
-}
-
-function isMainBoardCode(code) {
-  return /^(600|601|603|605|000|001)\d{3}$/.test(String(code || '').trim());
-}
-
-function isLikelyStName(name) {
-  const n = String(name || '').toUpperCase().replace(/\s+/g, '');
-  return n.includes('ST') || n.includes('*ST');
-}
-
-function toBeijingTime(date = new Date()) {
-  const utcDate = new Date(date);
-  return new Date(utcDate.getTime() + 8 * 60 * 60 * 1000);
-}
-
-function formatBeijingTime(date = new Date()) {
-  const bjTime = toBeijingTime(date);
-  return bjTime.toISOString().replace('T', ' ').substring(0, 19);
-}
-
 function isMarketOpen(date = new Date()) {
   const bjTime = toBeijingTime(date);
   const day = bjTime.getUTCDay();
@@ -105,22 +84,6 @@ function isMarketOpen(date = new Date()) {
          (timeInMinutes >= afternoonStart && timeInMinutes <= afternoonEnd);
 }
 
-function isSameDay(date1, date2) {
-  const d1 = toBeijingTime(date1);
-  const d2 = toBeijingTime(date2);
-  return d1.getUTCFullYear() === d2.getUTCFullYear() &&
-         d1.getUTCMonth() === d2.getUTCMonth() &&
-         d1.getUTCDate() === d2.getUTCDate();
-}
-
-function getHistoryCacheDateKey(date = new Date()) {
-  const bjTime = toBeijingTime(date);
-  const year = bjTime.getUTCFullYear();
-  const month = String(bjTime.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(bjTime.getUTCDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
-
 function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
   return items.map(item => {
     const cachedHistory = historyMap?.get(item.symbol);
@@ -132,31 +95,6 @@ function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
       combinedScore: Number((((item.score || 0) * 0.5) + (cachedHistory.historyScore || 0) * 0.5).toFixed(2))
     };
   });
-}
-
-function getTradingDaysBetween(startDate, endDate) {
-  const start = toBeijingTime(startDate);
-  const end = toBeijingTime(endDate);
-  let days = 0;
-  const current = new Date(start);
-
-  while (current <= end) {
-    const day = current.getUTCDay();
-    if (day !== 0 && day !== 6) {
-      days++;
-    }
-    current.setUTCDate(current.getUTCDate() + 1);
-  }
-
-  return days;
-}
-
-function canSellToday(entryTs, currentTs = new Date()) {
-  return !isSameDay(entryTs, currentTs);
-}
-
-function toEastmoneyUrl(symbol) {
-  return `https://quote.eastmoney.com/${normalizeSymbol(symbol)}.html`;
 }
 
 function filterMainBoardTenPercent(items) {
@@ -358,17 +296,8 @@ function scoreStrategy(item, strategy) {
   };
 }
 
-function formatWan(value) {
-  if (value == null || !Number.isFinite(value)) return '-';
-  return `${(value / 10000).toFixed(2)}万`;
-}
-
-function formatPct(value) {
-  if (value == null || !Number.isFinite(value)) return '-';
-  return `${value >= 0 ? '+' : ''}${value.toFixed(2)}%`;
-}
-
-function renderHtml(state, config) {
+// 保留旧渲染函数供过渡使用
+function renderHtmlLegacy(state, config) {
   const marketRegime = state.marketRegime || {};
   const regimeColor = marketRegime.regime === 'BULL' ? '#ef4444' : marketRegime.regime === 'BEAR' ? '#22c55e' : '#9ca3af';
   const regimeText = marketRegime.regime === 'BULL' ? '牛市' : marketRegime.regime === 'BEAR' ? '熊市' : marketRegime.regime === 'NEUTRAL' ? '震荡' : '未知';
@@ -457,7 +386,7 @@ function renderHtml(state, config) {
   return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>A股扫描</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1800px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}h1{margin:0 0 16px;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid#1f2937;border-radius:14px;padding:16px}.big{font-size:24px;font-weight:700;margin-top:8px}.rule{margin:10px 0 0;line-height:1.7}.notice{margin:14px 0;padding:12px 14px;background:#111827;border:1px solid #334155;border-radius:12px;color:#cbd5e1}.diagnosis-list{margin-top:8px;line-height:1.8;color:#fcd34d;font-size:13px}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:10px 8px;border-bottom:1px solid #1f2937;font-size:13px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1;position:sticky;top:0;font-weight:600}.up{color:#ef4444}.down{color:#22c55e}.badge{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:600;display:inline-block}.badge.strong{background:rgba(239,68,68,.15);color:#fca5a5}.badge.watch{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-a{background:rgba(34,197,94,.15);color:#86efac}.badge.grade-b{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-c{background:rgba(250,204,21,.15);color:#fde68a}.badge.grade-drop{background:rgba(156,163,175,.15);color:#d1d5db}.tags{max-width:200px;white-space:normal;line-height:1.5}.tags.risk{color:#fca5a5}a{color:#93c5fd;text-decoration:none}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}}@media(max-width:640px){.grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/" class="active">扫描看板</a><a href="/paper">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>趋势低吸策略看板（东方财富口径）</h1><div class="muted rule">硬过滤：仅沪深主板、非ST、10%涨跌幅标的；换手率 ${config.strategy.minTurnoverRatePercent}%~${config.strategy.maxTurnoverRatePercent}%；量比 ${config.strategy.minVolumeRatio}~${config.strategy.maxVolumeRatio}；涨幅 ${config.strategy.minChangePercent}%~${config.strategy.maxChangePercent}%；成交额 ≥ ${(config.strategy.minAmount / 1e8).toFixed(1)}亿。策略核心：寻找60日趋势向上、短线回调到均线支撑、技术指标企稳的个股。</div><div class="notice">价格、涨跌幅、换手率、量比、成交额、持仓盈亏均为实时扫描；60日K线、MACD、RSI、历史评分按天更新一次。</div>${usingFallback ? '<div class="notice">当前无最终策略候选，以下展示市场中评分靠前的股票，便于观察盘面。</div>' : ''}${picksDiagnosis ? `<div class="notice"><strong>picks=0 诊断</strong><div class="diagnosis-list">${diagnosisItems.join('<br/>')}</div></div>` : ''}<div class="grid"><div class="card"><div class="muted">市场环境</div><div class="big" style="color:${regimeColor}">${regimeText}</div><div class="muted" style="margin-top:4px;font-size:12px">上证 ${marketRegime.current || '-'}</div></div><div class="card"><div class="muted">股票池数量</div><div class="big">${state.marketCount}</div></div><div class="card"><div class="muted">命中数量</div><div class="big">${state.strategyPicks.length}</div></div><div class="card"><div class="muted">最后扫描时间</div><div class="big" style="font-size:16px">${state.lastScanAt || '-'}</div></div><div class="card"><div class="muted">扫描轮次</div><div class="big">${state.scanRounds}</div></div><div class="card"><div class="muted">自适应状态</div><div class="muted" style="margin-top:8px;font-size:13px;line-height:1.8">高置信≥${adaptive?.confidenceBands?.high?.minScore ?? 85}分<br/>中置信≥${adaptive?.confidenceBands?.medium?.minScore ?? 75}分<br/>低置信≥${adaptive?.confidenceBands?.low?.minScore ?? 70}分<br/>牛市仓位${Math.round((regimeMultipliers.BULL?.positionSize || 1) * 100)}% · 震荡${Math.round((regimeMultipliers.NEUTRAL?.positionSize || 0.7) * 100)}% · 熊市${Math.round((regimeMultipliers.BEAR?.positionSize || 0.5) * 100)}%<br/>退出紧迫度阈值≥${adaptive?.exitUrgencyThreshold ?? 100}</div></div></div><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交额</th><th>日评分</th><th>历史分</th><th>综合分</th><th>60日涨幅</th><th>MACD</th><th>RSI</th><th>历史更新时间</th><th>等级</th><th>标签</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="19" class="muted">等待扫描数据...</td></tr>'}</tbody></table></div><script>const AUTO_REFRESH_MS=15000;const SCROLL_KEY='scroll:'+location.pathname;const saveScroll=()=>sessionStorage.setItem(SCROLL_KEY,String(window.scrollY||0));window.addEventListener('scroll',saveScroll,{passive:true});window.addEventListener('beforeunload',saveScroll);window.addEventListener('load',()=>{const y=Number(sessionStorage.getItem(SCROLL_KEY)||0);if(y>0) window.scrollTo(0,y);setTimeout(()=>{saveScroll();location.reload();},AUTO_REFRESH_MS);});async function manualBuy(button){const symbol=button.dataset.symbol;const name=button.dataset.name;const price=Number(button.dataset.price);if(!price){alert('无法获取价格');return;}const amountInput=prompt('请输入买入金额（万元）:','20');if(!amountInput)return;const amount=parseFloat(amountInput);if(isNaN(amount)||amount<=0){alert('金额无效');return;}const amountInYuan=amount*10000;const estimatedQty=Math.floor(amountInYuan/price/100)*100;if(estimatedQty<100){alert('金额不足买入一手');return;}if(!confirm('买入 '+symbol+' '+name+'\\n价格: '+price+'\\n金额: '+amount+'万元\\n预计: '+estimatedQty+'股\\n\\n确认买入?'))return;try{const resp=await fetch('/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,name,price,amount:amountInYuan})});const result=await resp.json();if(result.success){alert('买入成功: '+result.message);location.reload();}else{alert('买入失败: '+result.error);}}catch(err){alert('买入失败: '+err.message);}}</script></body></html>`;
 }
 
-function renderPaperHtml(state, portfolio, config) {
+function renderPaperHtmlLegacy(state, portfolio, config) {
   const marketRegime = state.marketRegime || {};
   const regimeColor = marketRegime.regime === 'BULL' ? '#ef4444' : marketRegime.regime === 'BEAR' ? '#22c55e' : '#9ca3af';
   const regimeText = marketRegime.regime === 'BULL' ? '牛市' : marketRegime.regime === 'BEAR' ? '熊市' : marketRegime.regime === 'NEUTRAL' ? '震荡' : '未知';
@@ -650,7 +579,7 @@ loadData();
 </script></body></html>`;
 }
 
-function renderLogsHtml(scanLogger) {
+function renderLogsHtmlLegacy(scanLogger) {
   function renderDecisionList(title, items, colorClass, formatter) {
     if (!Array.isArray(items) || items.length === 0) return '';
     return `<div class="decision-block ${colorClass}"><div class="decision-title">${title}</div><ul class="decision-list">${items.map(formatter).join('')}</ul></div>`;
@@ -2215,183 +2144,54 @@ async function main() {
     }
   }, logsDir);
   global.scanLoggerRef = scanner.scanLogger;
+
+  // 暴露旧渲染函数供 legacyPages 使用
+  global.__legacyRenderPaperHtml = renderPaperHtmlLegacy;
+  global.__legacyRenderLogsHtml = renderLogsHtmlLegacy;
+
+  // 创建统一 API 路由
+  const apiRoutes = createApiRoutes(state, config, paperAccount, scanner.scanLogger);
+  const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
+  const useFrontend = fs.existsSync(frontendDistPath);
+
   const server = http.createServer((req, res) => {
-    if (req.url === '/') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(renderHtml(state, config)); return; }
+    // 优先匹配 API 路由
+    const routeKey = req.method === 'POST' ? `POST ${req.url}` : req.url;
+    if (apiRoutes[routeKey]) {
+      apiRoutes[routeKey](req, res);
+      return;
+    }
+
+    // 新前端页面路由（如果已构建）
+    if (useFrontend && (req.url === '/' || req.url === '/paper' || req.url === '/logs' || req.url.startsWith('/assets/'))) {
+      serveFrontend(req, res, frontendDistPath);
+      return;
+    }
+
+    // 旧页面路由（过渡期保留）
+    if (req.url === '/') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(renderHtml(state, config, paperAccount, scanner.scanLogger)); return; }
     if (paperAccount && req.url === '/paper') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(renderPaperHtml(state, paperAccount.getPortfolio(), config)); return; }
     if (req.url === '/logs') { res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' }); res.end(renderLogsHtml(scanner.scanLogger)); return; }
-    if (req.url === '/api/logs') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(scanner.scanLogger.getRecentLogs(50))); return; }
-    if (req.url === '/health') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: true, mode: state.mode, startedAt: state.startedAt, scanRounds: state.scanRounds, marketCount: state.marketCount, lastScanAt: state.lastScanAt, paperTradingEnabled: !!paperAccount })); return; }
-    if (req.url === '/state') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(state)); return; }
-    if (req.url === '/scan') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(state.market)); return; }
-    if (req.url === '/strategy') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(state.strategyPicks)); return; }
 
-    // 新增模拟盘接口
-    if (paperAccount && req.url === '/portfolio') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(paperAccount.getPortfolio())); return; }
-    if (paperAccount && req.url === '/orders') { res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(paperAccount.orders.slice(-100))); return; }
-    if (paperAccount && req.url === '/trades') {
-      const trades = fs.existsSync(paperAccount.tradesPath) ? fs.readFileSync(paperAccount.tradesPath, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch(_) { return null } }).filter(Boolean).reverse().slice(0, 100) : [];
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(trades)); return;
-    }
-    if (paperAccount && req.url === '/settlement') {
-      const settlement = fs.existsSync(paperAccount.settlementPath) ? fs.readFileSync(paperAccount.settlementPath, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch(_) { return null } }).filter(Boolean).reverse().slice(0, 100) : [];
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(settlement)); return;
-    }
-    if (paperAccount && req.url === '/statistics') {
-      const stats = fs.existsSync(paperAccount.statisticsPath) ? JSON.parse(fs.readFileSync(paperAccount.statisticsPath, 'utf8')) : paperAccount.statistics;
-      const winRate = stats.totalTrades > 0 ? (stats.winTrades / stats.totalTrades * 100) : 0;
-      const avgHoldDays = stats.totalTrades > 0 ? (stats.totalHoldDays / stats.totalTrades) : 0;
-      const avgWin = stats.winTrades > 0 ? ((stats.totalWinPnl || 0) / stats.winTrades / 10000) : 0;
-      const avgLoss = stats.lossTrades > 0 ? ((stats.totalLossPnl || 0) / stats.lossTrades / 10000) : 0;
-      const profitFactor = (stats.totalLossPnl || 0) > 0 ? (stats.totalWinPnl || 0) / (stats.totalLossPnl || 1) : 0;
-      const totalPnlPct = (stats.totalPnl / paperAccount.config.initialCash * 100);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
-        ...stats,
-        winRate: Number(winRate.toFixed(2)),
-        avgHoldDays: Number(avgHoldDays.toFixed(1)),
-        avgWin: Number(avgWin.toFixed(2)),
-        avgLoss: Number(avgLoss.toFixed(2)),
-        profitFactor: Number(profitFactor.toFixed(2)),
-        totalPnlPct: Number(totalPnlPct.toFixed(2))
-      }));
-      return;
-    }
-    if (paperAccount && req.url === '/equity') {
-      const equity = fs.existsSync(paperAccount.equityPath) ? fs.readFileSync(paperAccount.equityPath, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch(_) { return null } }).filter(Boolean) : [];
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(equity)); return;
-    }
-    if (paperAccount && req.url === '/alerts') {
-      const alerts = fs.existsSync(paperAccount.alertsPath) ? fs.readFileSync(paperAccount.alertsPath, 'utf8').split('\n').filter(Boolean).map(line => { try { return JSON.parse(line) } catch(_) { return null } }).filter(Boolean).reverse().slice(0, 50) : [];
-      res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(alerts)); return;
-    }
+    // 兼容旧接口（无 /api 前缀）
+    if (req.url === '/health') { apiRoutes['/api/health'](req, res); return; }
+    if (req.url === '/state') { apiRoutes['/api/state'](req, res); return; }
+    if (req.url === '/scan') { apiRoutes['/api/scan'](req, res); return; }
+    if (req.url === '/strategy') { apiRoutes['/api/strategy'](req, res); return; }
+    if (paperAccount && req.url === '/portfolio') { apiRoutes['/api/portfolio'](req, res); return; }
+    if (paperAccount && req.url === '/orders') { apiRoutes['/api/orders'](req, res); return; }
+    if (paperAccount && req.url === '/trades') { apiRoutes['/api/trades'](req, res); return; }
+    if (paperAccount && req.url === '/settlement') { apiRoutes['/api/settlement'](req, res); return; }
+    if (paperAccount && req.url === '/statistics') { apiRoutes['/api/statistics'](req, res); return; }
+    if (paperAccount && req.url === '/equity') { apiRoutes['/api/equity'](req, res); return; }
+    if (paperAccount && req.url === '/alerts') { apiRoutes['/api/alerts'](req, res); return; }
+    if (paperAccount && req.method === 'POST' && req.url === '/buy') { apiRoutes['POST /api/buy'](req, res); return; }
+    if (paperAccount && req.method === 'POST' && req.url === '/sell') { apiRoutes['POST /api/sell'](req, res); return; }
 
-    if (paperAccount && req.method === 'POST' && req.url === '/buy') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const { symbol, name, price, amount } = JSON.parse(body);
-          const normalizedSymbol = normalizeSymbol(symbol);
-          const marketItem = state.market.find(item => item.symbol === normalizedSymbol);
-          if (!marketItem) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `扫描池中没有 ${normalizedSymbol}` }));
-            return;
-          }
-          if (paperAccount.positions.has(normalizedSymbol)) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 已在持仓中` }));
-            return;
-          }
-          const adaptive = paperAccount.getAdaptiveConfig();
-          const regimeConfig = adaptive.regimeMultipliers[state.marketRegime?.regime || 'NEUTRAL'] || adaptive.regimeMultipliers.NEUTRAL;
-          const dynamicMaxPositions = Math.min(paperAccount.config.maxPositions, regimeConfig.maxPositions || paperAccount.config.maxPositions);
-          if (paperAccount.positions.size >= dynamicMaxPositions) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `持仓数量已达上限 ${dynamicMaxPositions}` }));
-            return;
-          }
-          const lastSellTs = paperAccount.sellCooldown.get(normalizedSymbol);
-          if (lastSellTs) {
-            const minutesSinceSell = (Date.now() - new Date(lastSellTs).getTime()) / (1000 * 60);
-            const cooldownMinutes = paperAccount.config.buyCooldownMinutes || 60;
-            if (minutesSinceSell < cooldownMinutes) {
-              res.writeHead(400, { 'Content-Type': 'application/json' });
-              res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 仍在冷却期内` }));
-              return;
-            }
-          }
-          const orderPrice = Number(price) || Number(marketItem.price);
-          if (!orderPrice || orderPrice <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 当前价格无效` }));
-            return;
-          }
-
-          const suggestion = paperAccount.getSuggestedPositionValue(marketItem, state.marketRegime?.regime || 'NEUTRAL');
-          if (!suggestion.allowed) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `自适应系统拒绝买入: ${suggestion.reason}` }));
-            return;
-          }
-
-          const requestedAmount = Number(amount);
-          if (!requestedAmount || requestedAmount <= 0) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `买入金额无效` }));
-            return;
-          }
-          const availableCash = paperAccount.cash - paperAccount.config.minCashReserve;
-          if (requestedAmount > availableCash) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `可用资金不足，最多可用 ${(availableCash / 10000).toFixed(2)}万` }));
-            return;
-          }
-          const lotSize = paperAccount.config.lotSize || 100;
-          const quantity = Math.floor(requestedAmount / orderPrice / lotSize) * lotSize;
-          if (quantity < lotSize) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 可买数量不足一手` }));
-            return;
-          }
-          const combinedScore = marketItem.combinedScore || marketItem.score || 0;
-          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动买入(置信度${suggestion.confidence})`, {
-            confidence: suggestion.confidence,
-            combinedScore,
-            sector: marketItem.sector || 'UNKNOWN'
-          });
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({
-            success: true,
-            message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已买入 ${quantity}股 @${orderPrice}`,
-            suggestion: {
-              confidence: suggestion.confidence,
-              suggestedAmount: (suggestion.suggestedAmount / 10000).toFixed(2) + '万',
-              actualAmount: (requestedAmount / 10000).toFixed(2) + '万',
-              reason: suggestion.reason
-            }
-          }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err.message }));
-        }
-      });
-      return;
-    }
-
-    if (paperAccount && req.method === 'POST' && req.url === '/sell') {
-      let body = '';
-      req.on('data', chunk => { body += chunk; });
-      req.on('end', () => {
-        try {
-          const { symbol } = JSON.parse(body);
-          const pos = paperAccount.positions.get(symbol);
-          if (!pos) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `持仓中没有 ${symbol}` }));
-            return;
-          }
-          // T+1检查：当天买入的不能当天卖出
-          const currentTime = new Date();
-          const canSell = canSellToday(pos.entryTs, currentTime);
-          if (!canSell) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `T+1限制：${symbol} ${pos.name} 今天买入，下个交易日才能卖出` }));
-            return;
-          }
-          paperAccount.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, '手动卖出');
-          res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: `${symbol} ${pos.name} 已卖出 ${pos.quantity}股 @${pos.currentPrice}` }));
-        } catch (err) {
-          res.writeHead(500, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: false, error: err.message }));
-        }
-      });
-      return;
-    }
-
+    // 单个股票查询
     const match = req.url.match(/^\/scan\/(sh\d{6}|sz\d{6}|\d{6})$/);
     if (match) { const raw = req.url.split('/').pop(); const symbol = normalizeSymbol(raw); const item = state.market.find((x) => x.symbol === symbol) || null; res.writeHead(200, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(item)); return; }
+
     res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }));
   });
   server.listen(config.server.port, async () => { console.log(`[HTTP] server listening on http://localhost:${config.server.port}`); console.log('[APP] Eastmoney DOM market scanner started'); await scanner.start(); });
