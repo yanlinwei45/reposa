@@ -191,6 +191,11 @@ function calculate60DayIndicators(klines) {
 
   // 均值计算（排除涨跌停板）
   const avg60d = prices.reduce((a, b) => a + b, 0) / len;
+  const ma5 = len >= 5 ? prices.slice(-5).reduce((a, b) => a + b, 0) / 5 : null;
+  const ma10 = len >= 10 ? prices.slice(-10).reduce((a, b) => a + b, 0) / 10 : null;
+  const ma20 = len >= 20 ? prices.slice(-20).reduce((a, b) => a + b, 0) / 20 : null;
+  const ma30 = len >= 30 ? prices.slice(-30).reduce((a, b) => a + b, 0) / 30 : null;
+  const ma60 = prices.reduce((a, b) => a + b, 0) / len;
   const avgVolume60d = normalCount > 0
     ? normalDays.reduce((a, b) => a + b.volume, 0) / normalCount
     : volumes.reduce((a, b) => a + b, 0) / len;
@@ -215,31 +220,24 @@ function calculate60DayIndicators(klines) {
     ? recent5Normal.reduce((a, b) => a + b.turnoverRate, 0) / recent5NormalCount
     : recent5.reduce((a, b) => a + b.turnoverRate, 0) / 5;
 
-  // 缩量涨停统计（强势信号）
-  // 涨停：涨幅≥9.5%，缩量：换手率<5%
-  const limitUpDays = klines.filter(k => k.changePercent >= 9.5);
-  const lowVolumeLimitUps = limitUpDays.filter(k => k.turnoverRate < 5);
-  const recent10LimitUps = klines.slice(-10).filter(k => k.changePercent >= 9.5 && k.turnoverRate < 5).length;
-
   // 最高价和最低价
   const high60d = Math.max(...prices);
   const low60d = Math.min(...prices);
+  const distanceToHigh60d = ((latest.close - high60d) / high60d) * 100;
+  const deviationFromMA20 = ma20 ? ((latest.close - ma20) / ma20) * 100 : null;
+  const deviationFromMA30 = ma30 ? ((latest.close - ma30) / ma30) * 100 : null;
+  const deviationFromMA60 = ma60 ? ((latest.close - ma60) / ma60) * 100 : null;
 
   // 最大回撤（用累计收益率计算，避免复权数据失真）
   let maxDrawdown = 0;
-  let cumulativeReturn = 1.0; // 累计收益率
-  let peakReturn = 1.0; // 峰值收益率
+  let cumulativeReturn = 1.0;
+  let peakReturn = 1.0;
 
   for (const k of klines) {
-    // 累计收益率 = 前一天累计收益率 × (1 + 当日涨跌幅%)
     cumulativeReturn *= (1 + k.changePercent / 100);
-
-    // 更新峰值
     if (cumulativeReturn > peakReturn) {
       peakReturn = cumulativeReturn;
     }
-
-    // 计算从峰值的回撤
     const drawdown = ((peakReturn - cumulativeReturn) / peakReturn) * 100;
     if (drawdown > maxDrawdown) {
       maxDrawdown = drawdown;
@@ -270,10 +268,7 @@ function calculate60DayIndicators(klines) {
     }
   }
 
-  // 是否突破60日新高
   const isBreakoutHigh = latest.close >= high60d * 0.98;
-
-  // 价格相对60日均线位置
   const priceVsAvg = ((latest.close - avg60d) / avg60d) * 100;
 
   // 波动率（标准差）
@@ -287,21 +282,30 @@ function calculate60DayIndicators(klines) {
   // 技术指标：MACD和RSI
   const macd = calculateMACD(prices);
   const rsi = calculateRSI(prices, 14);
+  const prevMacd = len >= 35 ? calculateMACD(prices.slice(0, -1)) : null;
+  const macdHistogramTrend = prevMacd ? macd.histogram - prevMacd.histogram : 0;
+  const macdHistogramImproving = prevMacd ? macd.histogram > prevMacd.histogram : false;
 
   return {
-    // 涨幅指标
-    gain60d: gain60d ? Number(gain60d.toFixed(2)) : null,
-    gain30d: gain30d ? Number(gain30d.toFixed(2)) : null,
-    gain10d: gain10d ? Number(gain10d.toFixed(2)) : null,
-    gain5d: gain5d ? Number(gain5d.toFixed(2)) : null,
+    gain60d: gain60d != null ? Number(gain60d.toFixed(2)) : null,
+    gain30d: gain30d != null ? Number(gain30d.toFixed(2)) : null,
+    gain10d: gain10d != null ? Number(gain10d.toFixed(2)) : null,
+    gain5d: gain5d != null ? Number(gain5d.toFixed(2)) : null,
 
-    // 价格指标
     high60d: Number(high60d.toFixed(2)),
     low60d: Number(low60d.toFixed(2)),
     avg60d: Number(avg60d.toFixed(2)),
+    ma5: ma5 != null ? Number(ma5.toFixed(2)) : null,
+    ma10: ma10 != null ? Number(ma10.toFixed(2)) : null,
+    ma20: ma20 != null ? Number(ma20.toFixed(2)) : null,
+    ma30: ma30 != null ? Number(ma30.toFixed(2)) : null,
+    ma60: Number(ma60.toFixed(2)),
     priceVsAvg: Number(priceVsAvg.toFixed(2)),
+    distanceToHigh60d: Number(distanceToHigh60d.toFixed(2)),
+    deviationFromMA20: deviationFromMA20 != null ? Number(deviationFromMA20.toFixed(2)) : null,
+    deviationFromMA30: deviationFromMA30 != null ? Number(deviationFromMA30.toFixed(2)) : null,
+    deviationFromMA60: deviationFromMA60 != null ? Number(deviationFromMA60.toFixed(2)) : null,
 
-    // 量能指标
     avgVolume60d: Number(avgVolume60d.toFixed(0)),
     avgAmount60d: Number(avgAmount60d.toFixed(0)),
     avgTurnover60d: Number(avgTurnover60d.toFixed(2)),
@@ -311,94 +315,101 @@ function calculate60DayIndicators(klines) {
     volumeRatio5d: Number(volumeRatio5d.toFixed(2)),
     amountRatio5d: Number(amountRatio5d.toFixed(2)),
 
-    // 风险指标
     maxDrawdown: Number(maxDrawdown.toFixed(2)),
     volatility: Number(volatility.toFixed(2)),
 
-    // 趋势指标
     upDays,
     upDaysRatio: Number(upDaysRatio.toFixed(2)),
     consecutiveUpDays,
     consecutiveDownDays,
     isBreakoutHigh,
 
-    // 技术指标
     macd: macd.macd,
     macdSignal: macd.signal,
     macdHistogram: macd.histogram,
-    macdBullish: macd.histogram > 0,  // MACD柱状图为正（多头）
+    macdBullish: macd.histogram > 0,
+    macdHistogramTrend: Number(macdHistogramTrend.toFixed(4)),
+    macdHistogramImproving,
     rsi,
-    rsiOverbought: rsi > 70,   // 超买
-    rsiOversold: rsi < 30,     // 超卖
+    rsiOverbought: rsi > 70,
+    rsiOversold: rsi < 30,
 
-    // 涨停统计（强势信号）
-    limitUpCount: limitUpDays.length,           // 60日涨停次数
-    lowVolumeLimitUpCount: lowVolumeLimitUps.length, // 60日缩量涨停次数
-    recent10LimitUps,                           // 近10日缩量涨停次数
+    limitUpCount: klines.filter(k => k.changePercent >= 9.5).length,
+    lowVolumeLimitUpCount: klines.filter(k => k.changePercent >= 9.5 && k.turnoverRate < 5).length,
+    recent10LimitUps: klines.slice(-10).filter(k => k.changePercent >= 9.5 && k.turnoverRate < 5).length,
 
-    // 元数据
     dataPoints: len,
     latestDate: latest.date
   };
 }
 
-// 基于60日数据的评分
+// 基于60日数据的评分（趋势低吸策略）
 function score60DayHistory(indicators) {
   if (!indicators) return 0;
 
   let score = 0;
 
-  // 趋势得分（30分）
+  // A. 中期趋势分（30分）
   if (indicators.gain60d !== null) {
-    if (indicators.gain60d >= 20 && indicators.gain60d <= 40) score += 10;
-    else if (indicators.gain60d >= 40 && indicators.gain60d <= 60) score += 8;
-    else if (indicators.gain60d >= 0 && indicators.gain60d < 20) score += 5;
+    if (indicators.gain60d >= 5 && indicators.gain60d <= 25) score += 15;
+    else if (indicators.gain60d > 25 && indicators.gain60d <= 40) score += 12;
+    else if (indicators.gain60d > 40) score += 8;
+    else if (indicators.gain60d >= 0 && indicators.gain60d < 5) score += 5;
   }
 
-  if (indicators.isBreakoutHigh) score += 10;
-  if (indicators.priceVsAvg > 0) score += 5;
-  if (indicators.consecutiveUpDays >= 3) score += 5;
+  if (indicators.gain30d !== null) {
+    if (indicators.gain30d >= 0 && indicators.gain30d <= 15) score += 10;
+    else if (indicators.gain30d > 15 && indicators.gain30d <= 25) score += 7;
+    else if (indicators.gain30d > 25) score += 5;
+  }
 
-  // 量能得分（25分）
-  if (indicators.volumeRatio5d >= 2) score += 10;
-  else if (indicators.volumeRatio5d >= 1.5) score += 7;
+  if (indicators.ma20 && indicators.ma60 && indicators.ma20 > indicators.ma60) score += 5;
 
-  if (indicators.avgAmount60d >= 1000000000) score += 5;
-  else if (indicators.avgAmount60d >= 500000000) score += 3;
+  // B. 低位回调分（30分）
+  if (indicators.distanceToHigh60d >= -25 && indicators.distanceToHigh60d <= -5) score += 15;
+  else if (indicators.distanceToHigh60d > -5 && indicators.distanceToHigh60d <= -3) score += 8;
+  else if (indicators.distanceToHigh60d > -30 && indicators.distanceToHigh60d < -25) score += 8;
 
-  if (indicators.avgTurnover5d > indicators.avgTurnover60d * 1.5) score += 10;
-  else if (indicators.avgTurnover5d > indicators.avgTurnover60d * 1.2) score += 5;
+  if (indicators.gain5d !== null) {
+    if (indicators.gain5d >= -8 && indicators.gain5d <= 3) score += 10;
+    else if (indicators.gain5d > 3 && indicators.gain5d <= 5) score += 5;
+  }
 
-  // 稳定性得分（20分）
-  if (indicators.volatility < 3) score += 10;
-  else if (indicators.volatility < 5) score += 7;
-  else if (indicators.volatility < 7) score += 3;
+  if (indicators.deviationFromMA20 !== null) {
+    const dev = indicators.deviationFromMA20;
+    if (dev >= -8 && dev <= 4) score += 5;
+    else if (dev >= -12 && dev < -8) score += 3;
+  }
 
-  if (indicators.maxDrawdown < 15) score += 10;
-  else if (indicators.maxDrawdown < 25) score += 5;
+  // C. 企稳信号分（20分）
+  if (indicators.consecutiveDownDays <= 3) score += 5;
+  else if (indicators.consecutiveDownDays === 4) score += 3;
 
-  // 强度得分（15分）
-  if (indicators.upDaysRatio >= 55) score += 10;
-  else if (indicators.upDaysRatio >= 50) score += 7;
-  else if (indicators.upDaysRatio >= 45) score += 5;
+  if (indicators.macdHistogram > -0.08) score += 8;
+  else if (indicators.macdHistogram > -0.15) score += 5;
 
-  if (indicators.gain5d !== null && indicators.gain5d > 0) score += 5;
+  if (indicators.rsi >= 30 && indicators.rsi <= 55) score += 7;
+  else if (indicators.rsi > 55 && indicators.rsi <= 60) score += 5;
+  else if (indicators.rsi < 30) score -= 3;
 
-  // 缩量涨停加分（10分）- 强势信号
-  if (indicators.recent10LimitUps >= 2) score += 10;  // 近10日有2次以上缩量涨停
-  else if (indicators.recent10LimitUps >= 1) score += 5;  // 近10日有1次缩量涨停
+  // D. 流动性与稳定性分（20分）
+  if (indicators.avgAmount60d >= 500000000) score += 5;
+  else if (indicators.avgAmount60d >= 300000000) score += 3;
 
-  // 技术指标得分（15分）
-  if (indicators.macdBullish && indicators.macdHistogram > 0.1) score += 8;  // MACD多头强势
-  else if (indicators.macdBullish) score += 5;  // MACD多头
+  if (indicators.avgTurnover60d >= 2) score += 5;
+  else if (indicators.avgTurnover60d >= 1.5) score += 3;
 
-  if (indicators.rsi >= 50 && indicators.rsi <= 70) score += 7;  // RSI健康区间
-  else if (indicators.rsi > 70) score -= 5;  // RSI超买，扣分
-  else if (indicators.rsi < 30) score -= 3;  // RSI超卖，扣分
+  if (indicators.maxDrawdown <= 25) score += 5;
+  else if (indicators.maxDrawdown <= 35) score += 3;
+
+  if (indicators.volatility <= 6) score += 5;
+  else if (indicators.volatility <= 8) score += 3;
 
   // 风险扣分
-  if (indicators.consecutiveDownDays >= 5) score -= 10; // 连续下跌
-  if (indicators.maxDrawdown > 30) score -= 10; // 回撤过大
+  if (indicators.consecutiveDownDays >= 5) score -= 10;
+  if (indicators.maxDrawdown > 40) score -= 10;
+  if (indicators.distanceToHigh60d > -5) score -= 8; // 离高点太近
+  if (indicators.gain10d !== null && indicators.gain10d < -10) score -= 8;
 
   return Math.max(0, Math.min(100, score));
 }

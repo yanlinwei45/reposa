@@ -187,26 +187,29 @@ async function fetchRealtimePricesForSymbols(symbols) {
 }
 
 function scoreTurnoverRatePercent(v) {
-  if (v >= 30) return 30;
-  if (v >= 20) return 27;
-  if (v >= 15) return 22;
-  if (v >= 10) return 15;
+  if (v >= 2 && v <= 4) return 20;
+  if (v > 4 && v <= 6) return 18;
+  if (v > 6 && v <= 8) return 15;
+  if (v > 8) return 10;
   return 0;
 }
 
 function scoreVolumeRatio(v) {
-  if (v > 6) return 30;
-  if (v >= 4) return 27;
-  if (v >= 3) return 22;
-  if (v >= 2) return 15;
+  if (v >= 0.9 && v <= 1.3) return 25;
+  if (v > 1.3 && v <= 1.6) return 22;
+  if (v >= 0.8 && v < 0.9) return 18;
+  if (v > 1.6 && v <= 1.8) return 15;
+  if (v > 1.8) return 10;
   return 0;
 }
 
 function scoreChangePercent(v, maxChangePercent) {
-  if (v > maxChangePercent) return 0;
-  if (v >= 7 && v <= maxChangePercent) return 20;
-  if (v >= 5 && v < 7) return 18;
-  if (v >= 3 && v < 5) return 12;
+  if (v < -3 || v > maxChangePercent) return 0;
+  if (v >= -1 && v <= 1) return 25;
+  if (v > 1 && v <= 2) return 22;
+  if (v >= -2 && v < -1) return 20;
+  if (v > 2 && v <= 2.5) return 18;
+  if (v >= -3 && v < -2) return 15;
   return 0;
 }
 
@@ -234,54 +237,50 @@ function scoreAboveOpen(item) {
 
 function buildPositiveTags(item) {
   const tags = [];
-  const turnoverRatePercent = item.turnoverRatePercent || 0;
   const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
-  const turnover = item.turnover || 0;
-  const changePercent = item.changePercent || 0;
-  const price = item.price || 0;
-  const open = item.open || 0;
-  const high = item.high || 0;
 
-  if (turnoverRatePercent >= 15) tags.push('高换手');
-  else if (turnoverRatePercent >= 10) tags.push('换手达标');
-
-  if (volumeRatio >= 4) tags.push('强放量');
-  else if (volumeRatio >= 3) tags.push('明显放量');
-  else if (volumeRatio >= 2) tags.push('放量达标');
-
-  if (turnover >= 1000000000) tags.push('大成交额');
-  else if (turnover >= 500000000) tags.push('成交额充足');
-
-  if (changePercent >= 7) tags.push('强势上涨');
-  else if (changePercent >= 5) tags.push('中强上涨');
-  else if (changePercent >= 3) tags.push('启动区间');
-
-  if (high && price) {
-    const drawdownPct = ((high - price) / price) * 100;
-    if (drawdownPct <= 1.5) tags.push('接近日内高点');
+  if (item.history?.distanceToHigh60d >= -20 && item.history?.distanceToHigh60d <= -8) {
+    tags.push('回撤到位');
   }
-
-  if (open && price && price > open) tags.push('强于开盘价');
+  if (item.history?.deviationFromMA20 >= -3 && item.history?.deviationFromMA20 <= 3) {
+    tags.push('接近MA20');
+  }
+  if (item.history?.rsi >= 35 && item.history?.rsi <= 50) {
+    tags.push('RSI低位');
+  }
+  if (item.history?.macdHistogram > -0.05 && item.history?.macdHistogram < 0.1) {
+    tags.push('MACD修复');
+  }
+  if (volumeRatio >= 0.9 && volumeRatio <= 1.6) {
+    tags.push('温和承接');
+  }
+  if (item.history?.gain60d > 8) {
+    tags.push('趋势向上');
+  }
+  if ((item.turnover || 0) >= 500000000) {
+    tags.push('成交额充足');
+  }
   return tags;
 }
 
 function buildRiskTags(item) {
   const tags = [];
-  const changePercent = item.changePercent || 0;
-  const turnoverRatePercent = item.turnoverRatePercent || 0;
-  const turnover = item.turnover || 0;
-  const open = item.open || 0;
-  const price = item.price || 0;
-  const high = item.high || 0;
+  const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
 
-  if (changePercent > 8.0) tags.push('接近涨停_谨慎追高');
-  if (turnoverRatePercent > 30) tags.push('超高换手_波动较大');
-  if (turnover < 500000000) tags.push('成交额偏低');
-  if (open && price && price < open) tags.push('弱于开盘价');
-
-  if (high && price) {
-    const drawdownPct = ((high - price) / price) * 100;
-    if (drawdownPct > 2.5) tags.push('冲高回落迹象');
+  if (item.history?.distanceToHigh60d > -5) {
+    tags.push('离高点过近');
+  }
+  if (item.history?.maxDrawdown > 25) {
+    tags.push('回撤过深');
+  }
+  if (item.history?.consecutiveDownDays >= 4) {
+    tags.push('连续下跌');
+  }
+  if (volumeRatio < 0.8) {
+    tags.push('缩量过度');
+  }
+  if ((item.turnover || 0) < 500000000) {
+    tags.push('成交额偏低');
   }
 
   return tags;
@@ -302,14 +301,18 @@ function scoreStrategy(item, strategy) {
   const volRatio = item.volumeBurstRatio || item.volumeRatio || 0;
   const changePercent = item.changePercent || 0;
   const turnover = item.turnover || 0;
-  const maxChangePercent = strategy.maxChangePercent == null ? 8.5 : strategy.maxChangePercent;
+  const maxChangePercent = strategy.maxChangePercent == null ? 2.5 : strategy.maxChangePercent;
+  const maxTurnoverRatePercent = strategy.maxTurnoverRatePercent == null ? 8 : strategy.maxTurnoverRatePercent;
+  const maxVolumeRatio = strategy.maxVolumeRatio == null ? 1.8 : strategy.maxVolumeRatio;
 
   const hardMatched =
     !!item.isMainBoard &&
     !item.isST &&
     !!item.isTenPercentLimit &&
     turnoverRatePercent >= strategy.minTurnoverRatePercent &&
+    turnoverRatePercent <= maxTurnoverRatePercent &&
     volRatio >= strategy.minVolumeRatio &&
+    volRatio <= maxVolumeRatio &&
     changePercent >= strategy.minChangePercent &&
     changePercent <= maxChangePercent &&
     turnover >= strategy.minAmount;
@@ -318,9 +321,7 @@ function scoreStrategy(item, strategy) {
     scoreTurnoverRatePercent(turnoverRatePercent) +
     scoreVolumeRatio(volRatio) +
     scoreChangePercent(changePercent, maxChangePercent) +
-    scoreTurnoverAmount(turnover) +
-    scoreNearHigh(item) +
-    scoreAboveOpen(item);
+    scoreTurnoverAmount(turnover);
 
   const score = Math.min(rawScore, 100);
   const grade = getStrategyGrade(score, strategy);
@@ -341,8 +342,8 @@ function scoreStrategy(item, strategy) {
         notST: !item.isST,
         tenPercentLimit: !!item.isTenPercentLimit,
         turnoverQualified: turnover >= strategy.minAmount,
-        turnoverRateQualified: turnoverRatePercent >= strategy.minTurnoverRatePercent,
-        volumeRatioQualified: volRatio >= strategy.minVolumeRatio,
+        turnoverRateQualified: turnoverRatePercent >= strategy.minTurnoverRatePercent && turnoverRatePercent <= maxTurnoverRatePercent,
+        volumeRatioQualified: volRatio >= strategy.minVolumeRatio && volRatio <= maxVolumeRatio,
         changePercentQualified: changePercent >= strategy.minChangePercent && changePercent <= maxChangePercent
       }
     }
@@ -370,14 +371,19 @@ function renderHtml(state, config) {
   const filterStats = historyFilterStep?.data?.filterStats || {};
   const filterReasonLabels = {
     noHistory: '无历史数据',
-    bearMarketVolume: '熊市量比不足',
-    gain60dNegative: '60日涨幅为负',
-    gain10dNegative: '10日涨幅为负',
-    maxDrawdownHigh: '最大回撤过大',
+    trend60dLow: '60日趋势不足',
+    trend30dLow: '30日趋势不足',
+    gain10dTooLow: '10日跌幅过大',
+    gain5dOutOfRange: '5日回调不符',
+    maxDrawdownHigh: '回撤过深',
+    distanceToHighInvalid: '离高点位置不对',
     consecutiveDown: '连续下跌过多',
-    avgTurnoverLow: '60日平均换手过低',
-    volumeRatio5dLow: '近5日放量不足',
-    upDaysRatioLow: '上涨天数占比过低',
+    maTrendInvalid: '均线趋势不对',
+    belowMa60: '跌破MA60',
+    rsiOutOfRange: 'RSI不在低吸区',
+    macdTooWeak: 'MACD过弱',
+    avgAmountLow: '成交额不足',
+    avgTurnoverLow: '换手率过低',
     historyScoreLow: '历史评分不足'
   };
   const topFilterReasons = Object.entries(filterStats)
@@ -401,9 +407,8 @@ function renderHtml(state, config) {
   const fallbackDiagnosis = usingFallback
     ? [
         state.marketCount === 0 ? '当前行情抓取为空，需先确认数据源是否正常' : '',
-        state.marketCount > 0 && topFilterReasons.length === 0 ? '当前无明确过滤统计，可能是策略阈值较严或非交易时段未执行历史筛选' : '',
-        marketRegime.regime === 'BEAR' ? '当前处于熊市环境，仓位和筛选会更保守' : '',
-        state.market?.length > 0 && !state.market.some(item => (item.score || 0) >= 70) ? '当日高分候选不足，说明盘面强势股较少' : ''
+        state.marketCount > 0 && topFilterReasons.length === 0 ? '当前没有进入最终候选，可能是样本抓取偏少或筛选阈值仍偏严' : '',
+        state.market?.length > 0 && !state.market.some(item => (item.score || 0) >= 60) ? '当日中高分候选偏少，说明当前盘面与低吸模型匹配度不高' : ''
       ].filter(Boolean).slice(0, 3)
     : [];
   const diagnosisItems = topFilterReasons.length ? topFilterReasons : fallbackDiagnosis;
@@ -424,7 +429,7 @@ function renderHtml(state, config) {
     const rsi = history.rsi != null ? history.rsi.toFixed(1) : '-';
     return `<tr><td>${idx + 1}</td><td>${item.symbol || ''}</td><td>${item.name || ''}</td><td style="font-size:12px;color:#9ca3af">${item.sector || '-'}</td><td>${item.price ?? ''}</td><td class="${(item.changePercent || 0) >= 0 ? 'up' : 'down'}">${item.changePercent ?? ''}%</td><td>${item.turnoverRatePercent ?? ''}%</td><td>${item.volumeBurstRatio ?? item.volumeRatio ?? ''}</td><td>${item.turnover ? (item.turnover/1e8).toFixed(2) : ''}亿</td><td>${item.score ?? ''}</td><td>${historyScore}</td><td><strong>${combinedScore}</strong></td><td>${gain60d}</td><td>${macd}</td><td>${rsi}</td><td><span class="badge grade grade-${String(grade).toLowerCase()}">${grade || '-'}</span></td><td class="tags">${positiveTags || '-'}</td><td><div style="display:flex;gap:8px;align-items:center"><a href="${item.eastmoneyUrl}" target="_blank" rel="noreferrer">东财</a><button data-symbol="${item.symbol}" data-name="${(item.name || '').replace(/"/g, '&quot;')}" data-price="${item.price ?? ''}" onclick="manualBuy(this)" style="padding:4px 12px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:12px">买入</button></div></td></tr>`;
   }).join('');
-  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>A股扫描</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1800px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}h1{margin:0 0 16px;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid#1f2937;border-radius:14px;padding:16px}.big{font-size:24px;font-weight:700;margin-top:8px}.rule{margin:10px 0 0;line-height:1.7}.notice{margin:14px 0;padding:12px 14px;background:#111827;border:1px solid #334155;border-radius:12px;color:#cbd5e1}.diagnosis-list{margin-top:8px;line-height:1.8;color:#fcd34d;font-size:13px}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:10px 8px;border-bottom:1px solid #1f2937;font-size:13px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1;position:sticky;top:0;font-weight:600}.up{color:#ef4444}.down{color:#22c55e}.badge{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:600;display:inline-block}.badge.strong{background:rgba(239,68,68,.15);color:#fca5a5}.badge.watch{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-a{background:rgba(34,197,94,.15);color:#86efac}.badge.grade-b{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-c{background:rgba(250,204,21,.15);color:#fde68a}.badge.grade-drop{background:rgba(156,163,175,.15);color:#d1d5db}.tags{max-width:200px;white-space:normal;line-height:1.5}.tags.risk{color:#fca5a5}a{color:#93c5fd;text-decoration:none}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}}@media(max-width:640px){.grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/" class="active">扫描看板</a><a href="/paper">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>A股主板强势异动扫描（东方财富口径）</h1><div class="muted rule">硬过滤：仅沪深主板、非ST、10%涨跌幅标的；换手率 ≥ ${config.strategy.minTurnoverRatePercent}%；量比 ≥ ${config.strategy.minVolumeRatio}；涨幅 ${config.strategy.minChangePercent}% ~ ${config.strategy.maxChangePercent}%；成交额 ≥ ${(config.strategy.minAmount / 1e8).toFixed(1)}亿</div>${usingFallback ? '<div class="notice">当前无最终策略候选，以下展示市场中评分靠前的股票，便于观察盘面。</div>' : ''}${picksDiagnosis ? `<div class="notice"><strong>picks=0 诊断</strong><div class="diagnosis-list">${diagnosisItems.join('<br/>')}</div></div>` : ''}<div class="grid"><div class="card"><div class="muted">市场环境</div><div class="big" style="color:${regimeColor}">${regimeText}</div><div class="muted" style="margin-top:4px;font-size:12px">上证 ${marketRegime.current || '-'}</div></div><div class="card"><div class="muted">股票池数量</div><div class="big">${state.marketCount}</div></div><div class="card"><div class="muted">命中数量</div><div class="big">${state.strategyPicks.length}</div></div><div class="card"><div class="muted">最后扫描时间</div><div class="big" style="font-size:16px">${state.lastScanAt || '-'}</div></div><div class="card"><div class="muted">扫描轮次</div><div class="big">${state.scanRounds}</div></div><div class="card"><div class="muted">自适应状态</div><div class="muted" style="margin-top:8px;font-size:13px;line-height:1.8">高置信≥${adaptive?.confidenceBands?.high?.minScore ?? 85}分<br/>中置信≥${adaptive?.confidenceBands?.medium?.minScore ?? 75}分<br/>低置信≥${adaptive?.confidenceBands?.low?.minScore ?? 70}分<br/>牛市仓位${Math.round((regimeMultipliers.BULL?.positionSize || 1) * 100)}% · 震荡${Math.round((regimeMultipliers.NEUTRAL?.positionSize || 0.7) * 100)}% · 熊市${Math.round((regimeMultipliers.BEAR?.positionSize || 0.5) * 100)}%<br/>退出紧迫度阈值≥${adaptive?.exitUrgencyThreshold ?? 100}</div></div></div><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交额</th><th>日评分</th><th>历史分</th><th>综合分</th><th>60日涨幅</th><th>MACD</th><th>RSI</th><th>等级</th><th>标签</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="18" class="muted">等待扫描数据...</td></tr>'}</tbody></table></div><script>const AUTO_REFRESH_MS=15000;const SCROLL_KEY='scroll:'+location.pathname;const saveScroll=()=>sessionStorage.setItem(SCROLL_KEY,String(window.scrollY||0));window.addEventListener('scroll',saveScroll,{passive:true});window.addEventListener('beforeunload',saveScroll);window.addEventListener('load',()=>{const y=Number(sessionStorage.getItem(SCROLL_KEY)||0);if(y>0) window.scrollTo(0,y);setTimeout(()=>{saveScroll();location.reload();},AUTO_REFRESH_MS);});async function manualBuy(button){const symbol=button.dataset.symbol;const name=button.dataset.name;const price=Number(button.dataset.price);if(!price){alert('无法获取价格');return;}const amountInput=prompt('请输入买入金额（万元）:','20');if(!amountInput)return;const amount=parseFloat(amountInput);if(isNaN(amount)||amount<=0){alert('金额无效');return;}const amountInYuan=amount*10000;const estimatedQty=Math.floor(amountInYuan/price/100)*100;if(estimatedQty<100){alert('金额不足买入一手');return;}if(!confirm('买入 '+symbol+' '+name+'\\n价格: '+price+'\\n金额: '+amount+'万元\\n预计: '+estimatedQty+'股\\n\\n确认买入?'))return;try{const resp=await fetch('/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,name,price,amount:amountInYuan})});const result=await resp.json();if(result.success){alert('买入成功: '+result.message);location.reload();}else{alert('买入失败: '+result.error);}}catch(err){alert('买入失败: '+err.message);}}</script></body></html>`;
+  return `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><title>A股扫描</title><style>body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;margin:0;background:#0b1020;color:#e5e7eb}.wrap{max-width:1800px;margin:0 auto;padding:24px}.nav{display:flex;gap:12px;align-items:center;margin-bottom:16px;flex-wrap:wrap}.nav a{display:inline-block;padding:8px 14px;border:1px solid #334155;border-radius:999px;background:#111827;color:#cbd5e1;text-decoration:none}.nav a.active{background:#2563eb;color:#fff;border-color:#2563eb}h1{margin:0 0 16px;font-size:28px}.muted{color:#9ca3af}.grid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:12px;margin:16px 0 20px}.card{background:#111827;border:1px solid#1f2937;border-radius:14px;padding:16px}.big{font-size:24px;font-weight:700;margin-top:8px}.rule{margin:10px 0 0;line-height:1.7}.notice{margin:14px 0;padding:12px 14px;background:#111827;border:1px solid #334155;border-radius:12px;color:#cbd5e1}.diagnosis-list{margin-top:8px;line-height:1.8;color:#fcd34d;font-size:13px}table{width:100%;border-collapse:collapse;background:#111827;border-radius:14px;overflow:hidden}th,td{padding:10px 8px;border-bottom:1px solid #1f2937;font-size:13px;text-align:left;vertical-align:middle}th{background:#0f172a;color:#cbd5e1;position:sticky;top:0;font-weight:600}.up{color:#ef4444}.down{color:#22c55e}.badge{padding:4px 8px;border-radius:999px;font-size:12px;font-weight:600;display:inline-block}.badge.strong{background:rgba(239,68,68,.15);color:#fca5a5}.badge.watch{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-a{background:rgba(34,197,94,.15);color:#86efac}.badge.grade-b{background:rgba(59,130,246,.15);color:#93c5fd}.badge.grade-c{background:rgba(250,204,21,.15);color:#fde68a}.badge.grade-drop{background:rgba(156,163,175,.15);color:#d1d5db}.tags{max-width:200px;white-space:normal;line-height:1.5}.tags.risk{color:#fca5a5}a{color:#93c5fd;text-decoration:none}@media(max-width:1100px){.grid{grid-template-columns:repeat(3,1fr);}}@media(max-width:640px){.grid{grid-template-columns:1fr;}}</style></head><body><div class="wrap"><div class="nav"><a href="/" class="active">扫描看板</a><a href="/paper">模拟盘看板</a><a href="/logs">扫描日志</a></div><h1>趋势低吸策略看板（东方财富口径）</h1><div class="muted rule">硬过滤：仅沪深主板、非ST、10%涨跌幅标的；换手率 ${config.strategy.minTurnoverRatePercent}%~${config.strategy.maxTurnoverRatePercent}%；量比 ${config.strategy.minVolumeRatio}~${config.strategy.maxVolumeRatio}；涨幅 ${config.strategy.minChangePercent}%~${config.strategy.maxChangePercent}%；成交额 ≥ ${(config.strategy.minAmount / 1e8).toFixed(1)}亿。策略核心：寻找60日趋势向上、短线回调到均线支撑、技术指标企稳的个股。</div>${usingFallback ? '<div class="notice">当前无最终策略候选，以下展示市场中评分靠前的股票，便于观察盘面。</div>' : ''}${picksDiagnosis ? `<div class="notice"><strong>picks=0 诊断</strong><div class="diagnosis-list">${diagnosisItems.join('<br/>')}</div></div>` : ''}<div class="grid"><div class="card"><div class="muted">市场环境</div><div class="big" style="color:${regimeColor}">${regimeText}</div><div class="muted" style="margin-top:4px;font-size:12px">上证 ${marketRegime.current || '-'}</div></div><div class="card"><div class="muted">股票池数量</div><div class="big">${state.marketCount}</div></div><div class="card"><div class="muted">命中数量</div><div class="big">${state.strategyPicks.length}</div></div><div class="card"><div class="muted">最后扫描时间</div><div class="big" style="font-size:16px">${state.lastScanAt || '-'}</div></div><div class="card"><div class="muted">扫描轮次</div><div class="big">${state.scanRounds}</div></div><div class="card"><div class="muted">自适应状态</div><div class="muted" style="margin-top:8px;font-size:13px;line-height:1.8">高置信≥${adaptive?.confidenceBands?.high?.minScore ?? 85}分<br/>中置信≥${adaptive?.confidenceBands?.medium?.minScore ?? 75}分<br/>低置信≥${adaptive?.confidenceBands?.low?.minScore ?? 70}分<br/>牛市仓位${Math.round((regimeMultipliers.BULL?.positionSize || 1) * 100)}% · 震荡${Math.round((regimeMultipliers.NEUTRAL?.positionSize || 0.7) * 100)}% · 熊市${Math.round((regimeMultipliers.BEAR?.positionSize || 0.5) * 100)}%<br/>退出紧迫度阈值≥${adaptive?.exitUrgencyThreshold ?? 100}</div></div></div><table><thead><tr><th>#</th><th>代码</th><th>名称</th><th>行业</th><th>现价</th><th>涨跌幅</th><th>换手率</th><th>量比</th><th>成交额</th><th>日评分</th><th>历史分</th><th>综合分</th><th>60日涨幅</th><th>MACD</th><th>RSI</th><th>等级</th><th>标签</th><th>操作</th></tr></thead><tbody>${rows || '<tr><td colspan="18" class="muted">等待扫描数据...</td></tr>'}</tbody></table></div><script>const AUTO_REFRESH_MS=15000;const SCROLL_KEY='scroll:'+location.pathname;const saveScroll=()=>sessionStorage.setItem(SCROLL_KEY,String(window.scrollY||0));window.addEventListener('scroll',saveScroll,{passive:true});window.addEventListener('beforeunload',saveScroll);window.addEventListener('load',()=>{const y=Number(sessionStorage.getItem(SCROLL_KEY)||0);if(y>0) window.scrollTo(0,y);setTimeout(()=>{saveScroll();location.reload();},AUTO_REFRESH_MS);});async function manualBuy(button){const symbol=button.dataset.symbol;const name=button.dataset.name;const price=Number(button.dataset.price);if(!price){alert('无法获取价格');return;}const amountInput=prompt('请输入买入金额（万元）:','20');if(!amountInput)return;const amount=parseFloat(amountInput);if(isNaN(amount)||amount<=0){alert('金额无效');return;}const amountInYuan=amount*10000;const estimatedQty=Math.floor(amountInYuan/price/100)*100;if(estimatedQty<100){alert('金额不足买入一手');return;}if(!confirm('买入 '+symbol+' '+name+'\\n价格: '+price+'\\n金额: '+amount+'万元\\n预计: '+estimatedQty+'股\\n\\n确认买入?'))return;try{const resp=await fetch('/buy',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({symbol,name,price,amount:amountInYuan})});const result=await resp.json();if(result.success){alert('买入成功: '+result.message);location.reload();}else{alert('买入失败: '+result.error);}}catch(err){alert('买入失败: '+err.message);}}</script></body></html>`;
 }
 
 function renderPaperHtml(state, portfolio, config) {
@@ -437,14 +442,19 @@ function renderPaperHtml(state, portfolio, config) {
   const filterStats = historyFilterStep?.data?.filterStats || {};
   const filterLabels = {
     noHistory: '无历史数据',
-    bearMarketVolume: '熊市量比不足',
-    gain60dNegative: '60日涨幅为负',
-    gain10dNegative: '10日涨幅为负',
-    maxDrawdownHigh: '最大回撤过大',
+    trend60dLow: '60日趋势不足',
+    trend30dLow: '30日趋势不足',
+    gain10dTooLow: '10日跌幅过大',
+    gain5dOutOfRange: '5日回调不符',
+    maxDrawdownHigh: '回撤过深',
+    distanceToHighInvalid: '离高点位置不对',
     consecutiveDown: '连续下跌过多',
-    avgTurnoverLow: '60日平均换手过低',
-    volumeRatio5dLow: '近5日放量不足',
-    upDaysRatioLow: '上涨天数占比过低',
+    maTrendInvalid: '均线趋势不对',
+    belowMa60: '跌破MA60',
+    rsiOutOfRange: 'RSI不在低吸区',
+    macdTooWeak: 'MACD过弱',
+    avgAmountLow: '成交额不足',
+    avgTurnoverLow: '换手率过低',
     historyScoreLow: '历史评分不足'
   };
   const filterRanking = Object.entries(filterStats)
@@ -846,21 +856,62 @@ function normalizeClistItem(row) {
   };
 }
 
-async function scrapeEastmoneyDomMarketWithPage(config, page) {
+async function scrapeEastmoneyDomMarketWithPage(config, page, context) {
   const dedup = new Map();
   const maxPages = config.marketScan.maxPages || 25;
   let total = null;
+  let failedPages = 0;
+
   for (let pn = 1; pn <= maxPages; pn += 1) {
     const url = buildEastmoneyClistUrl(config, pn);
-    const text = await page.evaluate(async (u) => {
-      const resp = await fetch(u, {
-        method: 'GET',
-        credentials: 'include',
-        headers: { 'Accept': '*/*' }
-      });
-      return await resp.text();
-    }, url);
-    const obj = parseEastmoneyJsonp(text);
+    let text = null;
+    let success = false;
+
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      try {
+        const resp = await context.request.get(url, { timeout: 15000 });
+        text = await resp.text();
+        success = true;
+        break;
+      } catch (err) {
+        console.log(`[EMAPI] page=${pn} attempt=${attempt} context.request失败: ${err.message}`);
+        try {
+          text = await page.evaluate(async (u) => {
+            const resp = await fetch(u, {
+              method: 'GET',
+              credentials: 'include',
+              headers: { 'Accept': '*/*' }
+            });
+            return await resp.text();
+          }, url);
+          success = true;
+          break;
+        } catch (err2) {
+          console.error(`[EMAPI] page=${pn} attempt=${attempt} page.evaluate失败: ${err2.message}`);
+          await page.waitForTimeout(300 * attempt);
+        }
+      }
+    }
+
+    if (!success || !text) {
+      failedPages++;
+      console.error(`[EMAPI] page=${pn} 最终失败，跳过该页`);
+      if (failedPages >= 3 && dedup.size < 200) {
+        console.error(`[EMAPI] 连续失败过多且样本不足，提前结束，本轮仅保留${dedup.size}只`);
+        break;
+      }
+      continue;
+    }
+
+    let obj;
+    try {
+      obj = parseEastmoneyJsonp(text);
+    } catch (err) {
+      failedPages++;
+      console.error(`[EMAPI] page=${pn} 解析失败: ${err.message}`);
+      continue;
+    }
+
     const diff = obj && obj.data && Array.isArray(obj.data.diff) ? obj.data.diff : [];
     if (total == null && obj && obj.data) total = Number(obj.data.total || 0);
     let kept = 0;
@@ -873,8 +924,9 @@ async function scrapeEastmoneyDomMarketWithPage(config, page) {
     console.log(`[EMAPI] page=${pn} rows=${diff.length} kept=${kept} total=${dedup.size}`);
     if (!diff.length) break;
     if (total && pn * (config.marketScan.pageSize || 200) >= total) break;
-    await page.waitForTimeout(150);
+    await page.waitForTimeout(250);
   }
+
   const items = Array.from(dedup.values());
   if (!items.length) {
     throw new Error('eastmoney clist api returned 0 items');
@@ -885,7 +937,7 @@ async function scrapeEastmoneyDomMarketWithPage(config, page) {
 async function scrapeEastmoneyDomMarket(config) {
   const { browser, page } = await openEastmoneyListPage(config);
   try {
-    return await scrapeEastmoneyDomMarketWithPage(config, page);
+    return await scrapeEastmoneyDomMarketWithPage(config, page, browser.contexts()[0] || page.context());
   } finally {
     await page.close().catch(() => {});
     await browser.close().catch(() => {});
@@ -981,12 +1033,18 @@ class MarketScanner {
       }
 
       if (history) {
-        enriched.push({
+        const enrichedItem = {
           ...pick,
           history: history.indicators,
           historyScore: history.historyScore,
           combinedScore: Number(((pick.score * 0.5 + history.historyScore * 0.5).toFixed(2)))
-        });
+        };
+        // 重新生成标签（基于历史数据）
+        if (enrichedItem.strategy) {
+          enrichedItem.strategy.positiveTags = buildPositiveTags(enrichedItem);
+          enrichedItem.strategy.riskTags = buildRiskTags(enrichedItem);
+        }
+        enriched.push(enrichedItem);
       } else {
         // 没有历史数据的标记为0分
         enriched.push({
@@ -1030,7 +1088,7 @@ class MarketScanner {
       const marketOpen = isMarketOpen(toBeijingTime(ts));
       const portfolioFull = !!(global.paperAccountRef && global.paperAccountRef.positions.size >= global.paperAccountRef.config.maxPositions);
 
-      const rawQuotes = await scrapeEastmoneyDomMarketWithPage(this.config, page);
+      const rawQuotes = await scrapeEastmoneyDomMarketWithPage(this.config, page, context);
       this.scanLogger.log('获取原始数据', { total: rawQuotes.length });
 
       const quotes = filterMainBoardTenPercent(rawQuotes);
@@ -1043,24 +1101,11 @@ class MarketScanner {
       const scored = quotes.map(item => scoreStrategy(item, this.config.strategy));
       this.scanLogger.log('当日评分', { total: scored.length });
 
-      // 非交易时间：仅保留基础市场快照与持仓补价所需数据，不做重型候选筛选
-      if (!marketOpen) {
-        const summary = {
-          totalStocks: rawQuotes.length,
-          mainBoardStocks: quotes.length,
-          scoredStocks: scored.length,
-          initialCandidates: 0,
-          finalPicks: 0,
-          mode: 'offhours-light'
-        };
-        this.scanLogger.endScan(summary);
-        await this.onScan({ all: scored, picks: [], ts, marketRegime });
-        return;
-      }
+      // 非交易时间也执行完整候选筛选，方便随时查看策略效果
 
       // 降低当日筛选标准，选出更多候选股票用于历史数据分析
-      const initialThreshold = 70; // 降低到70分
-      const candidateLimit = portfolioFull ? Math.min(40, this.config.strategy.topN * 2) : Math.min(100, this.config.strategy.topN * 3);
+      const initialThreshold = marketOpen ? 65 : 55;
+      const candidateLimit = portfolioFull ? Math.min(60, this.config.strategy.topN * 3) : Math.min(150, this.config.strategy.topN * 5);
       let candidates = scored
         .filter(item => item.score >= initialThreshold)
         .sort((a, b) => b.score - a.score)
@@ -1077,30 +1122,29 @@ class MarketScanner {
       if (this.config.strategy.enableHistoryScore !== false) {
         candidates = await this.enrichWithHistory(candidates, context);
 
-        // 基于60日历史数据进行严格筛选
+        // 基于60日历史数据进行严格筛选（趋势低吸策略）
         const beforeHistoryFilter = candidates.length;
         const filtered = [];
         const filterStats = {
           noHistory: 0,
-          bearMarketVolume: 0,
-          gain60dNegative: 0,
-          gain10dNegative: 0,
+          trend60dLow: 0,
+          trend30dLow: 0,
+          gain10dTooLow: 0,
+          gain5dOutOfRange: 0,
           maxDrawdownHigh: 0,
+          distanceToHighInvalid: 0,
           consecutiveDown: 0,
+          maTrendInvalid: 0,
+          belowMa60: 0,
+          rsiOutOfRange: 0,
+          macdTooWeak: 0,
+          avgAmountLow: 0,
           avgTurnoverLow: 0,
-          volumeRatio5dLow: 0,
-          upDaysRatioLow: 0,
           historyScoreLow: 0
         };
 
         candidates = candidates.filter(p => {
           const sampleBase = { symbol: p.symbol, name: p.name, score: p.score || 0, historyScore: p.historyScore || 0, price: p.price || 0 };
-          // 轻量预过滤：熊市下过滤明显量比不足的噪音票，但不等同于买入条件
-          if (marketRegime.regime === 'BEAR' && (p.volumeRatio || 0) < 1.5) {
-            filtered.push({ ...sampleBase, reason: `熊市量比${p.volumeRatio}低于1.5` });
-            filterStats.bearMarketVolume++;
-            return false;
-          }
 
           // 必须有历史数据
           if (!p.history) {
@@ -1109,61 +1153,96 @@ class MarketScanner {
             return false;
           }
 
-          // 60日历史数据筛选条件
           const h = p.history;
 
-          // 1. 60日涨幅必须为正（移除上限，不限制强势股）
-          if (h.gain60d === null || h.gain60d < 0) {
-            filtered.push({ ...sampleBase, gain60d: h.gain60d, reason: `60日涨幅${h.gain60d}%为负` });
-            filterStats.gain60dNegative++;
+          // 1. 中期趋势必须向上
+          if (h.gain60d === null || h.gain60d < 2) {
+            filtered.push({ ...sampleBase, gain60d: h.gain60d, reason: `60日涨幅${h.gain60d}%不足2%` });
+            filterStats.trend60dLow++;
             return false;
           }
 
-          // 2. 近期必须有上涨趋势
-          if (h.gain10d !== null && h.gain10d < 0) {
-            filtered.push({ ...sampleBase, gain10d: h.gain10d, reason: `10日涨幅${h.gain10d}%为负` });
-            filterStats.gain10dNegative++;
+          if (h.gain30d !== null && h.gain30d < -3) {
+            filtered.push({ ...sampleBase, gain30d: h.gain30d, reason: `30日涨幅${h.gain30d}%不足-3%` });
+            filterStats.trend30dLow++;
             return false;
           }
 
-          // 3. 最大回撤不能太大（放宽到70%，允许波动较大的强势股）
-          if (h.maxDrawdown > 70) {
-            filtered.push({ ...sampleBase, maxDrawdown: h.maxDrawdown, reason: `最大回撤${h.maxDrawdown}%过大` });
+          // 2. 短期允许回调，但不能跌太多
+          if (h.gain10d !== null && h.gain10d < -12) {
+            filtered.push({ ...sampleBase, gain10d: h.gain10d, reason: `10日跌幅${h.gain10d}%过大` });
+            filterStats.gain10dTooLow++;
+            return false;
+          }
+
+          if (h.gain5d !== null && (h.gain5d > 4 || h.gain5d < -10)) {
+            filtered.push({ ...sampleBase, gain5d: h.gain5d, reason: `5日涨幅${h.gain5d}%不在-10%~+4%` });
+            filterStats.gain5dOutOfRange++;
+            return false;
+          }
+
+          // 3. 回撤要适中
+          if (h.maxDrawdown > 35) {
+            filtered.push({ ...sampleBase, maxDrawdown: h.maxDrawdown, reason: `最大回撤${h.maxDrawdown}%过深` });
             filterStats.maxDrawdownHigh++;
             return false;
           }
 
-          // 4. 连续下跌天数不能太多
-          if (h.consecutiveDownDays >= 5) {
+          if (h.distanceToHigh60d > -3 || h.distanceToHigh60d < -30) {
+            filtered.push({ ...sampleBase, distanceToHigh60d: h.distanceToHigh60d, reason: `距高点${h.distanceToHigh60d}%不在-30%~-3%` });
+            filterStats.distanceToHighInvalid++;
+            return false;
+          }
+
+          // 4. 连续下跌不能太多
+          if (h.consecutiveDownDays > 5) {
             filtered.push({ ...sampleBase, consecutiveDownDays: h.consecutiveDownDays, reason: `连续下跌${h.consecutiveDownDays}天` });
             filterStats.consecutiveDown++;
             return false;
           }
 
-          // 5. 60日平均换手率要足够
-          if (h.avgTurnover60d < 3) {
-            filtered.push({ ...sampleBase, avgTurnover60d: h.avgTurnover60d, reason: `60日平均换手率${h.avgTurnover60d}%过低` });
+          // 5. 均线结构
+          if (h.ma20 && h.ma60 && h.ma20 <= h.ma60 * 0.95) {
+            filtered.push({ ...sampleBase, ma20: h.ma20, ma60: h.ma60, reason: `MA20(${h.ma20})明显弱于MA60(${h.ma60})` });
+            filterStats.maTrendInvalid++;
+            return false;
+          }
+
+          if (h.ma60 && p.price < h.ma60 * 0.94) {
+            filtered.push({ ...sampleBase, price: p.price, ma60: h.ma60, reason: `价格${p.price}明显跌破MA60(${h.ma60})` });
+            filterStats.belowMa60++;
+            return false;
+          }
+
+          // 6. 技术指标企稳
+          if (h.rsi < 28 || h.rsi > 65) {
+            filtered.push({ ...sampleBase, rsi: h.rsi, reason: `RSI${h.rsi}不在28~65` });
+            filterStats.rsiOutOfRange++;
+            return false;
+          }
+
+          if (h.macdHistogram < -0.2) {
+            filtered.push({ ...sampleBase, macdHistogram: h.macdHistogram, reason: `MACD柱${h.macdHistogram}过弱` });
+            filterStats.macdTooWeak++;
+            return false;
+          }
+
+          // 7. 流动性
+          if (h.avgAmount60d < 200000000) {
+            filtered.push({ ...sampleBase, avgAmount60d: h.avgAmount60d, reason: `60日均额${(h.avgAmount60d/1e8).toFixed(2)}亿不足2亿` });
+            filterStats.avgAmountLow++;
+            return false;
+          }
+
+          if (h.avgTurnover60d < 1) {
+            filtered.push({ ...sampleBase, avgTurnover60d: h.avgTurnover60d, reason: `60日均换手${h.avgTurnover60d}%不足1%` });
             filterStats.avgTurnoverLow++;
             return false;
           }
 
-          // 6. 近5日必须放量
-          if (h.volumeRatio5d < 1.2) {
-            filtered.push({ ...sampleBase, volumeRatio5d: h.volumeRatio5d, reason: `近5日放量倍数${h.volumeRatio5d}不足` });
-            filterStats.volumeRatio5dLow++;
-            return false;
-          }
-
-          // 7. 上涨天数占比要合理
-          if (h.upDaysRatio < 40) {
-            filtered.push({ ...sampleBase, upDaysRatio: h.upDaysRatio, reason: `上涨天数占比${h.upDaysRatio}%过低` });
-            filterStats.upDaysRatioLow++;
-            return false;
-          }
-
-          // 8. 历史评分要达标
-          if (p.historyScore < 60) {
-            filtered.push({ ...sampleBase, reason: `历史评分${p.historyScore}分不足` });
+          // 8. 历史评分
+          if (p.historyScore < 50) {
+            filtered.push({ ...sampleBase, reason: `历史评分${p.historyScore}分不足50` });
             filterStats.historyScoreLow++;
             return false;
           }
@@ -1377,8 +1456,8 @@ class PaperAccount {
       exitUrgencyThreshold: adaptive.exitUrgencyThreshold || 100,
       regimeMultipliers: adaptive.regimeMultipliers || {
         BULL: { positionSize: 1.0, maxPositions: this.config.maxPositions, allowLowConfidence: true },
-        NEUTRAL: { positionSize: 0.7, maxPositions: Math.max(1, this.config.maxPositions - 1), allowLowConfidence: false },
-        BEAR: { positionSize: 0.5, maxPositions: 2, allowLowConfidence: false }
+        NEUTRAL: { positionSize: 1.0, maxPositions: this.config.maxPositions, allowLowConfidence: true },
+        BEAR: { positionSize: 1.0, maxPositions: this.config.maxPositions, allowLowConfidence: true }
       }
     };
   }
@@ -1484,8 +1563,6 @@ class PaperAccount {
     const combinedScore = pick.combinedScore || pick.score || 0;
     const historyScore = pick.historyScore || 0;
     const volumeRatio = pick.volumeRatio || pick.volumeBurstRatio || 0;
-    const turnoverRate = pick.turnoverRatePercent || 0;
-    const changePercent = pick.changePercent || 0;
     const bands = adaptive.confidenceBands;
 
     // 基础置信度判断
@@ -1508,11 +1585,7 @@ class PaperAccount {
       return { confidence: 'REJECT', reason: `综合${combinedScore}分或历史${historyScore}分不足` };
     }
 
-    // 市场环境调整
-    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
-    if (baseConfidence === 'LOW' && !regimeConfig.allowLowConfidence) {
-      return { confidence: 'REJECT', reason: `${marketRegime}环境不允许低置信度入场` };
-    }
+    // 不区分牛熊市，统一按个股信号判断
 
     // 近期表现反馈调整
     if (performanceFeedback.tradeCount >= 10) {
@@ -1524,13 +1597,15 @@ class PaperAccount {
       }
     }
 
-    // 信号强度检查
+    // 低吸信号强度检查
     const signalStrength = [];
-    if (volumeRatio >= 3) signalStrength.push('强放量');
-    if (turnoverRate >= 10) signalStrength.push('高换手');
-    if (changePercent >= 5 && changePercent <= 7.5) signalStrength.push('适度涨幅');
-    if (pick.history?.macdBullish) signalStrength.push('MACD多头');
-    if (pick.history?.isBreakoutHigh) signalStrength.push('突破新高');
+    const h = pick.history || {};
+
+    if (h.distanceToHigh60d >= -20 && h.distanceToHigh60d <= -8) signalStrength.push('回撤到位');
+    if (h.deviationFromMA20 >= -6 && h.deviationFromMA20 <= 3) signalStrength.push('接近MA20');
+    if (h.rsi >= 35 && h.rsi <= 50) signalStrength.push('RSI低位');
+    if (h.macdHistogram > -0.05) signalStrength.push('MACD修复');
+    if (volumeRatio >= 0.9 && volumeRatio <= 1.6) signalStrength.push('温和承接');
 
     return {
       confidence: baseConfidence,
@@ -1557,18 +1632,39 @@ class PaperAccount {
     }
 
     // 2. 移动止盈
-    const trailingStopThreshold = this.config.takeProfitPartialPct || 8;
+    const trailingStopThreshold = this.config.takeProfitPartialPct || 7;
     const drawdownFromHigh = pos.highPrice ? (((pos.highPrice - pos.currentPrice) / pos.highPrice) * 100) : 0;
-    const trailingStop = pos.pnlPct > trailingStopThreshold && drawdownFromHigh >= (this.config.exitDrawdownFromHighPct || 5);
+    const trailingStop = pos.pnlPct > trailingStopThreshold && drawdownFromHigh >= (this.config.exitDrawdownFromHighPct || 4);
     if (trailingStop) {
       totalUrgency += weights.trailingStop;
       reasons.push({ type: '移动止盈', weight: weights.trailingStop, detail: `最高${((pos.highPrice/pos.entryPrice-1)*100).toFixed(2)}%,回撤${drawdownFromHigh.toFixed(2)}%` });
     }
 
-    // 3. 评分下跌
+    // 3. 趋势失效止损
     if (pick) {
+      const h = pick.history || {};
+
+      // 跌破MA60
+      if (h.ma60 && pos.currentPrice < h.ma60) {
+        totalUrgency += 80;
+        reasons.push({ type: '跌破MA60', weight: 80, detail: `价格${pos.currentPrice.toFixed(2)}<MA60(${h.ma60})` });
+      }
+
+      // MACD明显转负
+      if (h.macdHistogram < -0.1) {
+        totalUrgency += 60;
+        reasons.push({ type: 'MACD转负', weight: 60, detail: `MACD柱${h.macdHistogram.toFixed(3)}` });
+      }
+
+      // 10日跌幅过大
+      if (h.gain10d !== null && h.gain10d < -8) {
+        totalUrgency += 70;
+        reasons.push({ type: '10日跌幅过大', weight: 70, detail: `${h.gain10d.toFixed(2)}%` });
+      }
+
+      // 评分下跌
       const dayScore = pick.score || pick.strategy?.score || 0;
-      const scoreDrop = dayScore < (this.config.exitScoreThreshold || 65);
+      const scoreDrop = dayScore < (this.config.exitScoreThreshold || 55);
       if (scoreDrop) {
         totalUrgency += weights.scoreDrop;
         reasons.push({ type: '评分下跌', weight: weights.scoreDrop, detail: `${dayScore}分` });
@@ -1576,7 +1672,7 @@ class PaperAccount {
     }
 
     // 4. 时间止损
-    const maxHoldDays = this.config.maxHoldDays || 7;
+    const maxHoldDays = this.config.maxHoldDays || 10;
     const holdTooLong = pos.holdDays >= maxHoldDays;
     if (holdTooLong) {
       totalUrgency += weights.holdTooLong;
@@ -1584,8 +1680,8 @@ class PaperAccount {
     }
 
     // 5. 弱势股
-    const weakStockDays = this.config.weakStockHoldDays || 5;
-    const weakStockProfit = this.config.weakStockMinProfit || 3;
+    const weakStockDays = this.config.weakStockHoldDays || 4;
+    const weakStockProfit = this.config.weakStockMinProfit || 2;
     const weakStock = !holdTooLong && pos.holdDays >= weakStockDays && pos.pnlPct < weakStockProfit;
     if (weakStock) {
       totalUrgency += weights.weakStock;
