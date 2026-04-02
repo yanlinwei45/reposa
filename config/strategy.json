@@ -1,0 +1,136 @@
+{
+  "runtime": {
+    "marketFilters": {
+      "minTurnoverRatePercent": 2,
+      "maxTurnoverRatePercent": 8,
+      "minVolumeRatio": 0.8,
+      "maxVolumeRatio": 1.8,
+      "minChangePercent": -3,
+      "maxChangePercent": 2.5,
+      "minAmount": 500000000,
+      "topN": 30,
+      "gradeAThreshold": 82,
+      "gradeBThreshold": 70,
+      "gradeCThreshold": 60,
+      "enableHistoryScore": true
+    },
+    "intradayScoring": {
+      "initialScoreThresholdOpen": 65,
+      "initialScoreThresholdClosed": 55,
+      "candidateLimitMultiplier": 5,
+      "candidateLimitFullPortfolioMultiplier": 3,
+      "candidateLimitCap": 150,
+      "candidateLimitFullPortfolioCap": 60,
+      "researchUniverseMinScoreFloor": 55,
+      "researchUniverseCandidateBonus": 6,
+      "componentWeights": {
+        "turnoverRate": 20,
+        "volumeRatio": 25,
+        "changePercent": 25,
+        "turnoverAmount": 20,
+        "nearHigh": 5,
+        "aboveOpen": 5
+      }
+    },
+    "researchUniverse": {
+      "enabled": true,
+      "mode": "prioritize",
+      "finalScoreBonus": 4
+    },
+    "history": {
+      "combineWeights": {
+        "day": 0.45,
+        "history": 0.35,
+        "research": 0.2
+      },
+      "filters": {
+        "minGain60d": 2,
+        "minGain30d": -3,
+        "minGain10d": -12,
+        "minGain5d": -10,
+        "maxGain5d": 4,
+        "maxDrawdown": 35,
+        "minDistanceToHigh60d": -30,
+        "maxDistanceToHigh60d": -3,
+        "maxConsecutiveDownDays": 5,
+        "ma20BelowMa60Ratio": 0.95,
+        "priceVsMa60Floor": 0.94,
+        "minRsi": 28,
+        "maxRsi": 65,
+        "minMacdHistogram": -0.2,
+        "minAvgAmount60d": 200000000,
+        "minAvgTurnover60d": 1,
+        "minHistoryScore": 50
+      },
+      "degradedDataPolicy": {
+        "allowDashboard": true,
+        "allowTrading": false,
+        "fallbackScore": 35
+      },
+      "scoring": {
+        "gain60dIdealMin": 5,
+        "gain60dIdealMax": 25,
+        "gain30dIdealMin": 0,
+        "gain30dIdealMax": 15,
+        "distanceToHighIdealMin": -25,
+        "distanceToHighIdealMax": -5,
+        "gain5dIdealMin": -8,
+        "gain5dIdealMax": 3,
+        "deviationFromMA20IdealMin": -8,
+        "deviationFromMA20IdealMax": 4,
+        "rsiIdealMin": 30,
+        "rsiIdealMax": 55,
+        "macdHistogramSafe": -0.08,
+        "macdHistogramWeak": -0.15,
+        "avgAmount60dGood": 500000000,
+        "avgAmount60dOkay": 300000000,
+        "avgTurnover60dGood": 2,
+        "avgTurnover60dOkay": 1.5,
+        "maxDrawdownGood": 25,
+        "maxDrawdownOkay": 35,
+        "volatilityGood": 6,
+        "volatilityOkay": 8
+      }
+    }
+  },
+  "research": {
+    "topN": 30,
+    "filter": {
+      "minAvgAmount20": 200000000,
+      "minPriceAboveMa20": true,
+      "minTrendQuality": 2,
+      "ret20Min": -0.05,
+      "ret20Max": 0.2,
+      "ret5Min": -0.06,
+      "ret5Max": 0.12
+    },
+    "weights": {
+      "ret10": 0.2,
+      "ret20": 0.16,
+      "ret5": 0.08,
+      "avgTurnover5": 0.12,
+      "volumeRatio5": 0.08,
+      "volatility10": 0.1,
+      "pullback10": 0.12,
+      "closeVsMa20": 0.04,
+      "closeVsMa60": 0.04,
+      "ret60": 0.04,
+      "distanceToHigh20": 0.02
+    }
+  },
+  "backtest": {
+    "topN": 5,
+    "maxPositions": 5,
+    "initialCapital": 10000000,
+    "lotSize": 100,
+    "slippageBp": 10,
+    "feeBp": 3,
+    "entryAt": "next_open",
+    "maxHoldDays": 10,
+    "stopLossPct": -5,
+    "takeProfitPct": 10,
+    "takeProfitPartialPct": 6,
+    "weakTakeProfitPct": 8,
+    "exitDrawdownFromHighPct": 4
+  }
+}

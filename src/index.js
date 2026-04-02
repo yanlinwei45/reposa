@@ -3,6 +3,16 @@ const path = require('path');
 const http = require('http');
 const { chromium } = require('playwright');
 const { fetch60DayKline, calculate60DayIndicators, score60DayHistory, fetchIndexData, analyzeMarketRegime } = require('./history');
+const { getRuntimeStrategyConfig, getBacktestConfig } = require('./strategy/config');
+const { loadResearchWatchlist } = require('./strategy/watchlist');
+const {
+  buildPositiveTags,
+  buildRiskTags,
+  scoreIntradayStrategy,
+  buildInitialCandidatePool,
+  combineCandidateScores,
+} = require('./strategy/runtimeRules');
+const { evaluateHistoryFilters } = require('./strategy/historyRules');
 const ScanLogger = require('./scanLogger');
 const { toBeijingTime, formatBeijingTime, isSameDay, getHistoryCacheDateKey, getTradingDaysBetween, canSellToday } = require('./utils/time');
 const { formatWan, formatPct } = require('./utils/format');
@@ -18,10 +28,23 @@ function decodeLatin1ToUtf8(text) {
   try { return Buffer.from(text, 'latin1').toString('utf8'); } catch (_) { return text; }
 }
 
+function loadResearchBestParams() {
+  const bestParamsPath = path.join(__dirname, '..', 'research', 'data', 'results', 'best_params.json');
+  if (!fs.existsSync(bestParamsPath)) return null;
+  try {
+    return JSON.parse(fs.readFileSync(bestParamsPath, 'utf8'));
+  } catch (_) {
+    return null;
+  }
+}
+
 function loadConfig() {
   const configDir = path.join(__dirname, '..', 'config');
   const configPath = path.join(configDir, 'default.json');
   const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+  const runtimeStrategyConfig = getRuntimeStrategyConfig();
+  const backtestConfig = getBacktestConfig();
+  const optimizedResearch = loadResearchBestParams();
   if (!config.server) config.server = {};
   if (!config.server.port || Number(config.server.port) === 3000) config.server.port = 3088;
   if (!config.marketScan) config.marketScan = {};
@@ -34,15 +57,41 @@ function loadConfig() {
   if (config.marketScan.headless == null) config.marketScan.headless = true;
   if (config.marketScan.listUrl == null) config.marketScan.listUrl = 'https://quote.eastmoney.com/center/gridlist.html#hs_a_board';
   if (!config.strategy) config.strategy = {};
-  if (config.strategy.minTurnoverRatePercent == null) config.strategy.minTurnoverRatePercent = 10;
-  if (config.strategy.minVolumeRatio == null) config.strategy.minVolumeRatio = 2;
-  if (config.strategy.minChangePercent == null) config.strategy.minChangePercent = 3;
-  if (config.strategy.maxChangePercent == null) config.strategy.maxChangePercent = 8.5;
-  if (config.strategy.topN == null) config.strategy.topN = 100;
-  if (config.strategy.minAmount == null) config.strategy.minAmount = 300000000;
-  if (config.strategy.gradeAThreshold == null) config.strategy.gradeAThreshold = 80;
-  if (config.strategy.gradeBThreshold == null) config.strategy.gradeBThreshold = 65;
-  if (config.strategy.gradeCThreshold == null) config.strategy.gradeCThreshold = 50;
+  config.strategy = {
+    ...runtimeStrategyConfig.marketFilters,
+    ...config.strategy,
+  };
+  if (!config.paperTrading) config.paperTrading = {};
+  config.paperTrading = {
+    maxPositions: backtestConfig.maxPositions,
+    lotSize: backtestConfig.lotSize,
+    slippageBp: backtestConfig.slippageBp,
+    feeBp: backtestConfig.feeBp,
+    maxHoldDays: backtestConfig.maxHoldDays,
+    stopLossPct: backtestConfig.stopLossPct,
+    takeProfitPct: backtestConfig.takeProfitPct,
+    takeProfitPartialPct: backtestConfig.takeProfitPartialPct,
+    weakTakeProfitPct: backtestConfig.weakTakeProfitPct,
+    exitDrawdownFromHighPct: backtestConfig.exitDrawdownFromHighPct,
+    ...config.paperTrading,
+  };
+  if (optimizedResearch?.backtest_config && config.paperTrading.useResearchBestParams !== false) {
+    config.paperTrading = {
+      ...config.paperTrading,
+      maxPositions: optimizedResearch.backtest_config.maxPositions ?? config.paperTrading.maxPositions,
+      lotSize: optimizedResearch.backtest_config.lotSize ?? config.paperTrading.lotSize,
+      slippageBp: optimizedResearch.backtest_config.slippageBp ?? config.paperTrading.slippageBp,
+      feeBp: optimizedResearch.backtest_config.feeBp ?? config.paperTrading.feeBp,
+      maxHoldDays: optimizedResearch.hold_days ?? config.paperTrading.maxHoldDays,
+      stopLossPct: optimizedResearch.backtest_config.stopLossPct ?? config.paperTrading.stopLossPct,
+      takeProfitPct: optimizedResearch.backtest_config.takeProfitPct ?? config.paperTrading.takeProfitPct,
+      takeProfitPartialPct: optimizedResearch.backtest_config.takeProfitPartialPct ?? config.paperTrading.takeProfitPartialPct,
+      weakTakeProfitPct: optimizedResearch.backtest_config.weakTakeProfitPct ?? config.paperTrading.weakTakeProfitPct,
+      exitDrawdownFromHighPct: optimizedResearch.backtest_config.exitDrawdownFromHighPct ?? config.paperTrading.exitDrawdownFromHighPct,
+    };
+  }
+  config.runtimeStrategy = runtimeStrategyConfig;
+  config.optimizedResearch = optimizedResearch;
   return config;
 }
 
@@ -85,6 +134,7 @@ function isMarketOpen(date = new Date()) {
 }
 
 function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
+  const runtimeStrategy = getRuntimeStrategyConfig();
   return items.map(item => {
     const cachedHistory = historyMap?.get(item.symbol);
     if (!cachedHistory) return item;
@@ -92,7 +142,11 @@ function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
       ...item,
       history: cachedHistory.indicators,
       historyScore: cachedHistory.historyScore,
-      combinedScore: Number((((item.score || 0) * 0.5) + (cachedHistory.historyScore || 0) * 0.5).toFixed(2))
+      combinedScore: combineCandidateScores({
+        ...item,
+        historyScore: cachedHistory.historyScore,
+      }, runtimeStrategy),
+      researchSelected: item.researchSelected || false,
     };
   });
 }
@@ -130,170 +184,6 @@ async function fetchRealtimePricesForSymbols(symbols) {
       });
     }).on('error', () => resolve([]));
   });
-}
-
-function scoreTurnoverRatePercent(v) {
-  if (v >= 2 && v <= 4) return 20;
-  if (v > 4 && v <= 6) return 18;
-  if (v > 6 && v <= 8) return 15;
-  if (v > 8) return 10;
-  return 0;
-}
-
-function scoreVolumeRatio(v) {
-  if (v >= 0.9 && v <= 1.3) return 25;
-  if (v > 1.3 && v <= 1.6) return 22;
-  if (v >= 0.8 && v < 0.9) return 18;
-  if (v > 1.6 && v <= 1.8) return 15;
-  if (v > 1.8) return 10;
-  return 0;
-}
-
-function scoreChangePercent(v, maxChangePercent) {
-  if (v < -3 || v > maxChangePercent) return 0;
-  if (v >= -1 && v <= 1) return 25;
-  if (v > 1 && v <= 2) return 22;
-  if (v >= -2 && v < -1) return 20;
-  if (v > 2 && v <= 2.5) return 18;
-  if (v >= -3 && v < -2) return 15;
-  return 0;
-}
-
-function scoreTurnoverAmount(v) {
-  if (v >= 1000000000) return 20;
-  if (v >= 500000000) return 15;
-  if (v >= 300000000) return 10;
-  return 0;
-}
-
-function scoreNearHigh(item) {
-  const high = item.high || 0;
-  const price = item.price || 0;
-  if (!high || !price) return 0;
-  const drawdownPct = ((high - price) / price) * 100;
-  return drawdownPct <= 1.5 ? 5 : 0;
-}
-
-function scoreAboveOpen(item) {
-  const open = item.open || 0;
-  const price = item.price || 0;
-  if (!open || !price) return 0;
-  return price > open ? 5 : 0;
-}
-
-function buildPositiveTags(item) {
-  const tags = [];
-  const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
-
-  if (item.history?.distanceToHigh60d >= -20 && item.history?.distanceToHigh60d <= -8) {
-    tags.push('回撤到位');
-  }
-  if (item.history?.deviationFromMA20 >= -3 && item.history?.deviationFromMA20 <= 3) {
-    tags.push('接近MA20');
-  }
-  if (item.history?.rsi >= 35 && item.history?.rsi <= 50) {
-    tags.push('RSI低位');
-  }
-  if (item.history?.macdHistogram > -0.05 && item.history?.macdHistogram < 0.1) {
-    tags.push('MACD修复');
-  }
-  if (volumeRatio >= 0.9 && volumeRatio <= 1.6) {
-    tags.push('温和承接');
-  }
-  if (item.history?.gain60d > 8) {
-    tags.push('趋势向上');
-  }
-  if ((item.turnover || 0) >= 500000000) {
-    tags.push('成交额充足');
-  }
-  return tags;
-}
-
-function buildRiskTags(item) {
-  const tags = [];
-  const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
-
-  if (item.history?.distanceToHigh60d > -5) {
-    tags.push('离高点过近');
-  }
-  if (item.history?.maxDrawdown > 25) {
-    tags.push('回撤过深');
-  }
-  if (item.history?.consecutiveDownDays >= 4) {
-    tags.push('连续下跌');
-  }
-  if (volumeRatio < 0.8) {
-    tags.push('缩量过度');
-  }
-  if ((item.turnover || 0) < 500000000) {
-    tags.push('成交额偏低');
-  }
-
-  return tags;
-}
-
-function getStrategyGrade(score, strategy) {
-  const a = strategy.gradeAThreshold == null ? 80 : strategy.gradeAThreshold;
-  const b = strategy.gradeBThreshold == null ? 65 : strategy.gradeBThreshold;
-  const c = strategy.gradeCThreshold == null ? 50 : strategy.gradeCThreshold;
-  if (score >= a) return 'A';
-  if (score >= b) return 'B';
-  if (score >= c) return 'C';
-  return 'DROP';
-}
-
-function scoreStrategy(item, strategy) {
-  const turnoverRatePercent = item.turnoverRatePercent || 0;
-  const volRatio = item.volumeBurstRatio || item.volumeRatio || 0;
-  const changePercent = item.changePercent || 0;
-  const turnover = item.turnover || 0;
-  const maxChangePercent = strategy.maxChangePercent == null ? 2.5 : strategy.maxChangePercent;
-  const maxTurnoverRatePercent = strategy.maxTurnoverRatePercent == null ? 8 : strategy.maxTurnoverRatePercent;
-  const maxVolumeRatio = strategy.maxVolumeRatio == null ? 1.8 : strategy.maxVolumeRatio;
-
-  const hardMatched =
-    !!item.isMainBoard &&
-    !item.isST &&
-    !!item.isTenPercentLimit &&
-    turnoverRatePercent >= strategy.minTurnoverRatePercent &&
-    turnoverRatePercent <= maxTurnoverRatePercent &&
-    volRatio >= strategy.minVolumeRatio &&
-    volRatio <= maxVolumeRatio &&
-    changePercent >= strategy.minChangePercent &&
-    changePercent <= maxChangePercent &&
-    turnover >= strategy.minAmount;
-
-  const rawScore =
-    scoreTurnoverRatePercent(turnoverRatePercent) +
-    scoreVolumeRatio(volRatio) +
-    scoreChangePercent(changePercent, maxChangePercent) +
-    scoreTurnoverAmount(turnover);
-
-  const score = Math.min(rawScore, 100);
-  const grade = getStrategyGrade(score, strategy);
-  const strategyMatched = hardMatched && grade !== 'DROP';
-
-  return {
-    ...item,
-    score: Number(score.toFixed(4)),
-    signal: strategyMatched ? 'HOT' : 'WATCH',
-    strategyMatched,
-    strategy: {
-      score: Number(score.toFixed(4)),
-      grade,
-      positiveTags: buildPositiveTags(item),
-      riskTags: buildRiskTags(item),
-      selectedReason: {
-        isMainBoard: !!item.isMainBoard,
-        notST: !item.isST,
-        tenPercentLimit: !!item.isTenPercentLimit,
-        turnoverQualified: turnover >= strategy.minAmount,
-        turnoverRateQualified: turnoverRatePercent >= strategy.minTurnoverRatePercent && turnoverRatePercent <= maxTurnoverRatePercent,
-        volumeRatioQualified: volRatio >= strategy.minVolumeRatio && volRatio <= maxVolumeRatio,
-        changePercentQualified: changePercent >= strategy.minChangePercent && changePercent <= maxChangePercent
-      }
-    }
-  };
 }
 
 // 保留旧渲染函数供过渡使用
@@ -906,12 +796,14 @@ async function scrapeEastmoneyDomMarket(config) {
 class MarketScanner {
   constructor(config, onScan, logsDir) {
     this.config = config;
+    this.runtimeStrategy = config.runtimeStrategy || getRuntimeStrategyConfig();
     this.onScan = onScan;
     this.timer = null;
     this.historyCache = new Map(); // 缓存历史数据
     this.lastHistoryUpdate = null;
     this.scanLogger = new ScanLogger(logsDir);
     this.historyCachePath = path.join(logsDir, 'history-cache.json');
+    this.researchWatchlist = loadResearchWatchlist();
     this.loadHistoryCache();
   }
 
@@ -998,9 +890,13 @@ class MarketScanner {
             });
             fetchCount++;
           } else {
-            console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，给予降级分数`);
-            // 给个降级分数，避免完全丢失候选
-            history = { indicators: { degraded: true }, historyScore: 50, fetchedAt: now, dateKey: todayKey };
+            console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，标记为降级`);
+            history = {
+              indicators: { degraded: true },
+              historyScore: this.runtimeStrategy.history?.degradedDataPolicy?.fallbackScore ?? 35,
+              fetchedAt: now,
+              dateKey: todayKey,
+            };
             this.historyCache.set(pick.symbol, history);
           }
           // 每次请求后延迟600ms，避免触发限流
@@ -1015,7 +911,10 @@ class MarketScanner {
             history: history.indicators,
             historyScore: history.historyScore,
             historyUpdatedAt: history.dateKey || (history.fetchedAt ? getHistoryCacheDateKey(history.fetchedAt) : null),
-            combinedScore: Number(((pick.score * 0.5 + history.historyScore * 0.5).toFixed(2)))
+            combinedScore: combineCandidateScores({
+              ...pick,
+              historyScore: history.historyScore,
+            }, this.runtimeStrategy)
           };
           // 重新生成标签（基于历史数据）
           if (enrichedItem.strategy) {
@@ -1029,8 +928,11 @@ class MarketScanner {
           enriched.push({
             ...pick,
             history: { degraded: true },
-            historyScore: 50,
-            combinedScore: Number(((pick.score * 0.85 + 50 * 0.15).toFixed(2)))
+            historyScore: this.runtimeStrategy.history?.degradedDataPolicy?.fallbackScore ?? 35,
+            combinedScore: combineCandidateScores({
+              ...pick,
+              historyScore: this.runtimeStrategy.history?.degradedDataPolicy?.fallbackScore ?? 35,
+            }, this.runtimeStrategy)
           });
         }
       }
@@ -1060,6 +962,7 @@ class MarketScanner {
     const ts = new Date().toISOString();
     const bjTime = formatBeijingTime(ts);
     this.scanLogger.startScan(ts, bjTime);
+    this.researchWatchlist = loadResearchWatchlist();
 
     const { browser, context, page } = await openEastmoneyListPage(this.config);
     this.page = page;
@@ -1084,28 +987,31 @@ class MarketScanner {
         filtered: rawQuotes.length - quotes.length
       });
 
-      const scored = quotes.map(item => scoreStrategy(item, this.config.strategy));
+      const scored = quotes.map(item => scoreIntradayStrategy(item, this.runtimeStrategy, this.researchWatchlist.map));
       this.scanLogger.log('当日评分', { total: scored.length });
 
       // 非交易时间也执行完整候选筛选，方便随时查看策略效果
 
-      // 降低当日筛选标准，选出更多候选股票用于历史数据分析
-      const initialThreshold = marketOpen ? 65 : 55;
-      const candidateLimit = portfolioFull ? Math.min(60, this.config.strategy.topN * 3) : Math.min(150, this.config.strategy.topN * 5);
-      let candidates = scored
-        .filter(item => item.score >= initialThreshold)
-        .sort((a, b) => b.score - a.score)
-        .slice(0, candidateLimit); // 满仓时减少候选深度
+      const pool = buildInitialCandidatePool(scored, marketOpen, portfolioFull, this.runtimeStrategy);
+      let candidates = pool.candidates;
 
       this.scanLogger.log('初步筛选（降低标准）', {
-        threshold: initialThreshold,
+        threshold: pool.initialThreshold,
         before: scored.length,
         after: candidates.length,
-        topScores: candidates.slice(0, 5).map(p => ({ symbol: p.symbol, name: p.name, score: p.score }))
+        researchWatchlistCount: this.researchWatchlist.count,
+        researchCandidates: pool.researchCandidateCount,
+        topScores: candidates.slice(0, 5).map(p => ({
+          symbol: p.symbol,
+          name: p.name,
+          score: p.score,
+          researchSelected: p.researchSelected,
+          researchScore: p.researchScore,
+        }))
       });
 
       // 获取历史数据
-      if (this.config.strategy.enableHistoryScore !== false) {
+      if (this.runtimeStrategy.marketFilters.enableHistoryScore !== false) {
         candidates = await this.enrichWithHistory(candidates, context);
 
         // 基于60日历史数据进行严格筛选（趋势低吸策略）
@@ -1126,119 +1032,17 @@ class MarketScanner {
           macdTooWeak: 0,
           avgAmountLow: 0,
           avgTurnoverLow: 0,
-          historyScoreLow: 0
+          historyScoreLow: 0,
+          degradedHistory: 0,
         };
 
         candidates = candidates.filter(p => {
-          const sampleBase = { symbol: p.symbol, name: p.name, score: p.score || 0, historyScore: p.historyScore || 0, price: p.price || 0 };
-
-          // 必须有历史数据
-          if (!p.history) {
-            filtered.push({ ...sampleBase, reason: '无历史数据' });
-            filterStats.noHistory++;
-            return false;
-          }
-
-          const h = p.history;
-
-          // 降级候选（历史数据获取失败但给了降级分数）：直接放行，避免东财历史接口异常时整个候选池清空
-          if (h.degraded) {
-            return true;
-          }
-
-          // 1. 中期趋势必须向上
-          if (h.gain60d === null || h.gain60d < 2) {
-            filtered.push({ ...sampleBase, gain60d: h.gain60d, reason: `60日涨幅${h.gain60d}%不足2%` });
-            filterStats.trend60dLow++;
-            return false;
-          }
-
-          if (h.gain30d !== null && h.gain30d < -3) {
-            filtered.push({ ...sampleBase, gain30d: h.gain30d, reason: `30日涨幅${h.gain30d}%不足-3%` });
-            filterStats.trend30dLow++;
-            return false;
-          }
-
-          // 2. 短期允许回调，但不能跌太多
-          if (h.gain10d !== null && h.gain10d < -12) {
-            filtered.push({ ...sampleBase, gain10d: h.gain10d, reason: `10日跌幅${h.gain10d}%过大` });
-            filterStats.gain10dTooLow++;
-            return false;
-          }
-
-          if (h.gain5d !== null && (h.gain5d > 4 || h.gain5d < -10)) {
-            filtered.push({ ...sampleBase, gain5d: h.gain5d, reason: `5日涨幅${h.gain5d}%不在-10%~+4%` });
-            filterStats.gain5dOutOfRange++;
-            return false;
-          }
-
-          // 3. 回撤要适中
-          if (h.maxDrawdown > 35) {
-            filtered.push({ ...sampleBase, maxDrawdown: h.maxDrawdown, reason: `最大回撤${h.maxDrawdown}%过深` });
-            filterStats.maxDrawdownHigh++;
-            return false;
-          }
-
-          if (h.distanceToHigh60d > -3 || h.distanceToHigh60d < -30) {
-            filtered.push({ ...sampleBase, distanceToHigh60d: h.distanceToHigh60d, reason: `距高点${h.distanceToHigh60d}%不在-30%~-3%` });
-            filterStats.distanceToHighInvalid++;
-            return false;
-          }
-
-          // 4. 连续下跌不能太多
-          if (h.consecutiveDownDays > 5) {
-            filtered.push({ ...sampleBase, consecutiveDownDays: h.consecutiveDownDays, reason: `连续下跌${h.consecutiveDownDays}天` });
-            filterStats.consecutiveDown++;
-            return false;
-          }
-
-          // 5. 均线结构
-          if (h.ma20 && h.ma60 && h.ma20 <= h.ma60 * 0.95) {
-            filtered.push({ ...sampleBase, ma20: h.ma20, ma60: h.ma60, reason: `MA20(${h.ma20})明显弱于MA60(${h.ma60})` });
-            filterStats.maTrendInvalid++;
-            return false;
-          }
-
-          if (h.ma60 && p.price < h.ma60 * 0.94) {
-            filtered.push({ ...sampleBase, price: p.price, ma60: h.ma60, reason: `价格${p.price}明显跌破MA60(${h.ma60})` });
-            filterStats.belowMa60++;
-            return false;
-          }
-
-          // 6. 技术指标企稳
-          if (h.rsi < 28 || h.rsi > 65) {
-            filtered.push({ ...sampleBase, rsi: h.rsi, reason: `RSI${h.rsi}不在28~65` });
-            filterStats.rsiOutOfRange++;
-            return false;
-          }
-
-          if (h.macdHistogram < -0.2) {
-            filtered.push({ ...sampleBase, macdHistogram: h.macdHistogram, reason: `MACD柱${h.macdHistogram}过弱` });
-            filterStats.macdTooWeak++;
-            return false;
-          }
-
-          // 7. 流动性
-          if (h.avgAmount60d < 200000000) {
-            filtered.push({ ...sampleBase, avgAmount60d: h.avgAmount60d, reason: `60日均额${(h.avgAmount60d/1e8).toFixed(2)}亿不足2亿` });
-            filterStats.avgAmountLow++;
-            return false;
-          }
-
-          if (h.avgTurnover60d < 1) {
-            filtered.push({ ...sampleBase, avgTurnover60d: h.avgTurnover60d, reason: `60日均换手${h.avgTurnover60d}%不足1%` });
-            filterStats.avgTurnoverLow++;
-            return false;
-          }
-
-          // 8. 历史评分
-          if (p.historyScore < 50) {
-            filtered.push({ ...sampleBase, reason: `历史评分${p.historyScore}分不足50` });
-            filterStats.historyScoreLow++;
-            return false;
-          }
-
-          return true;
+          const decision = evaluateHistoryFilters(p, this.runtimeStrategy.history);
+          if (decision.passed) return true;
+          filtered.push({ ...decision.detail, reason: decision.reason });
+          if (filterStats[decision.reasonKey] == null) filterStats[decision.reasonKey] = 0;
+          filterStats[decision.reasonKey] += 1;
+          return false;
         });
 
         this.scanLogger.log('60日历史数据严格筛选', {
@@ -1252,8 +1056,7 @@ class MarketScanner {
         candidates = candidates
           .map(p => ({
             ...p,
-            // 历史数据与当日强度各占50%
-            combinedScore: Number(((p.score * 0.5 + p.historyScore * 0.5).toFixed(2)))
+            combinedScore: combineCandidateScores(p, this.runtimeStrategy)
           }))
           .sort((a, b) => b.combinedScore - a.combinedScore)
           .slice(0, this.config.strategy.topN);
@@ -1273,10 +1076,10 @@ class MarketScanner {
         });
       }
 
-      if (this.config.strategy.enableHistoryScore !== false && candidates.length === 0) {
+      if (this.runtimeStrategy.marketFilters.enableHistoryScore !== false && candidates.length === 0) {
         const fallbackForDashboard = scored
-          .filter(item => item.score >= initialThreshold)
-          .sort((a, b) => b.score - a.score)
+          .filter(item => item.score >= pool.initialThreshold)
+          .sort((a, b) => (b.preHistoryScore || b.score || 0) - (a.preHistoryScore || a.score || 0))
           .slice(0, 30);
         const fallbackMissingHistory = fallbackForDashboard.filter(item => !this.historyCache.get(item.symbol));
         if (fallbackMissingHistory.length > 0) {
@@ -1289,12 +1092,22 @@ class MarketScanner {
         totalStocks: rawQuotes.length,
         mainBoardStocks: quotes.length,
         scoredStocks: scored.length,
+        researchUniverseCount: this.researchWatchlist.count,
         initialCandidates: candidates.length,
         finalPicks: candidates.length
       };
 
       this.scanLogger.endScan(summary);
-      await this.onScan({ all: scored, picks: candidates, ts, marketRegime });
+      await this.onScan({
+        all: scored,
+        picks: candidates,
+        ts,
+        marketRegime,
+        researchWatchlist: {
+          count: this.researchWatchlist.count,
+          generatedFrom: this.researchWatchlist.generatedFrom,
+        }
+      });
     } finally {
       await page.close().catch(() => {});
       await browser.close().catch(() => {});
@@ -2102,7 +1915,16 @@ async function main() {
   ensureDir(logsDir);
   const scanLogPath = path.join(logsDir, 'scan.log');
   const statePath = path.join(logsDir, 'state.json');
-  const state = { startedAt: new Date().toISOString(), mode: 'eastmoney-dom-scanner', market: [], strategyPicks: [], marketCount: 0, scanRounds: 0, lastScanAt: null };
+  const state = {
+    startedAt: new Date().toISOString(),
+    mode: 'eastmoney-dom-scanner',
+    market: [],
+    strategyPicks: [],
+    marketCount: 0,
+    scanRounds: 0,
+    lastScanAt: null,
+    researchWatchlist: { count: 0, generatedFrom: null },
+  };
   
   // 初始化模拟盘账户
   const paperAccount = config.paperTrading?.enabled ? new PaperAccount(config, logsDir) : null;
@@ -2118,6 +1940,7 @@ async function main() {
     state.strategyPicks = payload.picks;
     state.marketCount = payload.all.length;
     state.marketRegime = payload.marketRegime;
+    state.researchWatchlist = payload.researchWatchlist || state.researchWatchlist;
     appendJsonLine(scanLogPath, { ts: payload.ts, bjTime: formatBeijingTime(payload.ts), marketCount: payload.all.length, picks: payload.picks.slice(0, 20) });
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     console.log(`[SCAN] round=${state.scanRounds} market=${state.marketCount} picks=${state.strategyPicks.length} ts=${formatBeijingTime(payload.ts)}`);

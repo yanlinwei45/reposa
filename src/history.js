@@ -1,5 +1,5 @@
-const fs = require('fs');
-const path = require('path');
+const { getRuntimeStrategyConfig } = require('./strategy/config');
+const { score60DayHistory: score60DayHistoryByConfig } = require('./strategy/historyRules');
 
 // 获取大盘指数数据（上证指数，优先使用 page.evaluate 带浏览器 Cookie/Referer）
 async function fetchIndexData(context, page) {
@@ -449,73 +449,8 @@ function calculate60DayIndicators(klines) {
 
 // 基于60日数据的评分（趋势低吸策略）
 function score60DayHistory(indicators) {
-  if (!indicators) return 0;
-
-  let score = 0;
-
-  // A. 中期趋势分（30分）
-  if (indicators.gain60d !== null) {
-    if (indicators.gain60d >= 5 && indicators.gain60d <= 25) score += 15;
-    else if (indicators.gain60d > 25 && indicators.gain60d <= 40) score += 12;
-    else if (indicators.gain60d > 40) score += 8;
-    else if (indicators.gain60d >= 0 && indicators.gain60d < 5) score += 5;
-  }
-
-  if (indicators.gain30d !== null) {
-    if (indicators.gain30d >= 0 && indicators.gain30d <= 15) score += 10;
-    else if (indicators.gain30d > 15 && indicators.gain30d <= 25) score += 7;
-    else if (indicators.gain30d > 25) score += 5;
-  }
-
-  if (indicators.ma20 && indicators.ma60 && indicators.ma20 > indicators.ma60) score += 5;
-
-  // B. 低位回调分（30分）
-  if (indicators.distanceToHigh60d >= -25 && indicators.distanceToHigh60d <= -5) score += 15;
-  else if (indicators.distanceToHigh60d > -5 && indicators.distanceToHigh60d <= -3) score += 8;
-  else if (indicators.distanceToHigh60d > -30 && indicators.distanceToHigh60d < -25) score += 8;
-
-  if (indicators.gain5d !== null) {
-    if (indicators.gain5d >= -8 && indicators.gain5d <= 3) score += 10;
-    else if (indicators.gain5d > 3 && indicators.gain5d <= 5) score += 5;
-  }
-
-  if (indicators.deviationFromMA20 !== null) {
-    const dev = indicators.deviationFromMA20;
-    if (dev >= -8 && dev <= 4) score += 5;
-    else if (dev >= -12 && dev < -8) score += 3;
-  }
-
-  // C. 企稳信号分（20分）
-  if (indicators.consecutiveDownDays <= 3) score += 5;
-  else if (indicators.consecutiveDownDays === 4) score += 3;
-
-  if (indicators.macdHistogram > -0.08) score += 8;
-  else if (indicators.macdHistogram > -0.15) score += 5;
-
-  if (indicators.rsi >= 30 && indicators.rsi <= 55) score += 7;
-  else if (indicators.rsi > 55 && indicators.rsi <= 60) score += 5;
-  else if (indicators.rsi < 30) score -= 3;
-
-  // D. 流动性与稳定性分（20分）
-  if (indicators.avgAmount60d >= 500000000) score += 5;
-  else if (indicators.avgAmount60d >= 300000000) score += 3;
-
-  if (indicators.avgTurnover60d >= 2) score += 5;
-  else if (indicators.avgTurnover60d >= 1.5) score += 3;
-
-  if (indicators.maxDrawdown <= 25) score += 5;
-  else if (indicators.maxDrawdown <= 35) score += 3;
-
-  if (indicators.volatility <= 6) score += 5;
-  else if (indicators.volatility <= 8) score += 3;
-
-  // 风险扣分
-  if (indicators.consecutiveDownDays >= 5) score -= 10;
-  if (indicators.maxDrawdown > 40) score -= 10;
-  if (indicators.distanceToHigh60d > -5) score -= 8; // 离高点太近
-  if (indicators.gain10d !== null && indicators.gain10d < -10) score -= 8;
-
-  return Math.max(0, Math.min(100, score));
+  const runtimeConfig = getRuntimeStrategyConfig();
+  return score60DayHistoryByConfig(indicators, runtimeConfig.history?.scoring || {});
 }
 
 module.exports = {

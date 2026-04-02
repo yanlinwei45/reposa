@@ -24,6 +24,7 @@ def add_features(g: pd.DataFrame) -> pd.DataFrame:
     g['ret_5'] = g['close'].pct_change(5)
     g['ret_10'] = g['close'].pct_change(10)
     g['ret_20'] = g['close'].pct_change(20)
+    g['ret_60'] = g['close'].pct_change(60)
     g['ma5'] = g['close'].rolling(5).mean()
     g['ma10'] = g['close'].rolling(10).mean()
     g['ma20'] = g['close'].rolling(20).mean()
@@ -34,6 +35,7 @@ def add_features(g: pd.DataFrame) -> pd.DataFrame:
     g['volatility_10'] = g['ret_1'].rolling(10).std()
     g['pullback_10'] = g['close'] / g['close'].rolling(10).max() - 1
     g['pullback_20'] = g['close'] / g['close'].rolling(20).max() - 1
+    g['distance_to_high_20'] = g['close'] / g['close'].rolling(20).max() - 1
     g['volume_ratio_5'] = g['volume'] / g['volume'].rolling(5).mean()
     g['close_vs_ma20'] = g['close'] / g['ma20'] - 1
     g['close_vs_ma60'] = g['close'] / g['ma60'] - 1
