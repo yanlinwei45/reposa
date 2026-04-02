@@ -91,6 +91,7 @@ function score60DayHistory(indicators, scoringConfig = {}) {
 function evaluateHistoryFilters(item, historyConfig = {}) {
   const filters = historyConfig.filters || {};
   const degradedPolicy = historyConfig.degradedDataPolicy || {};
+  const isResearchSelected = !!item.researchSelected;
   const sampleBase = {
     symbol: item.symbol,
     name: item.name,
@@ -123,8 +124,11 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'gain10dTooLow', reason: `10日跌幅${h.gain10d}%过大`, detail: { ...sampleBase, gain10d: h.gain10d } };
   }
 
-  if (h.gain5d !== null && (h.gain5d > (filters.maxGain5d ?? 4) || h.gain5d < (filters.minGain5d ?? -10))) {
-    return { passed: false, reasonKey: 'gain5dOutOfRange', reason: `5日涨幅${h.gain5d}%不在${filters.minGain5d ?? -10}%~${filters.maxGain5d ?? 4}%`, detail: { ...sampleBase, gain5d: h.gain5d } };
+  const maxGain5d = isResearchSelected
+    ? (filters.researchMaxGain5d ?? filters.maxGain5d ?? 4)
+    : (filters.maxGain5d ?? 4);
+  if (h.gain5d !== null && (h.gain5d > maxGain5d || h.gain5d < (filters.minGain5d ?? -10))) {
+    return { passed: false, reasonKey: 'gain5dOutOfRange', reason: `5日涨幅${h.gain5d}%不在${filters.minGain5d ?? -10}%~${maxGain5d}%`, detail: { ...sampleBase, gain5d: h.gain5d } };
   }
 
   if (h.maxDrawdown > (filters.maxDrawdown ?? 35)) {
@@ -147,11 +151,17 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'belowMa60', reason: `价格${item.price}明显跌破MA60(${h.ma60})`, detail: { ...sampleBase, ma60: h.ma60 } };
   }
 
-  if (h.rsi < (filters.minRsi ?? 28) || h.rsi > (filters.maxRsi ?? 65)) {
-    return { passed: false, reasonKey: 'rsiOutOfRange', reason: `RSI${h.rsi}不在${filters.minRsi ?? 28}~${filters.maxRsi ?? 65}`, detail: { ...sampleBase, rsi: h.rsi } };
+  const maxRsi = isResearchSelected
+    ? (filters.researchMaxRsi ?? filters.maxRsi ?? 65)
+    : (filters.maxRsi ?? 65);
+  if (h.rsi < (filters.minRsi ?? 28) || h.rsi > maxRsi) {
+    return { passed: false, reasonKey: 'rsiOutOfRange', reason: `RSI${h.rsi}不在${filters.minRsi ?? 28}~${maxRsi}`, detail: { ...sampleBase, rsi: h.rsi } };
   }
 
-  if (h.macdHistogram < (filters.minMacdHistogram ?? -0.2)) {
+  const minMacdHistogram = isResearchSelected
+    ? (filters.researchMinMacdHistogram ?? filters.minMacdHistogram ?? -0.2)
+    : (filters.minMacdHistogram ?? -0.2);
+  if (h.macdHistogram < minMacdHistogram) {
     return { passed: false, reasonKey: 'macdTooWeak', reason: `MACD柱${h.macdHistogram}过弱`, detail: { ...sampleBase, macdHistogram: h.macdHistogram } };
   }
 
@@ -159,8 +169,11 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'avgAmountLow', reason: `60日均额${(h.avgAmount60d / 1e8).toFixed(2)}亿不足${((filters.minAvgAmount60d ?? 200000000) / 1e8).toFixed(0)}亿`, detail: { ...sampleBase, avgAmount60d: h.avgAmount60d } };
   }
 
-  if (h.avgTurnover60d < (filters.minAvgTurnover60d ?? 1)) {
-    return { passed: false, reasonKey: 'avgTurnoverLow', reason: `60日均换手${h.avgTurnover60d}%不足${filters.minAvgTurnover60d ?? 1}%`, detail: { ...sampleBase, avgTurnover60d: h.avgTurnover60d } };
+  const minAvgTurnover60d = isResearchSelected
+    ? (filters.researchMinAvgTurnover60d ?? filters.minAvgTurnover60d ?? 1)
+    : (filters.minAvgTurnover60d ?? 1);
+  if (h.avgTurnover60d < minAvgTurnover60d) {
+    return { passed: false, reasonKey: 'avgTurnoverLow', reason: `60日均换手${h.avgTurnover60d}%不足${minAvgTurnover60d}%`, detail: { ...sampleBase, avgTurnover60d: h.avgTurnover60d } };
   }
 
   if ((item.historyScore || 0) < (filters.minHistoryScore ?? 50)) {

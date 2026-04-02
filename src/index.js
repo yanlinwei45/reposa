@@ -151,6 +151,52 @@ function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
   });
 }
 
+function summarizeFilterStats(filterStats = {}) {
+  const labels = {
+    noHistory: '无历史数据',
+    trend60dLow: '60日趋势不足',
+    trend30dLow: '30日趋势不足',
+    gain10dTooLow: '10日跌幅过大',
+    gain5dOutOfRange: '5日回调不符',
+    maxDrawdownHigh: '回撤过深',
+    distanceToHighInvalid: '离高点位置不对',
+    consecutiveDown: '连续下跌过多',
+    maTrendInvalid: '均线趋势不对',
+    belowMa60: '跌破MA60',
+    rsiOutOfRange: 'RSI不在低吸区',
+    macdTooWeak: 'MACD过弱',
+    avgAmountLow: '成交额不足',
+    avgTurnoverLow: '换手率过低',
+    historyScoreLow: '历史评分不足',
+    degradedHistory: '历史降级',
+  };
+
+  return Object.entries(filterStats)
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, count]) => ({ key, label: labels[key] || key, count }));
+}
+
+function buildObservationPool(candidates = [], runtimeStrategy = {}, limit = 12) {
+  const filters = runtimeStrategy.history?.filters || {};
+  return candidates
+    .filter(item => {
+      const h = item.history || {};
+      if (!h || h.degraded) return !!item.researchSelected;
+      if ((item.historyScore || 0) < Math.max(45, (filters.minHistoryScore ?? 50) - 5)) return false;
+      if (h.gain5d != null && h.gain5d > ((filters.researchMaxGain5d ?? filters.maxGain5d ?? 4) + 4)) return false;
+      if (h.rsi != null && h.rsi > ((filters.researchMaxRsi ?? filters.maxRsi ?? 65) + 4)) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      if ((b.researchSelected ? 1 : 0) !== (a.researchSelected ? 1 : 0)) {
+        return (b.researchSelected ? 1 : 0) - (a.researchSelected ? 1 : 0);
+      }
+      return (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0);
+    })
+    .slice(0, limit);
+}
+
 function filterMainBoardTenPercent(items) {
   return items.filter(item => item && item.isMainBoard && !item.isST && item.isTenPercentLimit);
 }
@@ -840,6 +886,9 @@ class MarketScanner {
   async enrichWithHistory(picks, context) {
     const now = Date.now();
     const todayKey = getHistoryCacheDateKey(now);
+    const degradedPolicy = this.runtimeStrategy.history?.degradedDataPolicy || {};
+    const retryIntervalMs = degradedPolicy.retryIntervalMs ?? 900000;
+    const preferStaleCache = degradedPolicy.preferStaleCache !== false;
 
     const enriched = [];
     let fetchCount = 0;
@@ -867,9 +916,14 @@ class MarketScanner {
 
       for (const pick of batch) {
         let history = this.historyCache.get(pick.symbol);
+        const previousHistory = history;
 
         // 判断是否需要更新：没有缓存 或 缓存不是今天的
-        const needUpdate = !history || !history.fetchedAt || getHistoryCacheDateKey(history.fetchedAt) !== todayKey;
+        const fetchedAt = history?.fetchedAt ? Number(history.fetchedAt) : 0;
+        const isToday = !!history?.fetchedAt && getHistoryCacheDateKey(history.fetchedAt) === todayKey;
+        const hasUsableHistory = !!history?.indicators && history.indicators.degraded !== true;
+        const shouldRetryDegraded = !!history?.indicators?.degraded && (!fetchedAt || now - fetchedAt >= retryIntervalMs);
+        const needUpdate = !history || !isToday || shouldRetryDegraded;
 
         if (needUpdate) {
           console.log(`[HISTORY] 获取${pick.symbol} ${pick.name}的60日数据 (${fetchCount + 1}/${picks.length}) ${history ? '更新' : '新增'}`);
@@ -890,14 +944,24 @@ class MarketScanner {
             });
             fetchCount++;
           } else {
-            console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，标记为降级`);
-            history = {
-              indicators: { degraded: true },
-              historyScore: this.runtimeStrategy.history?.degradedDataPolicy?.fallbackScore ?? 35,
-              fetchedAt: now,
-              dateKey: todayKey,
-            };
-            this.historyCache.set(pick.symbol, history);
+            if (preferStaleCache && hasUsableHistory) {
+              console.log(`[HISTORY] ${pick.symbol} ${pick.name} 拉取失败，保留旧历史缓存 (${previousHistory.dateKey || 'unknown'})`);
+              history = {
+                ...previousHistory,
+                lastAttemptAt: now,
+                lastAttemptDateKey: todayKey,
+              };
+              this.historyCache.set(pick.symbol, history);
+            } else {
+              console.log(`[HISTORY] ${pick.symbol} ${pick.name} 历史数据不足，标记为降级`);
+              history = {
+                indicators: { degraded: true },
+                historyScore: this.runtimeStrategy.history?.degradedDataPolicy?.fallbackScore ?? 35,
+                fetchedAt: now,
+                dateKey: todayKey,
+              };
+              this.historyCache.set(pick.symbol, history);
+            }
           }
           // 每次请求后延迟600ms，避免触发限流
           await new Promise(resolve => setTimeout(resolve, 600));
@@ -993,7 +1057,28 @@ class MarketScanner {
       // 非交易时间也执行完整候选筛选，方便随时查看策略效果
 
       const pool = buildInitialCandidatePool(scored, marketOpen, portfolioFull, this.runtimeStrategy);
-      let candidates = pool.candidates;
+      const initialPool = pool.candidates;
+      let candidates = initialPool;
+      let observationPicks = [];
+      let filterStats = {
+        noHistory: 0,
+        trend60dLow: 0,
+        trend30dLow: 0,
+        gain10dTooLow: 0,
+        gain5dOutOfRange: 0,
+        maxDrawdownHigh: 0,
+        distanceToHighInvalid: 0,
+        consecutiveDown: 0,
+        maTrendInvalid: 0,
+        belowMa60: 0,
+        rsiOutOfRange: 0,
+        macdTooWeak: 0,
+        avgAmountLow: 0,
+        avgTurnoverLow: 0,
+        historyScoreLow: 0,
+        degradedHistory: 0,
+      };
+      let filteredOut = [];
 
       this.scanLogger.log('初步筛选（降低标准）', {
         threshold: pool.initialThreshold,
@@ -1016,30 +1101,12 @@ class MarketScanner {
 
         // 基于60日历史数据进行严格筛选（趋势低吸策略）
         const beforeHistoryFilter = candidates.length;
-        const filtered = [];
-        const filterStats = {
-          noHistory: 0,
-          trend60dLow: 0,
-          trend30dLow: 0,
-          gain10dTooLow: 0,
-          gain5dOutOfRange: 0,
-          maxDrawdownHigh: 0,
-          distanceToHighInvalid: 0,
-          consecutiveDown: 0,
-          maTrendInvalid: 0,
-          belowMa60: 0,
-          rsiOutOfRange: 0,
-          macdTooWeak: 0,
-          avgAmountLow: 0,
-          avgTurnoverLow: 0,
-          historyScoreLow: 0,
-          degradedHistory: 0,
-        };
+        filteredOut = [];
 
         candidates = candidates.filter(p => {
           const decision = evaluateHistoryFilters(p, this.runtimeStrategy.history);
           if (decision.passed) return true;
-          filtered.push({ ...decision.detail, reason: decision.reason });
+          filteredOut.push({ ...decision.detail, reason: decision.reason });
           if (filterStats[decision.reasonKey] == null) filterStats[decision.reasonKey] = 0;
           filterStats[decision.reasonKey] += 1;
           return false;
@@ -1048,7 +1115,7 @@ class MarketScanner {
         this.scanLogger.log('60日历史数据严格筛选', {
           before: beforeHistoryFilter,
           after: candidates.length,
-          filtered: filtered.slice(0, 10), // 只记录前10个被过滤的
+          filtered: filteredOut.slice(0, 10), // 只记录前10个被过滤的
           filterStats
         });
 
@@ -1060,6 +1127,16 @@ class MarketScanner {
           }))
           .sort((a, b) => b.combinedScore - a.combinedScore)
           .slice(0, this.config.strategy.topN);
+
+        observationPicks = buildObservationPool(
+          [...candidates, ...filteredOut.map(item => initialPool.find(candidate => candidate.symbol === item.symbol)).filter(Boolean)]
+            .map(item => (item.combinedScore != null ? item : {
+              ...item,
+              combinedScore: combineCandidateScores(item, this.runtimeStrategy),
+            })),
+          this.runtimeStrategy,
+          Math.min(12, this.config.strategy.topN || 30)
+        ).filter(item => !candidates.some(candidate => candidate.symbol === item.symbol));
 
         this.scanLogger.log('综合评分排序（当日/历史 50/50）', {
           total: candidates.length,
@@ -1086,14 +1163,20 @@ class MarketScanner {
           console.log(`[HISTORY] picks=0，补充首页候选历史数据: ${fallbackMissingHistory.length}只`);
           await this.enrichWithHistory(fallbackMissingHistory, context);
         }
+        if (observationPicks.length === 0) {
+          const enrichedFallback = mergeHistoryIntoMarketItems(fallbackForDashboard, this.historyCache);
+          observationPicks = buildObservationPool(enrichedFallback, this.runtimeStrategy, 12);
+        }
       }
+
+      const filterSummary = summarizeFilterStats(filterStats);
 
       const summary = {
         totalStocks: rawQuotes.length,
         mainBoardStocks: quotes.length,
         scoredStocks: scored.length,
         researchUniverseCount: this.researchWatchlist.count,
-        initialCandidates: candidates.length,
+        initialCandidates: initialPool.length,
         finalPicks: candidates.length
       };
 
@@ -1101,11 +1184,22 @@ class MarketScanner {
       await this.onScan({
         all: scored,
         picks: candidates,
+        observationPicks,
         ts,
         marketRegime,
         researchWatchlist: {
           count: this.researchWatchlist.count,
           generatedFrom: this.researchWatchlist.generatedFrom,
+        }
+        ,
+        diagnostics: {
+          initialCandidateCount: initialPool.length,
+          finalPickCount: candidates.length,
+          observationCount: observationPicks.length,
+          researchCandidateCount: pool.researchCandidateCount,
+          filterStats,
+          filterSummary,
+          filteredSamples: filteredOut.slice(0, 10),
         }
       });
     } finally {
@@ -1920,10 +2014,20 @@ async function main() {
     mode: 'eastmoney-dom-scanner',
     market: [],
     strategyPicks: [],
+    observationPicks: [],
     marketCount: 0,
     scanRounds: 0,
     lastScanAt: null,
     researchWatchlist: { count: 0, generatedFrom: null },
+    diagnostics: {
+      initialCandidateCount: 0,
+      finalPickCount: 0,
+      observationCount: 0,
+      researchCandidateCount: 0,
+      filterStats: {},
+      filterSummary: [],
+      filteredSamples: [],
+    },
   };
   
   // 初始化模拟盘账户
@@ -1938,9 +2042,11 @@ async function main() {
     state.lastScanAt = formatBeijingTime(payload.ts);
     state.market = mergeHistoryIntoMarketItems(payload.all, scanner.historyCache);
     state.strategyPicks = payload.picks;
+    state.observationPicks = payload.observationPicks || [];
     state.marketCount = payload.all.length;
     state.marketRegime = payload.marketRegime;
     state.researchWatchlist = payload.researchWatchlist || state.researchWatchlist;
+    state.diagnostics = payload.diagnostics || state.diagnostics;
     appendJsonLine(scanLogPath, { ts: payload.ts, bjTime: formatBeijingTime(payload.ts), marketCount: payload.all.length, picks: payload.picks.slice(0, 20) });
     fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     console.log(`[SCAN] round=${state.scanRounds} market=${state.marketCount} picks=${state.strategyPicks.length} ts=${formatBeijingTime(payload.ts)}`);

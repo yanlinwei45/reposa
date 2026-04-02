@@ -49,6 +49,7 @@
         "minGain10d": -12,
         "minGain5d": -10,
         "maxGain5d": 4,
+        "researchMaxGain5d": 6,
         "maxDrawdown": 35,
         "minDistanceToHigh60d": -30,
         "maxDistanceToHigh60d": -3,
@@ -57,15 +58,20 @@
         "priceVsMa60Floor": 0.94,
         "minRsi": 28,
         "maxRsi": 65,
+        "researchMaxRsi": 70,
         "minMacdHistogram": -0.2,
+        "researchMinMacdHistogram": -0.25,
         "minAvgAmount60d": 200000000,
         "minAvgTurnover60d": 1,
+        "researchMinAvgTurnover60d": 0.2,
         "minHistoryScore": 50
       },
       "degradedDataPolicy": {
         "allowDashboard": true,
         "allowTrading": false,
-        "fallbackScore": 35
+        "fallbackScore": 35,
+        "retryIntervalMs": 900000,
+        "preferStaleCache": true
       },
       "scoring": {
         "gain60dIdealMin": 5,

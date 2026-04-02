@@ -1,9 +1,44 @@
-
-> quant-paper-trading-nodejs@0.2.0 start
-> node src/index.js
-
 [PAPER] 恢复状态: 持仓5只, 历史订单41条, 现金212.53万, 峰值权益1040.21万
 [PAPER] 模拟盘已启用，初始资金: 1000万
-[HISTORY] 从磁盘加载262只股票的历史缓存
+[HISTORY] 从磁盘加载327只股票的历史缓存
 [HTTP] server listening on http://localhost:3088
 [APP] Eastmoney DOM market scanner started
+[INDEX] 获取上证指数失败 (尝试1/3): page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[INDEX] 获取上证指数失败 (尝试2/3): page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[INDEX] 获取上证指数最终失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[MARKET] 上证指数: null MA20: null MA60: null 环境: UNKNOWN
+[EMAPI] page=1 rows=100 kept=35 total=35
+[EMAPI] page=2 rows=100 kept=22 total=57
+[EMAPI] page=3 rows=100 kept=37 total=93
+[EMAPI] page=4 rows=100 kept=35 total=128
+[EMAPI] page=5 rows=100 kept=30 total=158
+[EMAPI] page=6 rows=100 kept=28 total=185
+[EMAPI] page=7 rows=100 kept=37 total=222
+[EMAPI] page=8 rows=100 kept=37 total=258
+[EMAPI] page=9 rows=100 kept=43 total=300
+[EMAPI] page=10 rows=100 kept=38 total=337
+[EMAPI] page=11 rows=100 kept=47 total=381
+[EMAPI] page=12 rows=100 kept=38 total=419
+[EMAPI] page=13 rows=100 kept=50 total=468
+[EMAPI] page=14 rows=100 kept=40 total=507
+[EMAPI] page=15 rows=100 kept=62 total=569
+[EMAPI] page=16 rows=100 kept=36 total=605
+[EMAPI] page=17 rows=100 kept=42 total=646
+[EMAPI] page=18 rows=100 kept=52 total=695
+[EMAPI] page=19 rows=100 kept=48 total=743
+[EMAPI] page=20 rows=100 kept=47 total=787
+[EMAPI] page=21 rows=100 kept=43 total=828
+[EMAPI] page=22 rows=100 kept=46 total=871
+[EMAPI] page=23 rows=100 kept=44 total=915
+[EMAPI] page=24 rows=100 kept=47 total=960
+[EMAPI] page=25 rows=100 kept=40 total=1000
+[HISTORY] 开始获取60只股票的历史数据 (今日: 2026-04-02)
+[HISTORY] sh600036 招商银行 使用今日缓存 (2026-04-02)
+[HISTORY] sh600900 长江电力 使用今日缓存 (2026-04-02)
+[HISTORY] sh600519 贵州茅台 使用今日缓存 (2026-04-02)
+[HISTORY] sh600498 烽火通信 使用今日缓存 (2026-04-02)
+[HISTORY] sh603026 石大胜华 使用今日缓存 (2026-04-02)
+[HISTORY] 获取sh600338 西藏珠峰的60日数据 (1/60) 更新
