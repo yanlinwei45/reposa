@@ -219,7 +219,9 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
           paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动买入(置信度${suggestion.confidence})`, {
             confidence: suggestion.confidence,
             combinedScore,
-            sector: marketItem.sector || 'UNKNOWN'
+            sector: marketItem.sector || 'UNKNOWN',
+            marketRegime: state.marketRegime?.regime || 'UNKNOWN',
+            source: 'manual'
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
@@ -264,7 +266,9 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             res.end(JSON.stringify({ success: false, error: `T+1限制：${symbol} ${pos.name} 今天买入，下个交易日才能卖出` }));
             return;
           }
-          paperAccount.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, '手动卖出');
+          paperAccount.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, '手动卖出', {
+            source: 'manual'
+          });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: true, message: `${symbol} ${pos.name} 已卖出 ${pos.quantity}股 @${pos.currentPrice}` }));
         } catch (err) {

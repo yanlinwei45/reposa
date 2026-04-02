@@ -75,8 +75,8 @@
       "exitUrgencyThreshold": 100,
       "regimeMultipliers": {
         "BULL": { "positionSize": 1.0, "maxPositions": 5, "allowLowConfidence": true },
-        "NEUTRAL": { "positionSize": 1.0, "maxPositions": 5, "allowLowConfidence": true },
-        "BEAR": { "positionSize": 1.0, "maxPositions": 5, "allowLowConfidence": true }
+        "NEUTRAL": { "positionSize": 0.7, "maxPositions": 3, "allowLowConfidence": false },
+        "BEAR": { "positionSize": 0.45, "maxPositions": 2, "allowLowConfidence": false }
       }
     }
   },

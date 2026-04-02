@@ -1302,12 +1302,12 @@ class PaperAccount {
         this.sellCooldown = new Map(data.sellCooldown || []);
         this.statistics = data.statistics || this.statistics;
         this.peakEquity = data.peakEquity || this.getTotalEquity();
-        const recentClosedTrades = Array.isArray(data.recentPerformance?.closedTrades) ? data.recentPerformance.closedTrades : [];
-        const scoreRangeEntries = Array.isArray(data.recentPerformance?.scoreRangeStats) ? data.recentPerformance.scoreRangeStats : [];
-        this.recentPerformance = {
-          closedTrades: recentClosedTrades,
-          scoreRangeStats: new Map(scoreRangeEntries)
-        };
+        for (const [, pos] of this.positions.entries()) {
+          if (!pos.source) {
+            pos.source = 'strategy';
+          }
+        }
+        this.rebuildRecentPerformance();
         const posCount = this.positions.size;
         const orderCount = this.orders.length;
         if (posCount > 0 || orderCount > 0) {
@@ -1367,7 +1367,74 @@ class PaperAccount {
     return '<70';
   }
 
+  resolveTradeSource(trade = {}) {
+    if (trade.source === 'manual' || trade.source === 'strategy') {
+      return trade.source;
+    }
+    const reason = String(trade.reason || '');
+    return reason.includes('手动') ? 'manual' : 'strategy';
+  }
+
+  rebuildRecentPerformance(seedTrades = null) {
+    const adaptive = this.getAdaptiveConfig();
+    const closedTrades = Array.isArray(seedTrades)
+      ? seedTrades
+      : this.orders
+          .filter(order => order.side === 'SELL')
+          .map(order => ({
+            symbol: order.symbol,
+            pnlPct: order.pnlPct || 0,
+            holdDays: order.holdDays || 0,
+            combinedScore: order.combinedScore || order.entryScore || 0,
+            confidence: order.confidence || 'UNKNOWN',
+            soldAt: order.ts || new Date().toISOString(),
+            reason: order.reason || '',
+            source: this.resolveTradeSource(order)
+          }));
+
+    const filteredTrades = closedTrades
+      .filter(trade => this.resolveTradeSource(trade) !== 'manual')
+      .slice(-adaptive.performanceWindow)
+      .map(trade => {
+        const score = trade.combinedScore || trade.entryScore || trade.score || 0;
+        return {
+          symbol: trade.symbol,
+          pnlPct: trade.pnlPct || 0,
+          holdDays: trade.holdDays || 0,
+          score,
+          scoreRangeKey: this.getScoreRangeKey(score),
+          confidence: trade.confidence || 'UNKNOWN',
+          soldAt: trade.soldAt || trade.ts || new Date().toISOString(),
+          source: this.resolveTradeSource(trade)
+        };
+      });
+
+    const scoreRangeStats = new Map();
+    for (const trade of filteredTrades) {
+      const rangeStats = scoreRangeStats.get(trade.scoreRangeKey) || {
+        trades: 0,
+        wins: 0,
+        totalPnlPct: 0,
+        totalHoldDays: 0
+      };
+      rangeStats.trades += 1;
+      rangeStats.totalPnlPct += trade.pnlPct;
+      rangeStats.totalHoldDays += trade.holdDays;
+      if (trade.pnlPct > 0) rangeStats.wins += 1;
+      scoreRangeStats.set(trade.scoreRangeKey, rangeStats);
+    }
+
+    this.recentPerformance = {
+      closedTrades: filteredTrades,
+      scoreRangeStats
+    };
+  }
+
   recordClosedTradePerformance(trade) {
+    if (this.resolveTradeSource(trade) === 'manual') {
+      return;
+    }
+
     const adaptive = this.getAdaptiveConfig();
     const score = trade.combinedScore || trade.entryScore || 0;
     const scoreRangeKey = this.getScoreRangeKey(score);
@@ -1378,25 +1445,15 @@ class PaperAccount {
       score,
       scoreRangeKey,
       confidence: trade.confidence || 'UNKNOWN',
-      soldAt: trade.ts || new Date().toISOString()
+      soldAt: trade.ts || new Date().toISOString(),
+      source: this.resolveTradeSource(trade)
     };
 
     this.recentPerformance.closedTrades.push(closedTrade);
     if (this.recentPerformance.closedTrades.length > adaptive.performanceWindow) {
       this.recentPerformance.closedTrades = this.recentPerformance.closedTrades.slice(-adaptive.performanceWindow);
     }
-
-    const rangeStats = this.recentPerformance.scoreRangeStats.get(scoreRangeKey) || {
-      trades: 0,
-      wins: 0,
-      totalPnlPct: 0,
-      totalHoldDays: 0
-    };
-    rangeStats.trades += 1;
-    rangeStats.totalPnlPct += closedTrade.pnlPct;
-    rangeStats.totalHoldDays += closedTrade.holdDays;
-    if (closedTrade.pnlPct > 0) rangeStats.wins += 1;
-    this.recentPerformance.scoreRangeStats.set(scoreRangeKey, rangeStats);
+    this.rebuildRecentPerformance(this.recentPerformance.closedTrades);
   }
 
   getPerformanceFeedback() {
@@ -1458,6 +1515,14 @@ class PaperAccount {
       return { confidence: 'MEDIUM', reason: '自适应未启用' };
     }
 
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    if (marketRegime === 'UNKNOWN') {
+      return { confidence: 'REJECT', reason: '市场状态未知，禁止开仓' };
+    }
+    if (marketRegime === 'BEAR' && !pick.researchSelected) {
+      return { confidence: 'REJECT', reason: '熊市仅允许研究白名单标的' };
+    }
+
     const combinedScore = pick.combinedScore || pick.score || 0;
     const historyScore = pick.historyScore || 0;
     const volumeRatio = pick.volumeRatio || pick.volumeBurstRatio || 0;
@@ -1483,7 +1548,12 @@ class PaperAccount {
       return { confidence: 'REJECT', reason: `综合${combinedScore}分或历史${historyScore}分不足` };
     }
 
-    // 不区分牛熊市，统一按个股信号判断
+    if (marketRegime === 'BEAR' && baseConfidence !== 'HIGH') {
+      return { confidence: 'REJECT', reason: `熊市仅允许高置信度标的，当前${baseConfidence}` };
+    }
+    if (!regimeConfig.allowLowConfidence && baseConfidence === 'LOW') {
+      return { confidence: 'REJECT', reason: `${marketRegime}环境禁止低置信度开仓` };
+    }
 
     // 近期表现反馈调整
     if (performanceFeedback.tradeCount >= 10) {
@@ -1662,7 +1732,8 @@ class PaperAccount {
         entryScore: metadata.entryScore || 0,
         combinedScore: metadata.combinedScore || 0,
         marketRegime: metadata.marketRegime || 'UNKNOWN',
-        sector: metadata.sector || 'UNKNOWN'
+        sector: metadata.sector || 'UNKNOWN',
+        source: metadata.source || 'strategy'
       });
       this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
     } else {
@@ -1679,6 +1750,7 @@ class PaperAccount {
         order.entryBjTime = formatBeijingTime(pos.entryTs);
         order.combinedScore = pos.combinedScore || 0;
         order.confidence = pos.confidence || 'UNKNOWN';
+        order.source = pos.source || metadata.source || 'strategy';
         this.cash += (order.amount - fee);
         this.positions.delete(symbol);
         this.sellCooldown.set(symbol, ts);
@@ -1701,6 +1773,7 @@ class PaperAccount {
           entryScore: Number(pos.entryScore || 0),
           combinedScore: Number(pos.combinedScore || pos.entryScore || 0),
           entryMarketRegime: pos.marketRegime || 'UNKNOWN',
+          source: pos.source || 'strategy',
           bjTime
         };
         appendJsonLine(this.settlementPath, settlement);
@@ -1726,6 +1799,7 @@ class PaperAccount {
           holdDays,
           combinedScore: pos.combinedScore,
           confidence: pos.confidence,
+          source: pos.source || 'strategy',
           ts
         });
 
@@ -1862,6 +1936,11 @@ class PaperAccount {
     if (availablePositions > 0 && this.cash > this.config.minCashReserve && portfolioDrawdown <= 5) {
       const buyCandidates = strategyPicks
         .filter(p => {
+          if (marketRegime === 'UNKNOWN') {
+            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '市场状态未知，禁止开仓', dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+            return false;
+          }
+
           if (this.positions.has(p.symbol)) {
             buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '已持仓', dayScore: p.score || 0, historyScore: p.historyScore || 0 });
             return false;
@@ -1935,7 +2014,8 @@ class PaperAccount {
           entryScore: pick.score || 0,
           combinedScore,
           marketRegime,
-          sector: pick.sector || 'UNKNOWN'
+          sector: pick.sector || 'UNKNOWN',
+          source: 'strategy'
         });
 
         const sector = pick.sector || 'UNKNOWN';
@@ -1991,13 +2071,18 @@ class PaperAccount {
   }
 
   getPortfolio() {
+    const regime = global.latestMarketRegimeRef || 'UNKNOWN';
+    const adaptive = this.getAdaptiveConfig();
+    const regimeConfig = adaptive.regimeMultipliers[regime] || adaptive.regimeMultipliers.NEUTRAL;
+    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
     return {
       cash: this.cash,
       totalEquity: this.getTotalEquity(),
       pnlPct: ((this.getTotalEquity() / this.config.initialCash) - 1) * 100,
       positions: Array.from(this.positions.values()).sort((a, b) => b.value - a.value),
       positionCount: this.positions.size,
-      maxPositions: this.config.maxPositions,
+      maxPositions: dynamicMaxPositions,
+      marketRegime: regime,
       performanceFeedback: this.getPerformanceFeedback()
     };
   }
@@ -2045,6 +2130,7 @@ async function main() {
     state.observationPicks = payload.observationPicks || [];
     state.marketCount = payload.all.length;
     state.marketRegime = payload.marketRegime;
+    global.latestMarketRegimeRef = payload.marketRegime?.regime || 'UNKNOWN';
     state.researchWatchlist = payload.researchWatchlist || state.researchWatchlist;
     state.diagnostics = payload.diagnostics || state.diagnostics;
     appendJsonLine(scanLogPath, { ts: payload.ts, bjTime: formatBeijingTime(payload.ts), marketCount: payload.all.length, picks: payload.picks.slice(0, 20) });

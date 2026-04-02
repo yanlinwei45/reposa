@@ -1,91 +1,22 @@
 {
-  "cash": 2125286.7124602012,
+  "cash": 6585749.903940601,
   "positions": [
-    [
-      "sh600563",
-      {
-        "symbol": "sh600563",
-        "name": "法拉电子",
-        "entryPrice": 131.19106,
-        "currentPrice": 129.99,
-        "quantity": 12200,
-        "value": 1585878,
-        "pnlPct": -0.9155044558676362,
-        "entryTs": "2026-04-01T05:40:02.481Z",
-        "entryDate": "2026-04-01",
-        "holdRounds": 1,
-        "holdDays": 1,
-        "highPrice": 131.19106,
-        "lowPrice": 129.99,
-        "confidence": "MEDIUM",
-        "entryScore": 65,
-        "combinedScore": 76.5,
-        "marketRegime": "UNKNOWN",
-        "sector": "元件"
-      }
-    ],
-    [
-      "sz000545",
-      {
-        "symbol": "sz000545",
-        "name": "金浦钛业",
-        "entryPrice": 3.22322,
-        "currentPrice": 3.21,
-        "quantity": 347800,
-        "value": 1116438,
-        "pnlPct": -0.41014885735382656,
-        "entryTs": "2026-04-01T05:40:02.483Z",
-        "entryDate": "2026-04-01",
-        "holdRounds": 1,
-        "holdDays": 1,
-        "highPrice": 3.22322,
-        "lowPrice": 3.21,
-        "confidence": "MEDIUM",
-        "entryScore": 58,
-        "combinedScore": 74.5,
-        "marketRegime": "UNKNOWN",
-        "sector": "化学原料"
-      }
-    ],
-    [
-      "sh600641",
-      {
-        "symbol": "sh600641",
-        "name": "先导基电",
-        "entryPrice": 18.75874,
-        "currentPrice": 18.75874,
-        "quantity": 106700,
-        "value": 2001557.558,
-        "pnlPct": 0,
-        "entryTs": "2026-04-01T05:49:17.003Z",
-        "entryDate": "2026-04-01",
-        "holdRounds": 0,
-        "holdDays": 0,
-        "highPrice": 18.75874,
-        "lowPrice": 18.75874,
-        "confidence": "HIGH",
-        "entryScore": 70,
-        "combinedScore": 82.5,
-        "marketRegime": "UNKNOWN",
-        "sector": "半导体"
-      }
-    ],
     [
       "sz000727",
       {
         "symbol": "sz000727",
         "name": "冠捷科技",
         "entryPrice": 2.64264,
-        "currentPrice": 2.64264,
+        "currentPrice": 2.57,
         "quantity": 606000,
-        "value": 1601439.84,
-        "pnlPct": 0,
+        "value": 1557420,
+        "pnlPct": -2.7487663851300312,
         "entryTs": "2026-04-01T05:49:17.006Z",
         "entryDate": "2026-04-01",
-        "holdRounds": 0,
-        "holdDays": 0,
+        "holdRounds": 13,
+        "holdDays": 1,
         "highPrice": 2.64264,
-        "lowPrice": 2.64264,
+        "lowPrice": 2.57,
         "confidence": "MEDIUM",
         "entryScore": 64,
         "combinedScore": 74.5,
@@ -99,16 +30,16 @@
         "symbol": "sh600732",
         "name": "爱旭股份",
         "entryPrice": 14.5145,
-        "currentPrice": 14.5145,
+        "currentPrice": 14.17,
         "quantity": 110300,
-        "value": 1600949.35,
-        "pnlPct": 0,
+        "value": 1562951,
+        "pnlPct": -2.3734885803851324,
         "entryTs": "2026-04-01T05:49:17.006Z",
         "entryDate": "2026-04-01",
-        "holdRounds": 0,
-        "holdDays": 0,
-        "highPrice": 14.5145,
-        "lowPrice": 14.5145,
+        "holdRounds": 13,
+        "holdDays": 1,
+        "highPrice": 14.55,
+        "lowPrice": 14.17,
         "confidence": "MEDIUM",
         "entryScore": 60,
         "combinedScore": 73.5,
@@ -889,6 +820,78 @@
       "combinedScore": 73.5,
       "marketRegime": "UNKNOWN",
       "sector": "光伏设备"
+    },
+    {
+      "orderId": "ORD_1775099964185_1hoz9c",
+      "symbol": "sz000545",
+      "name": "金浦钛业",
+      "side": "SELL",
+      "price": 3.06,
+      "executedPrice": 3.05694,
+      "quantity": 347800,
+      "amount": 1063203.732,
+      "fee": 318.9611196,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-5.06%)",
+      "ts": "2026-04-02T03:19:24.185Z",
+      "bjTime": "2026-04-02 11:19:24",
+      "pnl": -58151.14511959999,
+      "pnlPct": -5.158816338940562,
+      "holdDays": 1,
+      "holdRounds": 10,
+      "entryPrice": 3.22322,
+      "entryTs": "2026-04-01T05:40:02.483Z",
+      "entryBjTime": "2026-04-01 13:40:02",
+      "combinedScore": 74.5,
+      "confidence": "MEDIUM"
+    },
+    {
+      "orderId": "ORD_1775108010907_8z8ef6",
+      "symbol": "sh600563",
+      "name": "法拉电子",
+      "side": "SELL",
+      "price": 124.05,
+      "executedPrice": 123.92595,
+      "quantity": 12200,
+      "amount": 1511896.59,
+      "fee": 453.56897699999996,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-5.44%)",
+      "ts": "2026-04-02T05:33:30.907Z",
+      "bjTime": "2026-04-02 13:33:30",
+      "pnl": -89087.91097699992,
+      "pnlPct": -5.537808750077935,
+      "holdDays": 1,
+      "holdRounds": 14,
+      "entryPrice": 131.19106,
+      "entryTs": "2026-04-01T05:40:02.481Z",
+      "entryBjTime": "2026-04-01 13:40:02",
+      "combinedScore": 76.5,
+      "confidence": "MEDIUM"
+    },
+    {
+      "orderId": "ORD_1775108010915_vlxeh4",
+      "symbol": "sh600641",
+      "name": "先导基电",
+      "side": "SELL",
+      "price": 17.7,
+      "executedPrice": 17.682299999999998,
+      "quantity": 106700,
+      "amount": 1886701.4099999997,
+      "fee": 566.0104229999998,
+      "status": "FILLED",
+      "reason": "卖出紧迫度100: 止损(-5.64%)",
+      "ts": "2026-04-02T05:33:30.915Z",
+      "bjTime": "2026-04-02 13:33:30",
+      "pnl": -115422.15842300018,
+      "pnlPct": -5.738338502479387,
+      "holdDays": 1,
+      "holdRounds": 13,
+      "entryPrice": 18.75874,
+      "entryTs": "2026-04-01T05:49:17.003Z",
+      "entryBjTime": "2026-04-01 13:49:17",
+      "combinedScore": 82.5,
+      "confidence": "HIGH"
     }
   ],
   "sellCooldown": [
@@ -955,18 +958,30 @@
     [
       "sh600343",
       "2026-04-01T01:38:22.973Z"
+    ],
+    [
+      "sz000545",
+      "2026-04-02T03:19:24.185Z"
+    ],
+    [
+      "sh600563",
+      "2026-04-02T05:33:30.907Z"
+    ],
+    [
+      "sh600641",
+      "2026-04-02T05:33:30.915Z"
     ]
   ],
   "statistics": {
-    "totalTrades": 18,
+    "totalTrades": 21,
     "winTrades": 6,
-    "lossTrades": 12,
-    "totalPnl": 58009.14239250067,
+    "lossTrades": 15,
+    "totalPnl": -204652.07212709944,
     "totalWinPnl": 540034.6157947,
-    "totalLossPnl": 482025.4734021992,
+    "totalLossPnl": 744686.6879217993,
     "maxGain": 21.852368594578234,
     "maxLoss": -17.608816054411914,
-    "totalHoldDays": 26
+    "totalHoldDays": 29
   },
   "peakEquity": 10402119.853255402,
   "recentPerformance": {
@@ -997,6 +1012,33 @@
         "scoreRangeKey": "<70",
         "confidence": "UNKNOWN",
         "soldAt": "2026-04-01T01:38:22.973Z"
+      },
+      {
+        "symbol": "sz000545",
+        "pnlPct": -5.158816338940562,
+        "holdDays": 1,
+        "score": 74.5,
+        "scoreRangeKey": "70-79",
+        "confidence": "MEDIUM",
+        "soldAt": "2026-04-02T03:19:24.185Z"
+      },
+      {
+        "symbol": "sh600563",
+        "pnlPct": -5.537808750077935,
+        "holdDays": 1,
+        "score": 76.5,
+        "scoreRangeKey": "70-79",
+        "confidence": "MEDIUM",
+        "soldAt": "2026-04-02T05:33:30.907Z"
+      },
+      {
+        "symbol": "sh600641",
+        "pnlPct": -5.738338502479387,
+        "holdDays": 1,
+        "score": 82.5,
+        "scoreRangeKey": "80-89",
+        "confidence": "HIGH",
+        "soldAt": "2026-04-02T05:33:30.915Z"
       }
     ],
     "scoreRangeStats": [
@@ -1008,8 +1050,26 @@
           "totalPnlPct": -18.12262403715418,
           "totalHoldDays": 3
         }
+      ],
+      [
+        "70-79",
+        {
+          "trades": 2,
+          "wins": 0,
+          "totalPnlPct": -10.696625089018497,
+          "totalHoldDays": 2
+        }
+      ],
+      [
+        "80-89",
+        {
+          "trades": 1,
+          "wins": 0,
+          "totalPnlPct": -5.738338502479387,
+          "totalHoldDays": 1
+        }
       ]
     ]
   },
-  "savedAt": "2026-04-01T05:49:17.007Z"
+  "savedAt": "2026-04-02T05:33:30.916Z"
 }
