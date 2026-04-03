@@ -1,26 +1,30 @@
 {
   "generated_from": "research/data/results/latest_ranking.csv",
+  "mode": "fallback",
   "count": 3,
   "symbols": [
+    "600036",
     "600900",
-    "600519",
-    "600036"
+    "601166"
   ],
   "items": [
     {
-      "symbol": "600900",
-      "name": "600900",
-      "score": 0.7399999999999999
-    },
-    {
-      "symbol": "600519",
-      "name": "600519",
-      "score": 0.6733333333333331
-    },
-    {
       "symbol": "600036",
       "name": "600036",
-      "score": 0.5866666666666666
+      "score": 0.7133333333333333,
+      "ranking_mode": "fallback"
+    },
+    {
+      "symbol": "600900",
+      "name": "600900",
+      "score": 0.7033333333333334,
+      "ranking_mode": "fallback"
+    },
+    {
+      "symbol": "601166",
+      "name": "601166",
+      "score": 0.7033333333333334,
+      "ranking_mode": "fallback"
     }
   ]
 }

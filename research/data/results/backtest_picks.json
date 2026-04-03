@@ -1,286 +1,197 @@
 [
   {
-    "date": "2026-01-29",
-    "picks": [],
-    "open_positions": [],
-    "closed": 0
-  },
-  {
-    "date": "2026-01-30",
-    "picks": [],
-    "open_positions": [],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-02",
-    "picks": [],
-    "open_positions": [],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-03",
-    "picks": [],
-    "open_positions": [],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-04",
-    "picks": [],
-    "open_positions": [],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-05",
-    "picks": [
-      "600519",
-      "601318"
-    ],
-    "open_positions": [
-      "600519",
-      "601318"
-    ],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-06",
-    "picks": [],
-    "open_positions": [
-      "600519",
-      "601318"
-    ],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-09",
-    "picks": [
-      "600036"
-    ],
-    "open_positions": [
-      "600036",
-      "600519",
-      "601318"
-    ],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-10",
-    "picks": [],
-    "open_positions": [
-      "600036",
-      "600519",
-      "601318"
-    ],
-    "closed": 0
-  },
-  {
-    "date": "2026-02-11",
-    "picks": [
-      "600900"
-    ],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900",
-      "601318"
-    ],
-    "closed": 0
-  },
-  {
     "date": "2026-02-12",
-    "picks": [
-      "600519",
-      "601318"
-    ],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900",
-      "601318"
-    ],
-    "closed": 2
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-02-13",
     "picks": [],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900",
-      "601318"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-02-24",
     "picks": [],
-    "open_positions": [
-      "600519",
-      "600900",
-      "601318"
-    ],
-    "closed": 1
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-02-25",
     "picks": [],
-    "open_positions": [
-      "600519",
-      "600900",
-      "601318"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-02-26",
     "picks": [],
-    "open_positions": [
-      "600519",
-      "601318"
-    ],
-    "closed": 1
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-02-27",
-    "picks": [
-      "600519"
-    ],
-    "open_positions": [
-      "600519"
-    ],
-    "closed": 2
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-03-02",
     "picks": [],
-    "open_positions": [
-      "600519"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-03",
-    "picks": [
-      "600900"
-    ],
-    "open_positions": [
-      "600519",
-      "600900"
-    ],
+    "picks": [],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-04",
     "picks": [],
-    "open_positions": [
-      "600519",
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-05",
     "picks": [],
-    "open_positions": [
-      "600519",
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-06",
     "picks": [],
-    "open_positions": [
-      "600900"
-    ],
-    "closed": 1
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-03-09",
     "picks": [],
-    "open_positions": [
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-10",
-    "picks": [
-      "600900"
-    ],
-    "open_positions": [
-      "600900"
-    ],
-    "closed": 1
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-03-11",
     "picks": [],
-    "open_positions": [
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-12",
     "picks": [],
-    "open_positions": [
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-13",
-    "picks": [
-      "600036"
-    ],
-    "open_positions": [
-      "600036",
-      "600900"
-    ],
+    "picks": [],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-16",
-    "picks": [
-      "600519"
-    ],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900"
-    ],
+    "picks": [],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-17",
-    "picks": [
-      "600900"
-    ],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900"
-    ],
-    "closed": 1
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
   },
   {
     "date": "2026-03-18",
     "picks": [],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900"
-    ],
+    "open_positions": [],
     "closed": 0
   },
   {
     "date": "2026-03-19",
     "picks": [],
-    "open_positions": [
-      "600036",
-      "600519",
-      "600900"
+    "open_positions": [],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-20",
+    "picks": [
+      "600900",
+      "601166"
     ],
+    "open_positions": [
+      "600900",
+      "601166"
+    ],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-23",
+    "picks": [],
+    "open_positions": [
+      "600900",
+      "601166"
+    ],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-24",
+    "picks": [],
+    "open_positions": [
+      "600900",
+      "601166"
+    ],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-25",
+    "picks": [],
+    "open_positions": [
+      "600900",
+      "601166"
+    ],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-26",
+    "picks": [],
+    "open_positions": [],
+    "closed": 2
+  },
+  {
+    "date": "2026-03-27",
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-30",
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
+  },
+  {
+    "date": "2026-03-31",
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
+  },
+  {
+    "date": "2026-04-01",
+    "picks": [],
+    "open_positions": [],
+    "closed": 0
+  },
+  {
+    "date": "2026-04-02",
+    "picks": [],
+    "open_positions": [],
     "closed": 0
   }
 ]

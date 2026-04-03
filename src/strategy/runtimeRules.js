@@ -47,6 +47,79 @@ function scoreAboveOpen(item) {
   return price > open ? 5 : 0;
 }
 
+function getBucketConfig(runtimeConfig, key) {
+  return runtimeConfig.candidateBuckets?.[key] || {};
+}
+
+function isWithinRange(value, min, max) {
+  if (value == null) return false;
+  if (min != null && value < min) return false;
+  if (max != null && value > max) return false;
+  return true;
+}
+
+function getObservationBias(item, observationBucket = {}) {
+  const changePercent = item.changePercent || 0;
+  const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
+  const h = item.history || {};
+
+  return (
+    isWithinRange(changePercent, observationBucket.minChangePercent ?? 1, observationBucket.maxChangePercent ?? 6.5) &&
+    isWithinRange(volumeRatio, observationBucket.minVolumeRatio ?? 1, observationBucket.maxVolumeRatio ?? 3) &&
+    isWithinRange(h.distanceToHigh60d, observationBucket.minDistanceToHigh60d ?? -12, observationBucket.maxDistanceToHigh60d ?? 0) &&
+    isWithinRange(h.deviationFromMA20, observationBucket.minDeviationFromMA20 ?? -2, observationBucket.maxDeviationFromMA20 ?? 8)
+  );
+}
+
+function evaluateBucketQualification(item, runtimeConfig) {
+  const mainBucket = getBucketConfig(runtimeConfig, 'main');
+  const observationBucket = getBucketConfig(runtimeConfig, 'observation');
+  const h = item.history || {};
+  const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
+  const intradayScore = item.score || 0;
+  const changePercent = item.changePercent || 0;
+  const turnoverRatePercent = item.turnoverRatePercent || 0;
+
+  const pullbackChecks = {
+    intradayScore: intradayScore >= (mainBucket.minIntradayScore ?? 63),
+    changePercent: isWithinRange(changePercent, mainBucket.minChangePercent ?? -2.8, mainBucket.maxChangePercent ?? 1.8),
+    turnoverRate: isWithinRange(turnoverRatePercent, mainBucket.minTurnoverRatePercent ?? 2, mainBucket.maxTurnoverRatePercent ?? 7),
+    volumeRatio: isWithinRange(volumeRatio, mainBucket.minVolumeRatio ?? 0.85, mainBucket.maxVolumeRatio ?? 1.7),
+    gain60d: h.gain60d == null || h.gain60d >= (mainBucket.minGain60d ?? 2),
+    gain10d: isWithinRange(h.gain10d, mainBucket.minGain10d ?? -12, mainBucket.maxGain10d ?? 8),
+    gain5d: isWithinRange(h.gain5d, mainBucket.minGain5d ?? -8, mainBucket.maxGain5d ?? 2.5),
+    distanceToHigh60d: isWithinRange(h.distanceToHigh60d, mainBucket.minDistanceToHigh60d ?? -18, mainBucket.maxDistanceToHigh60d ?? -5),
+    deviationFromMA20: isWithinRange(h.deviationFromMA20, mainBucket.minDeviationFromMA20 ?? -6, mainBucket.maxDeviationFromMA20 ?? 2.5),
+    rsi: isWithinRange(h.rsi, mainBucket.minRsi ?? 32, mainBucket.maxRsi ?? 56),
+    macdHistogram: h.macdHistogram != null && h.macdHistogram >= (mainBucket.minMacdHistogram ?? -0.08),
+    consecutiveDownDays: h.consecutiveDownDays == null || h.consecutiveDownDays <= (mainBucket.maxConsecutiveDownDays ?? 3),
+  };
+
+  const pullbackQualified = Object.values(pullbackChecks).every(Boolean);
+  const observationChecks = {
+    intradayScore: intradayScore >= (observationBucket.minIntradayScore ?? 58),
+    changePercent: isWithinRange(changePercent, observationBucket.minChangePercent ?? 1, observationBucket.maxChangePercent ?? 6.5),
+    turnoverRate: isWithinRange(turnoverRatePercent, observationBucket.minTurnoverRatePercent ?? 2, observationBucket.maxTurnoverRatePercent ?? 10),
+    volumeRatio: isWithinRange(volumeRatio, observationBucket.minVolumeRatio ?? 1, observationBucket.maxVolumeRatio ?? 3),
+    gain60d: h.gain60d == null || h.gain60d >= (observationBucket.minGain60d ?? 5),
+    gain5d: h.gain5d == null || h.gain5d <= (observationBucket.maxGain5d ?? 12),
+    distanceToHigh60d: isWithinRange(h.distanceToHigh60d, observationBucket.minDistanceToHigh60d ?? -12, observationBucket.maxDistanceToHigh60d ?? 0),
+    deviationFromMA20: isWithinRange(h.deviationFromMA20, observationBucket.minDeviationFromMA20 ?? -2, observationBucket.maxDeviationFromMA20 ?? 8),
+    rsi: isWithinRange(h.rsi, observationBucket.minRsi ?? 40, observationBucket.maxRsi ?? 72),
+    macdHistogram: h.macdHistogram == null || h.macdHistogram >= (observationBucket.minMacdHistogram ?? -0.05),
+  };
+  const observationQualified = Object.values(observationChecks).every(Boolean);
+
+  return {
+    pullbackChecks,
+    observationChecks,
+    pullbackQualified,
+    observationQualified,
+    bucket: pullbackQualified ? 'main' : (observationQualified ? 'observation' : 'rejected'),
+    observationBias: getObservationBias(item, observationBucket),
+  };
+}
+
 function getStrategyGrade(score, marketFilters = {}) {
   const a = marketFilters.gradeAThreshold == null ? 80 : marketFilters.gradeAThreshold;
   const b = marketFilters.gradeBThreshold == null ? 65 : marketFilters.gradeBThreshold;
@@ -69,6 +142,7 @@ function buildPositiveTags(item) {
   if (item.history?.gain60d > 8) tags.push('趋势向上');
   if ((item.turnover || 0) >= 500000000) tags.push('成交额充足');
   if (item.researchSelected) tags.push('研究层入选');
+  if (item.strategy?.bucket === 'observation') tags.push('盘中转强');
 
   return tags;
 }
@@ -78,11 +152,13 @@ function buildRiskTags(item) {
   const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
 
   if (item.history?.distanceToHigh60d > -5) tags.push('离高点过近');
+  if (item.history?.gain10d != null && item.history.gain10d < 0) tags.push('10日转弱');
   if (item.history?.maxDrawdown > 25) tags.push('回撤过深');
   if (item.history?.consecutiveDownDays >= 4) tags.push('连续下跌');
   if (volumeRatio < 0.8) tags.push('缩量过度');
   if ((item.turnover || 0) < 500000000) tags.push('成交额偏低');
   if (item.history?.degraded) tags.push('历史降级');
+  if (item.strategy?.observationBias) tags.push('更像转强不是低吸');
 
   return tags;
 }
@@ -127,22 +203,25 @@ function scoreIntradayStrategy(item, runtimeConfig, researchWatchlistMap = new M
   const strategyMatched = hardMatched && grade !== 'DROP';
 
   const researchEntry = researchWatchlistMap.get(item.symbol) || null;
+  const researchIsActive = !!researchEntry && researchEntry.rankingMode !== 'fallback';
   const researchScore = researchEntry?.researchScore != null
     ? Number((researchEntry.researchScore * 100).toFixed(2))
     : null;
   const researchFloor = intradayScoring.researchUniverseMinScoreFloor ?? 55;
-  const researchBonus = researchEntry && score >= researchFloor
+  const researchBonus = researchIsActive && score >= researchFloor
     ? intradayScoring.researchUniverseCandidateBonus ?? 0
     : 0;
+  const preHistoryScore = Number((score + researchBonus).toFixed(4));
 
   return {
     ...item,
     score: Number(score.toFixed(4)),
     scoreBreakdown,
-    preHistoryScore: Number((score + researchBonus).toFixed(4)),
+    preHistoryScore,
     signal: strategyMatched ? 'HOT' : 'WATCH',
     strategyMatched,
-    researchSelected: !!researchEntry,
+    researchSelected: researchIsActive,
+    researchFallback: !!researchEntry && !researchIsActive,
     researchScore,
     researchRank: researchEntry?.researchRank || null,
     strategy: {
@@ -150,6 +229,9 @@ function scoreIntradayStrategy(item, runtimeConfig, researchWatchlistMap = new M
       grade,
       positiveTags: buildPositiveTags(item),
       riskTags: buildRiskTags(item),
+      bucket: 'unclassified',
+      bucketLabel: '待历史确认',
+      observationBias: false,
       selectedReason: {
         isMainBoard: !!item.isMainBoard,
         notST: !item.isST,
@@ -158,7 +240,8 @@ function scoreIntradayStrategy(item, runtimeConfig, researchWatchlistMap = new M
         turnoverRateQualified: turnoverRatePercent >= marketFilters.minTurnoverRatePercent && turnoverRatePercent <= maxTurnoverRatePercent,
         volumeRatioQualified: volRatio >= marketFilters.minVolumeRatio && volRatio <= maxVolumeRatio,
         changePercentQualified: changePercent >= marketFilters.minChangePercent && changePercent <= maxChangePercent,
-        researchSelected: !!researchEntry,
+        researchSelected: researchIsActive,
+        researchFallback: !!researchEntry && !researchIsActive,
       }
     }
   };
@@ -168,15 +251,17 @@ function buildInitialCandidatePool(scored, marketOpen, portfolioFull, runtimeCon
   const intradayScoring = runtimeConfig.intradayScoring || {};
   const researchUniverse = runtimeConfig.researchUniverse || {};
   const marketFilters = runtimeConfig.marketFilters || {};
+  const observationBucket = getBucketConfig(runtimeConfig, 'observation');
 
   const initialThreshold = marketOpen
     ? (intradayScoring.initialScoreThresholdOpen ?? 65)
     : (intradayScoring.initialScoreThresholdClosed ?? 55);
+  const poolThreshold = Math.min(initialThreshold, observationBucket.minIntradayScore ?? initialThreshold);
   const candidateLimit = portfolioFull
     ? Math.min(intradayScoring.candidateLimitFullPortfolioCap ?? 60, (marketFilters.topN || 30) * (intradayScoring.candidateLimitFullPortfolioMultiplier ?? 3))
     : Math.min(intradayScoring.candidateLimitCap ?? 150, (marketFilters.topN || 30) * (intradayScoring.candidateLimitMultiplier ?? 5));
 
-  const baseCandidates = scored.filter(item => item.score >= initialThreshold);
+  const baseCandidates = scored.filter(item => item.score >= poolThreshold);
   const researchCandidates = researchUniverse.enabled
     ? scored.filter(item => item.researchSelected && item.score >= (intradayScoring.researchUniverseMinScoreFloor ?? 55))
     : [];
@@ -203,6 +288,7 @@ function buildInitialCandidatePool(scored, marketOpen, portfolioFull, runtimeCon
 
   return {
     initialThreshold,
+    poolThreshold,
     candidateLimit,
     candidates,
     researchCandidateCount: researchCandidates.length,
@@ -229,6 +315,58 @@ function combineCandidateScores(item, runtimeConfig) {
   return Number(combined.toFixed(2));
 }
 
+function classifyCandidateBuckets(candidates, runtimeConfig) {
+  const researchUniverse = runtimeConfig.researchUniverse || {};
+  const enriched = candidates.map(item => {
+    const qualification = evaluateBucketQualification(item, runtimeConfig);
+    const bucketLabel = qualification.bucket === 'main'
+      ? (getBucketConfig(runtimeConfig, 'main').label || '低吸主池')
+      : qualification.bucket === 'observation'
+        ? (getBucketConfig(runtimeConfig, 'observation').label || '转强观察')
+        : '未达标';
+    const strategy = {
+      ...(item.strategy || {}),
+      bucket: qualification.bucket,
+      bucketLabel,
+      observationBias: qualification.observationBias,
+      pullbackChecks: qualification.pullbackChecks,
+      observationChecks: qualification.observationChecks,
+      selectedReason: {
+        ...(item.strategy?.selectedReason || {}),
+        pullbackQualified: qualification.pullbackQualified,
+        observationQualified: qualification.observationQualified,
+      },
+    };
+    const nextItem = {
+      ...item,
+      strategy,
+    };
+    nextItem.strategy.positiveTags = buildPositiveTags(nextItem);
+    nextItem.strategy.riskTags = buildRiskTags(nextItem);
+    return nextItem;
+  });
+
+  const mainPicks = enriched
+    .filter(item => item.strategy?.bucket === 'main')
+    .sort((a, b) => {
+      if ((b.researchSelected ? 1 : 0) !== (a.researchSelected ? 1 : 0)) {
+        return (b.researchSelected ? 1 : 0) - (a.researchSelected ? 1 : 0);
+      }
+      return (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0);
+    });
+
+  const observationPicks = enriched
+    .filter(item => item.strategy?.bucket === 'observation' || (item.researchSelected && item.strategy?.bucket !== 'main'))
+    .map(item => ({ ...item }))
+    .sort((a, b) => (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0));
+
+  return {
+    enriched,
+    mainPicks,
+    observationPicks,
+  };
+}
+
 module.exports = {
   getStrategyGrade,
   buildPositiveTags,
@@ -236,4 +374,5 @@ module.exports = {
   scoreIntradayStrategy,
   buildInitialCandidatePool,
   combineCandidateScores,
+  classifyCandidateBuckets,
 };

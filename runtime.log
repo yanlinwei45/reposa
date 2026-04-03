@@ -1,44 +1,67 @@
-[PAPER] 恢复状态: 持仓5只, 历史订单41条, 现金212.53万, 峰值权益1040.21万
+[PAPER] 恢复状态: 持仓2只, 历史订单44条, 现金658.57万, 峰值权益1040.21万
 [PAPER] 模拟盘已启用，初始资金: 1000万
-[HISTORY] 从磁盘加载327只股票的历史缓存
+[HISTORY] 从磁盘加载710只股票的历史缓存
 [HTTP] server listening on http://localhost:3088
 [APP] Eastmoney DOM market scanner started
-[INDEX] 获取上证指数失败 (尝试1/3): page.evaluate: Error: Network error
-    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
-[INDEX] 获取上证指数失败 (尝试2/3): page.evaluate: Error: Network error
-    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
-[INDEX] 获取上证指数最终失败: page.evaluate: Error: Network error
-    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
-[MARKET] 上证指数: null MA20: null MA60: null 环境: UNKNOWN
-[EMAPI] page=1 rows=100 kept=35 total=35
-[EMAPI] page=2 rows=100 kept=22 total=57
-[EMAPI] page=3 rows=100 kept=37 total=93
-[EMAPI] page=4 rows=100 kept=35 total=128
-[EMAPI] page=5 rows=100 kept=30 total=158
-[EMAPI] page=6 rows=100 kept=28 total=185
-[EMAPI] page=7 rows=100 kept=37 total=222
-[EMAPI] page=8 rows=100 kept=37 total=258
-[EMAPI] page=9 rows=100 kept=43 total=300
-[EMAPI] page=10 rows=100 kept=38 total=337
-[EMAPI] page=11 rows=100 kept=47 total=381
-[EMAPI] page=12 rows=100 kept=38 total=419
-[EMAPI] page=13 rows=100 kept=50 total=468
-[EMAPI] page=14 rows=100 kept=40 total=507
-[EMAPI] page=15 rows=100 kept=62 total=569
-[EMAPI] page=16 rows=100 kept=36 total=605
-[EMAPI] page=17 rows=100 kept=42 total=646
-[EMAPI] page=18 rows=100 kept=52 total=695
-[EMAPI] page=19 rows=100 kept=48 total=743
-[EMAPI] page=20 rows=100 kept=47 total=787
-[EMAPI] page=21 rows=100 kept=43 total=828
-[EMAPI] page=22 rows=100 kept=46 total=871
-[EMAPI] page=23 rows=100 kept=44 total=915
-[EMAPI] page=24 rows=100 kept=47 total=960
-[EMAPI] page=25 rows=100 kept=40 total=1000
-[HISTORY] 开始获取60只股票的历史数据 (今日: 2026-04-02)
-[HISTORY] sh600036 招商银行 使用今日缓存 (2026-04-02)
-[HISTORY] sh600900 长江电力 使用今日缓存 (2026-04-02)
-[HISTORY] sh600519 贵州茅台 使用今日缓存 (2026-04-02)
-[HISTORY] sh600498 烽火通信 使用今日缓存 (2026-04-02)
-[HISTORY] sh603026 石大胜华 使用今日缓存 (2026-04-02)
-[HISTORY] 获取sh600338 西藏珠峰的60日数据 (1/60) 更新
+[MARKET] 上证指数: 3877.2 MA20: 3622.49 MA60: 3331.36 环境: BULL 来源: live
+[EMAPI] page=1 rows=100 kept=28 total=28
+[EMAPI] page=2 rows=100 kept=23 total=51
+[EMAPI] page=3 rows=100 kept=28 total=79
+[EMAPI] page=4 rows=100 kept=31 total=110
+[EMAPI] page=5 rows=100 kept=34 total=144
+[EMAPI] page=6 rows=100 kept=31 total=175
+[EMAPI] page=7 rows=100 kept=34 total=209
+[EMAPI] page=8 rows=100 kept=33 total=242
+[EMAPI] page=9 rows=100 kept=41 total=283
+[EMAPI] page=10 rows=100 kept=45 total=328
+[EMAPI] page=11 rows=100 kept=44 total=372
+[EMAPI] page=12 rows=100 kept=44 total=415
+[EMAPI] page=13 rows=100 kept=43 total=457
+[EMAPI] page=14 rows=100 kept=43 total=499
+[EMAPI] page=15 rows=100 kept=51 total=549
+[EMAPI] page=16 rows=100 kept=48 total=596
+[EMAPI] page=17 rows=100 kept=46 total=642
+[EMAPI] page=18 rows=100 kept=49 total=690
+[EMAPI] page=19 rows=100 kept=42 total=728
+[EMAPI] page=20 rows=100 kept=45 total=772
+[EMAPI] page=21 rows=100 kept=42 total=811
+[EMAPI] page=22 rows=100 kept=38 total=846
+[EMAPI] page=23 rows=100 kept=48 total=891
+[EMAPI] page=24 rows=100 kept=40 total=930
+[EMAPI] page=25 rows=100 kept=33 total=960
+[HISTORY] 开始获取150只股票的历史数据 (今日: 2026-04-03)
+[HISTORY] sh600900 长江电力 使用今日缓存 (2026-04-03)
+[HISTORY] sh603619 中曼石油 使用今日缓存 (2026-04-03)
+[HISTORY] sz000890 法尔胜 使用今日缓存 (2026-04-03)
+[HISTORY] sh603127 昭衍新药 使用今日缓存 (2026-04-03)
+[HISTORY] sh603588 高能环境 使用今日缓存 (2026-04-03)
+[HISTORY] sh600699 均胜电子 使用今日缓存 (2026-04-03)
+[HISTORY] sh600703 三安光电 使用今日缓存 (2026-04-03)
+[HISTORY] sh603039 泛微网络 使用今日缓存 (2026-04-03)
+[HISTORY] sh603688 石英股份 使用今日缓存 (2026-04-03)
+[HISTORY] sh600867 通化东宝 使用今日缓存 (2026-04-03)
+[HISTORY] sh600392 盛和资源 使用今日缓存 (2026-04-03)
+[HISTORY] sh600172 黄河旋风 使用今日缓存 (2026-04-03)
+[HISTORY] sh603306 华懋科技 使用今日缓存 (2026-04-03)
+[HISTORY] sh603083 剑桥科技 使用今日缓存 (2026-04-03)
+[HISTORY] sh603296 华勤技术 使用今日缓存 (2026-04-03)
+[HISTORY] sh603118 共进股份 使用今日缓存 (2026-04-03)
+[HISTORY] sh603005 晶方科技 使用今日缓存 (2026-04-03)
+[HISTORY] sh600010 包钢股份 使用今日缓存 (2026-04-03)
+[HISTORY] sh603202 天有为 使用今日缓存 (2026-04-03)
+[HISTORY] sh603992 松霖科技 使用今日缓存 (2026-04-03)
+[PAPER] 恢复状态: 持仓2只, 历史订单44条, 现金658.57万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载713只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓2只, 历史订单44条, 现金658.57万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载713只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓2只, 历史订单44条, 现金658.57万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载713只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started

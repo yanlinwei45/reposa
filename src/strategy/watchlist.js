@@ -10,7 +10,7 @@ function toNumber(value) {
 function loadResearchWatchlist() {
   const watchlistPath = path.join(__dirname, '..', '..', 'config', 'watchlist.json');
   if (!fs.existsSync(watchlistPath)) {
-    return { items: [], map: new Map(), generatedFrom: null, count: 0 };
+    return { items: [], map: new Map(), generatedFrom: null, count: 0, activeCount: 0, mode: null };
   }
 
   try {
@@ -23,17 +23,21 @@ function loadResearchWatchlist() {
         name: item.name || String(item.symbol || ''),
         researchScore: toNumber(item.score),
         researchRank: index + 1,
+        rankingMode: String(item.ranking_mode || data.mode || 'strict'),
       }))
       .filter(item => item.symbol);
+    const activeItems = items.filter(item => item.rankingMode !== 'fallback');
 
     return {
       items,
       map: new Map(items.map(item => [item.symbol, item])),
       generatedFrom: data.generated_from || null,
       count: Number(data.count || items.length),
+      activeCount: activeItems.length,
+      mode: data.mode || null,
     };
   } catch (err) {
-    return { items: [], map: new Map(), generatedFrom: null, count: 0, error: err.message };
+    return { items: [], map: new Map(), generatedFrom: null, count: 0, activeCount: 0, mode: null, error: err.message };
   }
 }
 

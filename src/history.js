@@ -1,70 +1,128 @@
 const { getRuntimeStrategyConfig } = require('./strategy/config');
 const { score60DayHistory: score60DayHistoryByConfig } = require('./strategy/historyRules');
 
-// 获取大盘指数数据（上证指数，优先使用 page.evaluate 带浏览器 Cookie/Referer）
+function buildIndexKlineUrl() {
+  const cb = `jQuery${Date.now()}_${Math.random().toString().slice(2)}`;
+  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=${cb}&secid=1.000001&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&smplmt=460&lmt=1000000&_=${Date.now()}`;
+}
+
+function parseIndexResponse(text) {
+  const jsonText = text.replace(/^jQuery\d+_\d+\(/, '').replace(/\);?$/, '');
+  const data = JSON.parse(jsonText);
+  if (!data || !data.data || !data.data.klines) {
+    return null;
+  }
+
+  return data.data.klines.map(line => {
+    const parts = line.split(',');
+    return {
+      date: parts[0],
+      close: Number(parts[2]),
+      changePercent: Number(parts[8])
+    };
+  }).slice(-60);
+}
+
+async function fetchIndexDataViaPage(page, url) {
+  return page.evaluate(async (u) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('GET', u, true);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader('Accept', '*/*');
+      xhr.setRequestHeader('Referer', 'https://quote.eastmoney.com/');
+      xhr.timeout = 15000;
+
+      xhr.onload = function() {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.responseText);
+        } else {
+          reject(new Error(`HTTP ${xhr.status}`));
+        }
+      };
+
+      xhr.onerror = function() {
+        reject(new Error('Network error'));
+      };
+
+      xhr.ontimeout = function() {
+        reject(new Error('Timeout'));
+      };
+
+      xhr.send();
+    });
+  }, url);
+}
+
+async function fetchIndexDataViaContext(context, url) {
+  const response = await context.request.get(url, { timeout: 15000 });
+  return response.text();
+}
+
+async function fetchIndexDataViaHttps(url) {
+  const https = require('https');
+  return new Promise((resolve, reject) => {
+    const req = https.get(url, {
+      headers: {
+        'Accept': '*/*',
+        'Referer': 'https://quote.eastmoney.com/',
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
+      }
+    }, (res) => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data);
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.setTimeout(15000, () => {
+      req.destroy(new Error('Timeout'));
+    });
+  });
+}
+
+// 获取大盘指数数据（上证指数，多级回退）
 async function fetchIndexData(context, page) {
   for (let attempt = 1; attempt <= 3; attempt++) {
+    const url = buildIndexKlineUrl();
     try {
-      const cb = `jQuery${Date.now()}_${Math.random().toString().slice(2)}`;
-      const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?cb=${cb}&secid=1.000001&ut=fa5fd1943c7b386f172d6893dbfba10b&fields1=f1,f2,f3,f4,f5,f6&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61&klt=101&fqt=1&beg=0&end=20500101&smplmt=460&lmt=1000000&_=${Date.now()}`;
+      const fetchers = [
+        async () => {
+          if (!page) return null;
+          return fetchIndexDataViaPage(page, url);
+        },
+        async () => {
+          if (!context) return null;
+          return fetchIndexDataViaContext(context, url);
+        },
+        async () => fetchIndexDataViaHttps(url),
+      ];
 
-      let text;
-      if (page) {
-        // 使用 XMLHttpRequest 而不是 fetch
-        text = await page.evaluate(async (u) => {
-          return new Promise((resolve, reject) => {
-            const xhr = new XMLHttpRequest();
-            xhr.open('GET', u, true);
-            xhr.withCredentials = true;
-            xhr.setRequestHeader('Accept', '*/*');
-            xhr.setRequestHeader('Referer', 'https://quote.eastmoney.com/');
-            xhr.timeout = 15000;
-
-            xhr.onload = function() {
-              if (xhr.status >= 200 && xhr.status < 300) {
-                resolve(xhr.responseText);
-              } else {
-                reject(new Error(`HTTP ${xhr.status}`));
-              }
-            };
-
-            xhr.onerror = function() {
-              reject(new Error('Network error'));
-            };
-
-            xhr.ontimeout = function() {
-              reject(new Error('Timeout'));
-            };
-
-            xhr.send();
-          });
-        }, url);
-      } else {
-        const response = await context.request.get(url, { timeout: 15000 });
-        text = await response.text();
-      }
-
-      const jsonText = text.replace(/^jQuery\d+_\d+\(/, '').replace(/\);?$/, '');
-      const data = JSON.parse(jsonText);
-
-      if (!data || !data.data || !data.data.klines) {
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 500 * attempt));
-          continue;
+      let klines = null;
+      let lastError = null;
+      for (const fetcher of fetchers) {
+        try {
+          const text = await fetcher();
+          if (!text) continue;
+          klines = parseIndexResponse(text);
+          if (klines?.length >= 20) {
+            break;
+          }
+        } catch (err) {
+          lastError = err;
         }
-        return null;
       }
 
-      const klines = data.data.klines.map(line => {
-        const parts = line.split(',');
-        return {
-          date: parts[0],
-          close: Number(parts[2]),
-          changePercent: Number(parts[8])
-        };
-      }).slice(-60);
+      if (klines?.length >= 20) {
+        return klines;
+      }
 
-      return klines;
+      throw lastError || new Error('No valid index data');
     } catch (err) {
       if (attempt < 3) {
         console.error(`[INDEX] 获取上证指数失败 (尝试${attempt}/3):`, err.message);

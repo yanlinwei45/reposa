@@ -22,6 +22,15 @@ class Position:
     high_price: float | None = None
 
 
+def compute_position_value(frame: pd.DataFrame, positions: dict[str, Position]) -> float:
+    value = 0.0
+    for symbol, pos in positions.items():
+        if symbol not in frame.index:
+            continue
+        value += float(frame.loc[symbol]['close']) * pos.quantity
+    return value
+
+
 def load_best_config():
     path = RESULT_DIR / 'best_params.json'
     params = load_score_params()
@@ -71,7 +80,15 @@ def get_exit_reason(row: pd.Series, pos: Position, cfg: dict) -> tuple[bool, str
     return False, ''
 
 
-def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | None = None, params: ScoreParams | None = None, backtest_overrides: dict | None = None):
+def run_backtest(
+    df: pd.DataFrame,
+    top_n: int | None = None,
+    hold_days: int | None = None,
+    params: ScoreParams | None = None,
+    backtest_overrides: dict | None = None,
+    start_date: str | pd.Timestamp | None = None,
+    warmup_bars: int = 60,
+):
     params = params or load_score_params()
     backtest_cfg = {**get_backtest_config(), **(backtest_overrides or {})}
     top_n = int(top_n or backtest_cfg.get('topN', 5))
@@ -88,54 +105,60 @@ def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | No
     lot_size = int(backtest_cfg.get('lotSize', 100))
     slippage_bp = float(backtest_cfg.get('slippageBp', 10))
     fee_bp = float(backtest_cfg.get('feeBp', 3))
+    reentry_cooldown_days = int(backtest_cfg.get('reentryCooldownDays', 0) or 0)
 
     cash = initial_capital
     positions: dict[str, Position] = {}
+    last_exit_index: dict[str, int] = {}
     equity_curve = []
     picks_log = []
     trade_log = []
 
-    for i in range(60, len(dates) - 1):
+    start_idx = max(warmup_bars, 0)
+    if start_date is not None:
+        start_ts = pd.Timestamp(start_date)
+        while start_idx < len(dates) and dates[start_idx] < start_ts:
+            start_idx += 1
+
+    for i in range(start_idx, len(dates) - 1):
         current_date = dates[i]
         next_date = dates[i + 1]
         current_frame = daily_map[current_date]
         next_frame = daily_map[next_date]
 
-        daily_ret = 0.0
         closed_trades = []
-        marked_value = 0.0
 
         for symbol in list(positions.keys()):
-          if symbol not in current_frame.index:
-              continue
+            if symbol not in current_frame.index:
+                continue
 
-          row = current_frame.loc[symbol]
-          pos = positions[symbol]
-          pos.hold_days += 1
-          pos.high_price = max(pos.high_price or pos.entry_price, float(row['high']))
-          should_exit, exit_reason = get_exit_reason(row, pos, {**backtest_cfg, 'maxHoldDays': max_hold_days})
-          if not should_exit:
-              marked_value += float(row['close']) * pos.quantity
-              continue
+            row = current_frame.loc[symbol]
+            pos = positions[symbol]
+            pos.hold_days += 1
+            pos.high_price = max(pos.high_price or pos.entry_price, float(row['high']))
+            should_exit, exit_reason = get_exit_reason(row, pos, {**backtest_cfg, 'maxHoldDays': max_hold_days})
+            if not should_exit:
+                continue
 
-          exit_price = float(row['close']) * (1 - slippage_bp / 10000)
-          fee = exit_price * pos.quantity * fee_bp / 10000
-          cash += exit_price * pos.quantity - fee
-          pnl_pct = exit_price / pos.entry_price - 1
-          closed_trades.append(pnl_pct)
-          trade_log.append({
-              'date': str(current_date.date()),
-              'symbol': symbol,
-              'entry_date': str(pos.entry_date.date()),
-              'entry_price': pos.entry_price,
-              'exit_price': exit_price,
-              'quantity': pos.quantity,
-              'hold_days': pos.hold_days,
-              'pnl_pct': pnl_pct,
-              'reason': exit_reason,
-              'score': pos.score,
-          })
-          del positions[symbol]
+            exit_price = float(row['close']) * (1 - slippage_bp / 10000)
+            fee = exit_price * pos.quantity * fee_bp / 10000
+            cash += exit_price * pos.quantity - fee
+            pnl_pct = exit_price / pos.entry_price - 1
+            closed_trades.append(pnl_pct)
+            trade_log.append({
+                'date': str(current_date.date()),
+                'symbol': symbol,
+                'entry_date': str(pos.entry_date.date()),
+                'entry_price': pos.entry_price,
+                'exit_price': exit_price,
+                'quantity': pos.quantity,
+                'hold_days': pos.hold_days,
+                'pnl_pct': pnl_pct,
+                'reason': exit_reason,
+                'score': pos.score,
+            })
+            last_exit_index[symbol] = i
+            del positions[symbol]
 
         ranked = score_frame(current_frame.reset_index(), params)
         available_slots = max_positions - len(positions)
@@ -145,16 +168,20 @@ def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | No
                 symbol = row['symbol']
                 if symbol in positions or symbol not in next_frame.index:
                     continue
+                last_exit_at = last_exit_index.get(symbol)
+                if last_exit_at is not None and reentry_cooldown_days > 0 and (i - last_exit_at) < reentry_cooldown_days:
+                    continue
                 candidates.append(row)
                 if len(candidates) >= min(top_n, available_slots):
                     break
 
         day_picks = []
+        remaining_slots = max(1, available_slots)
         for row in candidates:
             symbol = row['symbol']
             next_row = next_frame.loc[symbol]
             entry_price = float(next_row['open']) * (1 + slippage_bp / 10000)
-            budget = cash / max(1, available_slots)
+            budget = cash / remaining_slots
             quantity = int(budget / entry_price / lot_size) * lot_size
             if quantity < lot_size:
                 continue
@@ -172,15 +199,13 @@ def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | No
                 high_price=entry_price,
             )
             day_picks.append(symbol)
+            remaining_slots = max(1, remaining_slots - 1)
 
-        equity = cash + marked_value
-        if current_frame.shape[0] > 0:
-            for symbol, pos in positions.items():
-                if symbol in current_frame.index:
-                    equity += float(current_frame.loc[symbol]['close']) * pos.quantity
+        next_positions_value = compute_position_value(next_frame, positions)
+        equity = cash + next_positions_value
         daily_ret = 0.0 if not equity_curve else (equity / equity_curve[-1]['equity']) - 1
         equity_curve.append({
-            'date': str(current_date.date()),
+            'date': str(next_date.date()),
             'equity': equity,
             'cash': cash,
             'positions': len(positions),
@@ -199,6 +224,16 @@ def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | No
     total_return = float(bt['equity'].iloc[-1] / initial_capital - 1) if not bt.empty else 0.0
     max_dd = float((bt['equity'] / bt['equity'].cummax() - 1).min()) if not bt.empty else 0.0
     win_rate = float((pd.DataFrame(trade_log)['pnl_pct'] > 0).mean()) if trade_log else 0.0
+    sharpe = float((bt['ret'].mean() / bt['ret'].std()) * (252 ** 0.5)) if len(bt) > 1 and bt['ret'].std() not in (0, 0.0) else 0.0
+    profit_factor = None
+    avg_trade_return = 0.0
+    if trade_log:
+        trade_df = pd.DataFrame(trade_log)
+        gross_profit = float(trade_df.loc[trade_df['pnl_pct'] > 0, 'pnl_pct'].sum())
+        gross_loss = float(-trade_df.loc[trade_df['pnl_pct'] < 0, 'pnl_pct'].sum())
+        if gross_loss > 0:
+            profit_factor = gross_profit / gross_loss
+        avg_trade_return = float(trade_df['pnl_pct'].mean())
     summary = {
         'top_n': top_n,
         'hold_days': max_hold_days,
@@ -207,6 +242,9 @@ def run_backtest(df: pd.DataFrame, top_n: int | None = None, hold_days: int | No
         'total_return': total_return,
         'max_drawdown': max_dd,
         'win_rate': win_rate,
+        'sharpe': sharpe,
+        'profit_factor': profit_factor,
+        'avg_trade_return': avg_trade_return,
         'avg_period_return': float(bt['ret'].mean()) if not bt.empty else 0.0,
         'params': params.to_dict(),
         'backtest_config': backtest_cfg,

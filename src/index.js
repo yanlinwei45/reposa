@@ -11,6 +11,7 @@ const {
   scoreIntradayStrategy,
   buildInitialCandidatePool,
   combineCandidateScores,
+  classifyCandidateBuckets,
 } = require('./strategy/runtimeRules');
 const { evaluateHistoryFilters } = require('./strategy/historyRules');
 const ScanLogger = require('./scanLogger');
@@ -19,6 +20,14 @@ const { formatWan, formatPct } = require('./utils/format');
 const { normalizeSymbol, isMainBoardCode, isLikelyStName, toEastmoneyUrl } = require('./utils/symbol');
 const { createApiRoutes, serveFrontend } = require('./server/routes');
 const { renderHtml, renderPaperHtml, renderLogsHtml } = require('./render/legacyPages');
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED_REJECTION]', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('[UNCAUGHT_EXCEPTION]', err);
+});
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -32,7 +41,12 @@ function loadResearchBestParams() {
   const bestParamsPath = path.join(__dirname, '..', 'research', 'data', 'results', 'best_params.json');
   if (!fs.existsSync(bestParamsPath)) return null;
   try {
-    return JSON.parse(fs.readFileSync(bestParamsPath, 'utf8'));
+    const data = JSON.parse(fs.readFileSync(bestParamsPath, 'utf8'));
+    if (!data || typeof data !== 'object') return null;
+    return {
+      ...data,
+      params: null,
+    };
   } catch (_) {
     return null;
   }
@@ -45,6 +59,9 @@ function loadConfig() {
   const runtimeStrategyConfig = getRuntimeStrategyConfig();
   const backtestConfig = getBacktestConfig();
   const optimizedResearch = loadResearchBestParams();
+  const deriveCooldownMinutes = (cfg) => (
+    cfg?.reentryCooldownDays != null ? Number(cfg.reentryCooldownDays) * 24 * 60 : null
+  );
   if (!config.server) config.server = {};
   if (!config.server.port || Number(config.server.port) === 3000) config.server.port = 3088;
   if (!config.marketScan) config.marketScan = {};
@@ -89,6 +106,10 @@ function loadConfig() {
       weakTakeProfitPct: optimizedResearch.backtest_config.weakTakeProfitPct ?? config.paperTrading.weakTakeProfitPct,
       exitDrawdownFromHighPct: optimizedResearch.backtest_config.exitDrawdownFromHighPct ?? config.paperTrading.exitDrawdownFromHighPct,
     };
+  }
+  const targetCooldownMinutes = deriveCooldownMinutes(optimizedResearch?.backtest_config) ?? deriveCooldownMinutes(backtestConfig);
+  if (targetCooldownMinutes != null && (config.paperTrading.buyCooldownMinutes == null || config.paperTrading.buyCooldownMinutes === 60)) {
+    config.paperTrading.buyCooldownMinutes = targetCooldownMinutes;
   }
   config.runtimeStrategy = runtimeStrategyConfig;
   config.optimizedResearch = optimizedResearch;
@@ -181,6 +202,7 @@ function buildObservationPool(candidates = [], runtimeStrategy = {}, limit = 12)
   const filters = runtimeStrategy.history?.filters || {};
   return candidates
     .filter(item => {
+      if (item.strategy?.bucket === 'observation') return true;
       const h = item.history || {};
       if (!h || h.degraded) return !!item.researchSelected;
       if ((item.historyScore || 0) < Math.max(45, (filters.minHistoryScore ?? 50) - 5)) return false;
@@ -849,8 +871,44 @@ class MarketScanner {
     this.lastHistoryUpdate = null;
     this.scanLogger = new ScanLogger(logsDir);
     this.historyCachePath = path.join(logsDir, 'history-cache.json');
+    this.marketRegimeCachePath = path.join(logsDir, 'market-regime-cache.json');
     this.researchWatchlist = loadResearchWatchlist();
+    this.marketRegimeCache = this.loadMarketRegimeCache();
     this.loadHistoryCache();
+  }
+
+  loadMarketRegimeCache() {
+    if (!fs.existsSync(this.marketRegimeCachePath)) return null;
+    try {
+      return JSON.parse(fs.readFileSync(this.marketRegimeCachePath, 'utf8'));
+    } catch (err) {
+      console.error('[INDEX] 加载市场环境缓存失败:', err.message);
+      return null;
+    }
+  }
+
+  saveMarketRegimeCache(payload) {
+    this.marketRegimeCache = payload;
+    try {
+      fs.writeFileSync(this.marketRegimeCachePath, JSON.stringify(payload, null, 2));
+    } catch (err) {
+      console.error('[INDEX] 保存市场环境缓存失败:', err.message);
+    }
+  }
+
+  getCachedMarketRegime(ts = Date.now()) {
+    if (!this.marketRegimeCache?.marketRegime) return null;
+    const cacheTs = this.marketRegimeCache.ts ? new Date(this.marketRegimeCache.ts).getTime() : 0;
+    if (!cacheTs) return null;
+    const ageMs = ts - cacheTs;
+    const sameDay = getHistoryCacheDateKey(ts) === getHistoryCacheDateKey(cacheTs);
+    if (!sameDay || ageMs > 6 * 60 * 60 * 1000) return null;
+    return {
+      ...this.marketRegimeCache.marketRegime,
+      source: 'cache',
+      cachedAt: this.marketRegimeCache.bjTime || null,
+      staleMinutes: Math.round(ageMs / 60000),
+    };
   }
 
   loadHistoryCache() {
@@ -1033,8 +1091,32 @@ class MarketScanner {
     try {
       // 获取大盘环境
       const indexKlines = await fetchIndexData(context, page);
-      const marketRegime = analyzeMarketRegime(indexKlines);
-      console.log(`[MARKET] 上证指数: ${marketRegime.current} MA20: ${marketRegime.ma20} MA60: ${marketRegime.ma60} 环境: ${marketRegime.regime}`);
+      let marketRegime = analyzeMarketRegime(indexKlines);
+      let marketRegimeSource = 'live';
+      if (marketRegime.regime !== 'UNKNOWN' && indexKlines?.length >= 20) {
+        this.saveMarketRegimeCache({
+          ts,
+          bjTime,
+          marketRegime,
+          sampleSize: indexKlines.length,
+        });
+      } else {
+        const cachedRegime = this.getCachedMarketRegime(new Date(ts).getTime());
+        if (cachedRegime) {
+          marketRegime = cachedRegime;
+          marketRegimeSource = 'cache';
+          console.warn(`[INDEX] 实时指数获取失败，回退到缓存环境 ${cachedRegime.regime} (${cachedRegime.cachedAt || '-'})`);
+        }
+      }
+      console.log(`[MARKET] 上证指数: ${marketRegime.current} MA20: ${marketRegime.ma20} MA60: ${marketRegime.ma60} 环境: ${marketRegime.regime} 来源: ${marketRegimeSource}`);
+      this.scanLogger.log('市场环境', {
+        regime: marketRegime.regime,
+        current: marketRegime.current,
+        ma20: marketRegime.ma20,
+        ma60: marketRegime.ma60,
+        source: marketRegimeSource,
+        cachedAt: marketRegime.cachedAt || null,
+      });
 
       this.scanLogger.log('开始获取行情数据', {});
 
@@ -1082,6 +1164,7 @@ class MarketScanner {
 
       this.scanLogger.log('初步筛选（降低标准）', {
         threshold: pool.initialThreshold,
+        poolThreshold: pool.poolThreshold ?? pool.initialThreshold,
         before: scored.length,
         after: candidates.length,
         researchWatchlistCount: this.researchWatchlist.count,
@@ -1119,43 +1202,62 @@ class MarketScanner {
           filterStats
         });
 
-        // 重新计算综合评分并排序
-        candidates = candidates
+        // 重新计算综合评分，并按低吸主池/转强观察分桶
+        const historyQualifiedCandidates = candidates
           .map(p => ({
             ...p,
             combinedScore: combineCandidateScores(p, this.runtimeStrategy)
-          }))
-          .sort((a, b) => b.combinedScore - a.combinedScore)
+          }));
+        const classified = classifyCandidateBuckets(historyQualifiedCandidates, this.runtimeStrategy);
+        candidates = classified.mainPicks
           .slice(0, this.config.strategy.topN);
 
+        const observationSource = [
+          ...classified.observationPicks,
+          ...filteredOut
+            .map(item => initialPool.find(candidate => candidate.symbol === item.symbol))
+            .filter(Boolean)
+        ].map(item => (item.combinedScore != null ? item : {
+          ...item,
+          combinedScore: combineCandidateScores(item, this.runtimeStrategy),
+        }));
+
         observationPicks = buildObservationPool(
-          [...candidates, ...filteredOut.map(item => initialPool.find(candidate => candidate.symbol === item.symbol)).filter(Boolean)]
-            .map(item => (item.combinedScore != null ? item : {
-              ...item,
-              combinedScore: combineCandidateScores(item, this.runtimeStrategy),
-            })),
+          observationSource,
           this.runtimeStrategy,
           Math.min(12, this.config.strategy.topN || 30)
         ).filter(item => !candidates.some(candidate => candidate.symbol === item.symbol));
 
         this.scanLogger.log('综合评分排序（当日/历史 50/50）', {
           total: candidates.length,
+          observationCount: observationPicks.length,
           topPicks: candidates.slice(0, 10).map(p => ({
             symbol: p.symbol,
             name: p.name,
             dayScore: p.score,
             historyScore: p.historyScore,
             combinedScore: p.combinedScore,
+            bucket: p.strategy?.bucket || 'unknown',
             gain60d: p.history?.gain60d || null,
             gain10d: p.history?.gain10d || null,
             maxDrawdown: p.history?.maxDrawdown || null
+          })),
+          observationPicks: observationPicks.slice(0, 10).map(p => ({
+            symbol: p.symbol,
+            name: p.name,
+            dayScore: p.score,
+            historyScore: p.historyScore,
+            combinedScore: p.combinedScore,
+            bucket: p.strategy?.bucket || 'unknown',
+            reason: p.strategy?.bucketLabel || '',
+            changePercent: p.changePercent || 0
           }))
         });
       }
 
       if (this.runtimeStrategy.marketFilters.enableHistoryScore !== false && candidates.length === 0) {
         const fallbackForDashboard = scored
-          .filter(item => item.score >= pool.initialThreshold)
+          .filter(item => item.score >= (pool.poolThreshold ?? pool.initialThreshold))
           .sort((a, b) => (b.preHistoryScore || b.score || 0) - (a.preHistoryScore || a.score || 0))
           .slice(0, 30);
         const fallbackMissingHistory = fallbackForDashboard.filter(item => !this.historyCache.get(item.symbol));
@@ -1165,7 +1267,38 @@ class MarketScanner {
         }
         if (observationPicks.length === 0) {
           const enrichedFallback = mergeHistoryIntoMarketItems(fallbackForDashboard, this.historyCache);
-          observationPicks = buildObservationPool(enrichedFallback, this.runtimeStrategy, 12);
+          const classifiedFallback = classifyCandidateBuckets(
+            enrichedFallback.map(item => ({
+              ...item,
+              combinedScore: item.combinedScore != null ? item.combinedScore : combineCandidateScores(item, this.runtimeStrategy),
+            })),
+            this.runtimeStrategy
+          );
+          observationPicks = buildObservationPool(
+            classifiedFallback.observationPicks,
+            this.runtimeStrategy,
+            12
+          );
+          if (observationPicks.length === 0) {
+            observationPicks = buildObservationPool(
+              classifiedFallback.enriched.filter(item => item.strategy?.bucket !== 'main'),
+              this.runtimeStrategy,
+              12
+            );
+          }
+          if (observationPicks.length === 0) {
+            observationPicks = enrichedFallback
+              .sort((a, b) => (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0))
+              .slice(0, 12)
+              .map(item => ({
+                ...item,
+                strategy: {
+                  ...(item.strategy || {}),
+                  bucket: item.strategy?.bucket || 'rejected',
+                  bucketLabel: item.strategy?.bucketLabel || '高分样本',
+                },
+              }));
+          }
         }
       }
 
@@ -1936,6 +2069,17 @@ class PaperAccount {
     if (availablePositions > 0 && this.cash > this.config.minCashReserve && portfolioDrawdown <= 5) {
       const buyCandidates = strategyPicks
         .filter(p => {
+          if (p.strategy?.bucket && p.strategy.bucket !== 'main') {
+            buyDecisionLog.rejected.push({
+              symbol: p.symbol,
+              name: p.name,
+              reason: `仅低吸主池允许开仓，当前为${p.strategy?.bucketLabel || p.strategy.bucket}`,
+              dayScore: p.score || 0,
+              historyScore: p.historyScore || 0,
+            });
+            return false;
+          }
+
           if (marketRegime === 'UNKNOWN') {
             buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '市场状态未知，禁止开仓', dayScore: p.score || 0, historyScore: p.historyScore || 0 });
             return false;

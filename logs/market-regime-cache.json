@@ -1,0 +1,13 @@
+{
+  "ts": "2026-04-03T09:38:32.311Z",
+  "bjTime": "2026-04-03 17:38:32",
+  "marketRegime": {
+    "regime": "BULL",
+    "current": 3880.1,
+    "ma20": 3622.64,
+    "ma60": 3331.41,
+    "aboveMA20": true,
+    "aboveMA60": true
+  },
+  "sampleSize": 60
+}
