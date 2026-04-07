@@ -6,6 +6,7 @@ function renderHtml(state, config, paperAccount, scanLogger) {
   const regimeMultipliers = adaptive?.regimeMultipliers || {};
   const latestLog = scanLogger?.getLatestLog ? scanLogger.getLatestLog() : null;
   const historyFilterStep = latestLog?.steps?.find(step => step.step === '60日历史数据严格筛选');
+  const dataQualityStep = latestLog?.steps?.find(step => step.step === '行情数据完整性不足');
   const filterStats = historyFilterStep?.data?.filterStats || {};
   const filterReasonLabels = {
     noHistory: '无历史数据',
@@ -50,6 +51,7 @@ a{color:#93c5fd} table{width:100%;border-collapse:collapse;background:#111827} t
   <div class="panel"><div class="section-title">策略环境</div><div class="small muted">当前市场环境与自适应仓位控制</div><div style="margin-top:8px">${Object.entries(regimeMultipliers).map(([key, value]) => `<div class="small" style="margin-bottom:6px">${key}: 仓位x${value.positionSize ?? 1} / 最多${value.maxPositions ?? '-'}只</div>`).join('') || '<div class="muted small">暂无</div>'}</div></div>
   <div class="panel"><div class="section-title">历史筛选漏斗</div><div class="small muted">60日严格筛选主要淘汰原因</div><div style="margin-top:8px">${topFilterReasons || '暂无数据'}</div></div>
 </div>
+${dataQualityStep ? `<div class="panel"><div class="section-title">数据状态</div><div class="small muted">本轮跳过候选筛选</div><div style="margin-top:8px">${dataQualityStep.data?.reason || '行情字段不完整'}</div></div>` : ''}
 <div class="panel"><div class="section-title">候选股票</div><div class="table-wrap"><table><thead><tr><th>代码</th><th>名称</th><th>价格</th><th>涨跌幅</th><th>评分</th><th>历史分</th><th>综合分</th><th>标签</th></tr></thead><tbody>
 ${state.strategyPicks.map(item => `<tr><td><a href="${item.symbol ? `https://quote.eastmoney.com/${item.symbol}.html` : '#'}" target="_blank" rel="noreferrer">${item.symbol || '-'}</a></td><td>${item.name || '-'}</td><td>${item.price ?? '-'}</td><td class="${(item.changePercent || 0) >= 0 ? 'hot' : 'watch'}">${item.changePercent == null ? '-' : item.changePercent.toFixed(2) + '%'}</td><td>${item.score ?? '-'}</td><td>${item.historyScore ?? '-'}</td><td>${item.combinedScore ?? '-'}</td><td>${[...(item.strategy?.positiveTags || []).map(t => `<span class="tag good">${t}</span>`), ...(item.strategy?.riskTags || []).map(t => `<span class="tag bad">${t}</span>`)].join('')}</td></tr>`).join('') || '<tr><td colspan="8" class="muted">暂无候选</td></tr>'}
 </tbody></table></div></div>

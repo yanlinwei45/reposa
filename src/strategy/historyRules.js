@@ -99,6 +99,20 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     historyScore: item.historyScore || 0,
     price: item.price || 0,
   };
+  const continuationProfile = (() => {
+    const h = item.history || {};
+    return (
+      h.gain60d != null && h.gain60d >= 10 &&
+      h.gain30d != null && h.gain30d >= 0 &&
+      h.gain10d != null && h.gain10d >= 0 &&
+      h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5 &&
+      h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0 &&
+      h.deviationFromMA20 != null && h.deviationFromMA20 >= 0 && h.deviationFromMA20 <= 16 &&
+      h.rsi != null && h.rsi >= 45 && h.rsi <= 64 &&
+      h.macdHistogram != null && h.macdHistogram >= 0 &&
+      (item.turnover || 0) >= 500000000
+    );
+  })();
 
   if (!item.history) {
     return { passed: false, reasonKey: 'noHistory', reason: '无历史数据', detail: sampleBase };
@@ -116,18 +130,18 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'trend60dLow', reason: `60日涨幅${h.gain60d}%不足${filters.minGain60d ?? 2}%`, detail: { ...sampleBase, gain60d: h.gain60d } };
   }
 
-  if (h.gain30d !== null && h.gain30d < (filters.minGain30d ?? -3)) {
+  if (!continuationProfile && h.gain30d !== null && h.gain30d < (filters.minGain30d ?? -3)) {
     return { passed: false, reasonKey: 'trend30dLow', reason: `30日涨幅${h.gain30d}%不足${filters.minGain30d ?? -3}%`, detail: { ...sampleBase, gain30d: h.gain30d } };
   }
 
-  if (h.gain10d !== null && h.gain10d < (filters.minGain10d ?? -12)) {
+  if (!continuationProfile && h.gain10d !== null && h.gain10d < (filters.minGain10d ?? -12)) {
     return { passed: false, reasonKey: 'gain10dTooLow', reason: `10日跌幅${h.gain10d}%过大`, detail: { ...sampleBase, gain10d: h.gain10d } };
   }
 
   const maxGain5d = isResearchSelected
     ? (filters.researchMaxGain5d ?? filters.maxGain5d ?? 4)
     : (filters.maxGain5d ?? 4);
-  if (h.gain5d !== null && (h.gain5d > maxGain5d || h.gain5d < (filters.minGain5d ?? -10))) {
+  if (!continuationProfile && h.gain5d !== null && (h.gain5d > maxGain5d || h.gain5d < (filters.minGain5d ?? -10))) {
     return { passed: false, reasonKey: 'gain5dOutOfRange', reason: `5日涨幅${h.gain5d}%不在${filters.minGain5d ?? -10}%~${maxGain5d}%`, detail: { ...sampleBase, gain5d: h.gain5d } };
   }
 
@@ -135,7 +149,7 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'maxDrawdownHigh', reason: `最大回撤${h.maxDrawdown}%过深`, detail: { ...sampleBase, maxDrawdown: h.maxDrawdown } };
   }
 
-  if (h.distanceToHigh60d > (filters.maxDistanceToHigh60d ?? -3) || h.distanceToHigh60d < (filters.minDistanceToHigh60d ?? -30)) {
+  if (!continuationProfile && (h.distanceToHigh60d > (filters.maxDistanceToHigh60d ?? -3) || h.distanceToHigh60d < (filters.minDistanceToHigh60d ?? -30))) {
     return { passed: false, reasonKey: 'distanceToHighInvalid', reason: `距高点${h.distanceToHigh60d}%不在${filters.minDistanceToHigh60d ?? -30}%~${filters.maxDistanceToHigh60d ?? -3}%`, detail: { ...sampleBase, distanceToHigh60d: h.distanceToHigh60d } };
   }
 
@@ -154,14 +168,14 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
   const maxRsi = isResearchSelected
     ? (filters.researchMaxRsi ?? filters.maxRsi ?? 65)
     : (filters.maxRsi ?? 65);
-  if (h.rsi < (filters.minRsi ?? 28) || h.rsi > maxRsi) {
+  if (!continuationProfile && (h.rsi < (filters.minRsi ?? 28) || h.rsi > maxRsi)) {
     return { passed: false, reasonKey: 'rsiOutOfRange', reason: `RSI${h.rsi}不在${filters.minRsi ?? 28}~${maxRsi}`, detail: { ...sampleBase, rsi: h.rsi } };
   }
 
   const minMacdHistogram = isResearchSelected
     ? (filters.researchMinMacdHistogram ?? filters.minMacdHistogram ?? -0.2)
     : (filters.minMacdHistogram ?? -0.2);
-  if (h.macdHistogram < minMacdHistogram) {
+  if (!continuationProfile && h.macdHistogram < minMacdHistogram) {
     return { passed: false, reasonKey: 'macdTooWeak', reason: `MACD柱${h.macdHistogram}过弱`, detail: { ...sampleBase, macdHistogram: h.macdHistogram } };
   }
 

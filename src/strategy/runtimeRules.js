@@ -74,6 +74,7 @@ function getObservationBias(item, observationBucket = {}) {
 function evaluateBucketQualification(item, runtimeConfig) {
   const mainBucket = getBucketConfig(runtimeConfig, 'main');
   const observationBucket = getBucketConfig(runtimeConfig, 'observation');
+  const continuationBucket = getBucketConfig(runtimeConfig, 'continuation');
   const h = item.history || {};
   const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
   const intradayScore = item.score || 0;
@@ -110,12 +111,35 @@ function evaluateBucketQualification(item, runtimeConfig) {
   };
   const observationQualified = Object.values(observationChecks).every(Boolean);
 
+  const continuationChecks = {
+    intradayScore: intradayScore >= (continuationBucket.minIntradayScore ?? 72),
+    changePercent: isWithinRange(changePercent, continuationBucket.minChangePercent ?? 0.5, continuationBucket.maxChangePercent ?? 4.5),
+    turnoverRate: isWithinRange(turnoverRatePercent, continuationBucket.minTurnoverRatePercent ?? 2, continuationBucket.maxTurnoverRatePercent ?? 10),
+    volumeRatio: isWithinRange(volumeRatio, continuationBucket.minVolumeRatio ?? 0.9, continuationBucket.maxVolumeRatio ?? 2.2),
+    gain60d: h.gain60d == null || h.gain60d >= (continuationBucket.minGain60d ?? 5),
+    gain30d: h.gain30d == null || h.gain30d >= (continuationBucket.minGain30d ?? -2),
+    gain10d: h.gain10d == null || h.gain10d >= (continuationBucket.minGain10d ?? 0),
+    gain5d: isWithinRange(h.gain5d, continuationBucket.minGain5d ?? 1, continuationBucket.maxGain5d ?? 10),
+    distanceToHigh60d: isWithinRange(h.distanceToHigh60d, continuationBucket.minDistanceToHigh60d ?? -15, continuationBucket.maxDistanceToHigh60d ?? 1),
+    deviationFromMA20: isWithinRange(h.deviationFromMA20, continuationBucket.minDeviationFromMA20 ?? -1, continuationBucket.maxDeviationFromMA20 ?? 8),
+    rsi: isWithinRange(h.rsi, continuationBucket.minRsi ?? 45, continuationBucket.maxRsi ?? 68),
+    macdHistogram: h.macdHistogram != null && h.macdHistogram >= (continuationBucket.minMacdHistogram ?? -0.02),
+    consecutiveDownDays: h.consecutiveDownDays == null || h.consecutiveDownDays <= (continuationBucket.maxConsecutiveDownDays ?? 2),
+  };
+  const continuationQualified = Object.values(continuationChecks).every(Boolean);
+
   return {
     pullbackChecks,
     observationChecks,
+    continuationChecks,
     pullbackQualified,
     observationQualified,
-    bucket: pullbackQualified ? 'main' : (observationQualified ? 'observation' : 'rejected'),
+    continuationQualified,
+    bucket: pullbackQualified
+      ? 'main'
+      : continuationQualified
+        ? 'continuation'
+        : (observationQualified ? 'observation' : 'rejected'),
     observationBias: getObservationBias(item, observationBucket),
   };
 }
@@ -321,6 +345,8 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
     const qualification = evaluateBucketQualification(item, runtimeConfig);
     const bucketLabel = qualification.bucket === 'main'
       ? (getBucketConfig(runtimeConfig, 'main').label || '低吸主池')
+      : qualification.bucket === 'continuation'
+        ? (getBucketConfig(runtimeConfig, 'continuation').label || '趋势延续池')
       : qualification.bucket === 'observation'
         ? (getBucketConfig(runtimeConfig, 'observation').label || '转强观察')
         : '未达标';
@@ -331,10 +357,12 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
       observationBias: qualification.observationBias,
       pullbackChecks: qualification.pullbackChecks,
       observationChecks: qualification.observationChecks,
+      continuationChecks: qualification.continuationChecks,
       selectedReason: {
         ...(item.strategy?.selectedReason || {}),
         pullbackQualified: qualification.pullbackQualified,
         observationQualified: qualification.observationQualified,
+        continuationQualified: qualification.continuationQualified,
       },
     };
     const nextItem = {
@@ -346,17 +374,68 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
     return nextItem;
   });
 
+  const mainBucket = getBucketConfig(runtimeConfig, 'main');
+  const mainMaxVolumeRatio = mainBucket.maxVolumeRatio ?? 1.7;
+  const recoverableCheckKeys = new Set([
+    'volumeRatio',
+    'gain5d',
+    'distanceToHigh60d',
+    'deviationFromMA20',
+    'rsi',
+    'macdHistogram',
+  ]);
+
+  for (const item of enriched) {
+    if (item.strategy?.bucket === 'main') continue;
+
+    const failedPullbackChecks = Object.entries(item.strategy?.pullbackChecks || {})
+      .filter(([, passed]) => !passed)
+      .map(([key]) => key);
+    if (failedPullbackChecks.length === 0 || failedPullbackChecks.length > 2) continue;
+    if (!failedPullbackChecks.every(key => recoverableCheckKeys.has(key))) continue;
+
+    const h = item.history || {};
+    const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
+    const recoverable =
+      (failedPullbackChecks.includes('volumeRatio') ? volumeRatio >= 0.8 && volumeRatio <= Math.max(2, mainMaxVolumeRatio) : true) &&
+      (failedPullbackChecks.includes('gain5d') ? h.gain5d != null && h.gain5d >= -8 && h.gain5d <= 4 : true) &&
+      (failedPullbackChecks.includes('distanceToHigh60d') ? h.distanceToHigh60d != null && h.distanceToHigh60d >= -24 && h.distanceToHigh60d <= -4 : true) &&
+      (failedPullbackChecks.includes('deviationFromMA20') ? h.deviationFromMA20 != null && h.deviationFromMA20 >= -3.5 && h.deviationFromMA20 <= 4 : true) &&
+      (failedPullbackChecks.includes('rsi') ? h.rsi != null && h.rsi >= 36 && h.rsi <= 61 : true) &&
+      (failedPullbackChecks.includes('macdHistogram') ? h.macdHistogram != null && h.macdHistogram >= -0.08 : true);
+
+    if (!recoverable) continue;
+
+    const recoveryTags = Array.isArray(item.strategy?.positiveTags) ? [...item.strategy.positiveTags] : [];
+    recoveryTags.push(`接近主池:${failedPullbackChecks.join('/')}`);
+    item.strategy = {
+      ...(item.strategy || {}),
+      bucket: 'main',
+      bucketLabel: `${mainBucket.label || '趋势回踩主池'}(放宽)`,
+      positiveTags: recoveryTags,
+      selectedReason: {
+        ...(item.strategy?.selectedReason || {}),
+        pullbackQualified: true,
+        recoveryPromoted: true,
+        recoveryFailedChecks: failedPullbackChecks,
+      },
+    };
+  }
+
   const mainPicks = enriched
-    .filter(item => item.strategy?.bucket === 'main')
+    .filter(item => item.strategy?.bucket === 'main' || item.strategy?.bucket === 'continuation')
     .sort((a, b) => {
       if ((b.researchSelected ? 1 : 0) !== (a.researchSelected ? 1 : 0)) {
         return (b.researchSelected ? 1 : 0) - (a.researchSelected ? 1 : 0);
+      }
+      if ((a.strategy?.bucket === 'main' ? 1 : 0) !== (b.strategy?.bucket === 'main' ? 1 : 0)) {
+        return (b.strategy?.bucket === 'main' ? 1 : 0) - (a.strategy?.bucket === 'main' ? 1 : 0);
       }
       return (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0);
     });
 
   const observationPicks = enriched
-    .filter(item => item.strategy?.bucket === 'observation' || (item.researchSelected && item.strategy?.bucket !== 'main'))
+    .filter(item => item.strategy?.bucket === 'observation' || (item.researchSelected && item.strategy?.bucket !== 'main' && item.strategy?.bucket !== 'continuation'))
     .map(item => ({ ...item }))
     .sort((a, b) => (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0));
 

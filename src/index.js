@@ -198,6 +198,32 @@ function summarizeFilterStats(filterStats = {}) {
     .map(([key, count]) => ({ key, label: labels[key] || key, count }));
 }
 
+function getIntradayDataQuality(scored = [], ts = new Date()) {
+  const bjTime = toBeijingTime(ts);
+  const minutes = bjTime.getUTCHours() * 60 + bjTime.getUTCMinutes();
+  const beforeOpen = minutes < (9 * 60 + 30);
+  const sample = scored.filter(item => item && item.isMainBoard);
+  const total = sample.length || 1;
+  const missingTurnoverRate = sample.filter(item => !(item.turnoverRatePercent > 0)).length;
+  const missingVolumeRatio = sample.filter(item => !((item.volumeBurstRatio || item.volumeRatio || 0) > 0)).length;
+  const missingTurnover = sample.filter(item => !((item.turnover || 0) > 0)).length;
+  const incompleteRatio = Math.max(
+    missingTurnoverRate / total,
+    missingVolumeRatio / total,
+    missingTurnover / total
+  );
+
+  return {
+    beforeOpen,
+    total,
+    missingTurnoverRate,
+    missingVolumeRatio,
+    missingTurnover,
+    incompleteRatio: Number(incompleteRatio.toFixed(4)),
+    insufficient: beforeOpen || incompleteRatio >= 0.35,
+  };
+}
+
 function buildObservationPool(candidates = [], runtimeStrategy = {}, limit = 12) {
   const filters = runtimeStrategy.history?.filters || {};
   return candidates
@@ -1134,9 +1160,63 @@ class MarketScanner {
       });
 
       const scored = quotes.map(item => scoreIntradayStrategy(item, this.runtimeStrategy, this.researchWatchlist.map));
-      this.scanLogger.log('当日评分', { total: scored.length });
+      const dataQuality = getIntradayDataQuality(scored, ts);
+      this.scanLogger.log('当日评分', {
+        total: scored.length,
+        dataQuality,
+      });
 
       // 非交易时间也执行完整候选筛选，方便随时查看策略效果
+      if (dataQuality.insufficient) {
+        const reason = dataQuality.beforeOpen
+          ? '09:30前成交字段未稳定，跳过日内候选'
+          : `行情字段缺失过多(${Math.round(dataQuality.incompleteRatio * 100)}%)，跳过日内候选`;
+        this.scanLogger.log('行情数据完整性不足', {
+          reason,
+          dataQuality,
+          sample: scored.slice(0, 10).map(item => ({
+            symbol: item.symbol,
+            name: item.name,
+            score: item.score,
+            changePercent: item.changePercent,
+            turnoverRatePercent: item.turnoverRatePercent,
+            volumeRatio: item.volumeBurstRatio || item.volumeRatio || null,
+            turnover: item.turnover || null,
+          })),
+        });
+        this.scanLogger.endScan({
+          totalStocks: rawQuotes.length,
+          mainBoardStocks: quotes.length,
+          scoredStocks: scored.length,
+          researchUniverseCount: this.researchWatchlist.count,
+          initialCandidates: 0,
+          finalPicks: 0,
+          skipped: reason,
+        });
+        await this.onScan({
+          all: scored,
+          picks: [],
+          observationPicks: [],
+          ts,
+          marketRegime,
+          researchWatchlist: {
+            count: this.researchWatchlist.count,
+            generatedFrom: this.researchWatchlist.generatedFrom,
+          },
+          diagnostics: {
+            initialCandidateCount: 0,
+            finalPickCount: 0,
+            observationCount: 0,
+            researchCandidateCount: 0,
+            filterStats: {},
+            filterSummary: [],
+            filteredSamples: [],
+            dataQuality,
+            skippedReason: reason,
+          },
+        });
+        return;
+      }
 
       const pool = buildInitialCandidatePool(scored, marketOpen, portfolioFull, this.runtimeStrategy);
       const initialPool = pool.candidates;
@@ -1212,12 +1292,18 @@ class MarketScanner {
         candidates = classified.mainPicks
           .slice(0, this.config.strategy.topN);
 
-        const observationSource = [
-          ...classified.observationPicks,
-          ...filteredOut
-            .map(item => initialPool.find(candidate => candidate.symbol === item.symbol))
-            .filter(Boolean)
-        ].map(item => (item.combinedScore != null ? item : {
+        const observationSourceMap = new Map();
+        for (const item of classified.enriched.filter(candidate => candidate.strategy?.bucket !== 'main')) {
+          observationSourceMap.set(item.symbol, item);
+        }
+        for (const item of filteredOut
+          .map(sample => initialPool.find(candidate => candidate.symbol === sample.symbol))
+          .filter(Boolean)) {
+          if (!observationSourceMap.has(item.symbol)) {
+            observationSourceMap.set(item.symbol, item);
+          }
+        }
+        const observationSource = Array.from(observationSourceMap.values()).map(item => (item.combinedScore != null ? item : {
           ...item,
           combinedScore: combineCandidateScores(item, this.runtimeStrategy),
         }));
@@ -1707,6 +1793,42 @@ class PaperAccount {
     if (h.rsi >= 35 && h.rsi <= 50) signalStrength.push('RSI低位');
     if (h.macdHistogram > -0.05) signalStrength.push('MACD修复');
     if (volumeRatio >= 0.9 && volumeRatio <= 1.6) signalStrength.push('温和承接');
+    if (pick.strategy?.bucket === 'continuation') {
+      if (h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5) signalStrength.push('延续不过热');
+      if (h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0) signalStrength.push('趋势贴近前高');
+      if (h.gain10d != null && h.gain10d >= 0) signalStrength.push('10日仍在抬升');
+    }
+
+    if (baseConfidence === 'MEDIUM') {
+      const stricterMediumChecks = {
+        signalStrength: signalStrength.length >= 3,
+        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
+        gain5d: h.gain5d != null && h.gain5d >= -5 && h.gain5d <= 2.5,
+        deviationFromMA20: h.deviationFromMA20 != null && h.deviationFromMA20 >= -4 && h.deviationFromMA20 <= 2.5,
+        volumeRatio: volumeRatio >= 0.9 && volumeRatio <= 1.45,
+      };
+      const failedMediumChecks = Object.entries(stricterMediumChecks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key);
+      if (failedMediumChecks.length > 0) {
+        return { confidence: 'REJECT', reason: `中分段确认不足(${failedMediumChecks.join('/')})` };
+      }
+    }
+    if (pick.strategy?.bucket === 'continuation') {
+      const continuationChecks = {
+        confidence: baseConfidence === 'HIGH' || ((pick.score || 0) >= 82 && (pick.historyScore || 0) >= 58),
+        signalStrength: signalStrength.length >= 4,
+        gain5d: h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5,
+        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0,
+        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
+      };
+      const failedContinuationChecks = Object.entries(continuationChecks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key);
+      if (failedContinuationChecks.length > 0) {
+        return { confidence: 'REJECT', reason: `趋势延续确认不足(${failedContinuationChecks.join('/')})` };
+      }
+    }
 
     return {
       confidence: baseConfidence,
@@ -1991,6 +2113,7 @@ class PaperAccount {
     }
 
     const portfolioDrawdown = ((this.peakEquity - currentEquity) / this.peakEquity) * 100;
+    const recoveryMode = portfolioDrawdown > 5 && this.positions.size === 0;
     if (portfolioDrawdown > 8) {
       if (this.lastAlertDrawdown < 8) {
         this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过8%，清仓所有持仓`);
@@ -2006,10 +2129,10 @@ class PaperAccount {
 
     if (portfolioDrawdown > 5) {
       if (this.lastAlertDrawdown < 5) {
-        this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，停止新开仓`);
+        this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${recoveryMode ? '进入空仓恢复模式' : '停止新开仓'}`);
         this.lastAlertDrawdown = 5;
       }
-      console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，停止新开仓`);
+      console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${recoveryMode ? '空仓恢复模式：仅允许小仓高确认信号' : '停止新开仓'}`);
     } else if (portfolioDrawdown < 3 && this.lastAlertDrawdown > 0) {
       this.lastAlertDrawdown = 0;
     }
@@ -2066,14 +2189,15 @@ class PaperAccount {
       sectorCount.set(sector, (sectorCount.get(sector) || 0) + 1);
     }
 
-    if (availablePositions > 0 && this.cash > this.config.minCashReserve && portfolioDrawdown <= 5) {
+    if (availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode)) {
       const buyCandidates = strategyPicks
         .filter(p => {
-          if (p.strategy?.bucket && p.strategy.bucket !== 'main') {
+          const allowedBuckets = new Set(['main', 'continuation']);
+          if (p.strategy?.bucket && !allowedBuckets.has(p.strategy.bucket)) {
             buyDecisionLog.rejected.push({
               symbol: p.symbol,
               name: p.name,
-              reason: `仅低吸主池允许开仓，当前为${p.strategy?.bucketLabel || p.strategy.bucket}`,
+              reason: `仅低吸主池/趋势延续池允许开仓，当前为${p.strategy?.bucketLabel || p.strategy.bucket}`,
               dayScore: p.score || 0,
               historyScore: p.historyScore || 0,
             });
@@ -2114,6 +2238,20 @@ class PaperAccount {
             buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: confidenceDecision.reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
             return false;
           }
+          if (recoveryMode) {
+            const h = p.history || {};
+            const signalStrength = confidenceDecision.signalStrength || 0;
+            if (confidenceDecision.confidence !== 'HIGH' && signalStrength < 4) {
+              const reason = `回撤恢复模式仅允许高确认信号(${confidenceDecision.confidence},强度${signalStrength})`;
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+              return false;
+            }
+            if (h.gain5d != null && h.gain5d > 6) {
+              const reason = `回撤恢复模式拒绝短线过热(gain5d=${h.gain5d}%)`;
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+              return false;
+            }
+          }
           return true;
         })
         .sort((a, b) => {
@@ -2133,6 +2271,12 @@ class PaperAccount {
 
         let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
         basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
+        if (pick.strategy?.bucket === 'continuation') {
+          basePositionValue *= 0.45;
+        }
+        if (recoveryMode) {
+          basePositionValue *= 0.35;
+        }
 
         if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
           basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
