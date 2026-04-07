@@ -111,6 +111,22 @@ function loadConfig() {
   if (targetCooldownMinutes != null && (config.paperTrading.buyCooldownMinutes == null || config.paperTrading.buyCooldownMinutes === 60)) {
     config.paperTrading.buyCooldownMinutes = targetCooldownMinutes;
   }
+  const runtimeContinuation = runtimeStrategyConfig.candidateBuckets?.continuation || {};
+  const currentAdaptive = config.paperTrading.adaptive || {};
+  const currentContinuationBand = currentAdaptive.continuationBand || {};
+  config.paperTrading.adaptive = {
+    ...currentAdaptive,
+    continuationBand: {
+      ...currentContinuationBand,
+      minDayScore: runtimeContinuation.minIntradayScore ?? currentContinuationBand.minDayScore,
+      minHistoryScore: runtimeContinuation.minTradeableHistoryScore ?? currentContinuationBand.minHistoryScore,
+      minCombinedScore: runtimeContinuation.minTradeableCombinedScore ?? currentContinuationBand.minCombinedScore,
+      maxGain60d: runtimeContinuation.maxTradeableGain60d ?? currentContinuationBand.maxGain60d,
+      maxDrawdown: runtimeContinuation.maxTradeableMaxDrawdown ?? currentContinuationBand.maxDrawdown,
+      maxDeviationFromMA20: runtimeContinuation.maxTradeableDeviationFromMA20 ?? currentContinuationBand.maxDeviationFromMA20,
+      minSignalStrength: currentContinuationBand.minSignalStrength ?? 4,
+    }
+  };
   config.runtimeStrategy = runtimeStrategyConfig;
   config.optimizedResearch = optimizedResearch;
   return config;
@@ -164,6 +180,44 @@ function isLateAfternoonSession(date = new Date(), cutoffMinutes = 13 * 60 + 30)
   return timeInMinutes >= cutoffMinutes && timeInMinutes <= (15 * 60);
 }
 
+function extractScoreFromReason(reason) {
+  const text = String(reason || '');
+  const matched = text.match(/综合(\d+(?:\.\d+)?)分/);
+  if (!matched) return null;
+  const score = Number(matched[1]);
+  return Number.isFinite(score) ? score : null;
+}
+
+function extractConfidenceFromReason(reason) {
+  const text = String(reason || '');
+  const matched = text.match(/置信度([A-Z]+)/);
+  return matched?.[1] || null;
+}
+
+function extractOrderScore(order = {}) {
+  const directScore = Number(order.combinedScore ?? order.entryScore ?? 0);
+  if (Number.isFinite(directScore) && directScore > 0) return directScore;
+  return extractScoreFromReason(order.reason) || 0;
+}
+
+function extractOrderConfidence(order = {}) {
+  return order.confidence || extractConfidenceFromReason(order.reason) || 'UNKNOWN';
+}
+
+function getPullbackFromHighPct(item = {}) {
+  const high = Number(item.high || 0);
+  const price = Number(item.price || 0);
+  if (!high || !price) return null;
+  return ((high - price) / high) * 100;
+}
+
+function getOpenDrawdownPct(item = {}) {
+  const open = Number(item.open || 0);
+  const low = Number(item.low || 0);
+  if (!open || !low) return null;
+  return ((open - low) / open) * 100;
+}
+
 function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
   const runtimeStrategy = getRuntimeStrategyConfig();
   return items.map(item => {
@@ -202,10 +256,230 @@ function summarizeFilterStats(filterStats = {}) {
     degradedHistory: '历史降级',
   };
 
-  return Object.entries(filterStats)
+  return summarizeCountMap(filterStats, labels);
+}
+
+function summarizeCountMap(countMap = {}, labels = {}, limit = Infinity) {
+  return Object.entries(countMap)
     .filter(([, count]) => Number(count) > 0)
     .sort((a, b) => b[1] - a[1])
+    .slice(0, limit)
     .map(([key, count]) => ({ key, label: labels[key] || key, count }));
+}
+
+function incrementCount(countMap = {}, key, amount = 1) {
+  if (!key) return;
+  countMap[key] = (countMap[key] || 0) + amount;
+}
+
+function getFailedChecks(checks = {}) {
+  return Object.entries(checks || {})
+    .filter(([, passed]) => !passed)
+    .map(([key]) => key);
+}
+
+function createEmptyScanDiagnostics(overrides = {}) {
+  return {
+    initialCandidateCount: 0,
+    finalPickCount: 0,
+    observationCount: 0,
+    researchCandidateCount: 0,
+    tradeableAfterHistoryCount: 0,
+    bucketDistribution: [],
+    mainRejectSummary: [],
+    observationRejectSummary: [],
+    continuationRejectSummary: [],
+    continuationDemotionSummary: [],
+    bucketSamples: [],
+    filterStats: {},
+    filterSummary: [],
+    filteredSamples: [],
+    tradeDecision: createEmptyTradeDiagnostics(),
+    ...overrides,
+  };
+}
+
+function createEmptyTradeDiagnostics(overrides = {}) {
+  return {
+    ts: null,
+    marketRegime: 'UNKNOWN',
+    marketOpen: false,
+    portfolioDrawdown: 0,
+    recoveryMode: false,
+    strategyCandidateCount: 0,
+    buyCandidateCount: 0,
+    acceptedCount: 0,
+    rejectedCount: 0,
+    positionsBefore: 0,
+    positionsAfter: 0,
+    availablePositions: 0,
+    skippedReason: null,
+    rejectSummary: [],
+    accepted: [],
+    rejected: [],
+    ...overrides,
+  };
+}
+
+const BUCKET_LABELS = {
+  main: '低吸主池',
+  continuation: '趋势延续池',
+  observation: '转强观察',
+  rejected: '未达标',
+};
+
+const BUCKET_CHECK_LABELS = {
+  intradayScore: '日内分不足',
+  changePercent: '涨幅条件不符',
+  turnoverRate: '换手率不符',
+  volumeRatio: '量比不符',
+  gain60d: '60日趋势不符',
+  gain30d: '30日趋势不符',
+  gain10d: '10日趋势不符',
+  gain5d: '5日强弱不符',
+  distanceToHigh60d: '距高点位置不符',
+  deviationFromMA20: '偏离MA20不符',
+  rsi: 'RSI不符',
+  macdHistogram: 'MACD不符',
+  consecutiveDownDays: '连跌天数不符',
+  historyScore: '历史分不足',
+  combinedScore: '综合分不足',
+  maxDrawdown: '回撤过深',
+};
+
+const TRADE_REJECT_LABELS = {
+  bucketNotTradeable: '不在可交易池',
+  marketUnknown: '市场状态未知',
+  alreadyHolding: '已有持仓',
+  cooldown: '卖出冷却期',
+  sectorLimit: '行业集中度超限',
+  continuationWeak: '趋势延续确认不足',
+  recoveryHighOnly: '恢复模式仅允许HIGH',
+  recoveryTooHot: '恢复模式过热',
+  scoreTooLow: '综合/历史分不足',
+  bearRegimeBlock: '熊市限制',
+  lowConfidenceBlocked: '低置信度被禁',
+  lowBandPenalty: '低分段反馈过差',
+  mediumBandPenalty: '中分段反馈过差',
+  highBandPenalty: '高分段反馈过差',
+  drawdownPressure: '回撤压力过大',
+  outsidePreferredWindow: '不在首选开仓窗口',
+  afternoonBlocked: '午后开仓禁止',
+  mediumCutoff: '午后中置信度截止',
+  latestCutoff: '最新开仓截止',
+  mediumWeak: '中分段确认不足',
+  overnightRisk: '隔夜风险过高',
+  entryQuality: '早盘承接不足',
+  insufficientLot: '建议仓位不足一手',
+  other: '其他原因',
+};
+
+function buildBucketDiagnostics(classified = {}) {
+  const bucketDistribution = {};
+  const mainRejectStats = {};
+  const observationRejectStats = {};
+  const continuationRejectStats = {};
+  const continuationDemotionStats = {};
+  const bucketSamples = [];
+
+  for (const item of classified.enriched || []) {
+    const bucket = item.strategy?.bucket || 'rejected';
+    incrementCount(bucketDistribution, bucket);
+
+    if (bucket !== 'main' && bucket !== 'continuation') {
+      for (const key of getFailedChecks(item.strategy?.pullbackChecks)) {
+        incrementCount(mainRejectStats, key);
+      }
+    }
+
+    if (bucket === 'rejected') {
+      for (const key of getFailedChecks(item.strategy?.observationChecks)) {
+        incrementCount(observationRejectStats, key);
+      }
+      for (const key of getFailedChecks(item.strategy?.continuationChecks)) {
+        incrementCount(continuationRejectStats, key);
+      }
+    }
+
+    for (const key of item.strategy?.selectedReason?.continuationRejectedChecks || []) {
+      incrementCount(continuationDemotionStats, key);
+    }
+
+    if (bucketSamples.length >= 10) continue;
+    if (bucket === 'main' || bucket === 'continuation') continue;
+    bucketSamples.push({
+      symbol: item.symbol,
+      name: item.name,
+      bucket,
+      bucketLabel: item.strategy?.bucketLabel || BUCKET_LABELS[bucket] || bucket,
+      dayScore: item.score || 0,
+      historyScore: item.historyScore || 0,
+      combinedScore: item.combinedScore || 0,
+      failedPullback: getFailedChecks(item.strategy?.pullbackChecks).slice(0, 3),
+      failedObservation: getFailedChecks(item.strategy?.observationChecks).slice(0, 3),
+      failedContinuation: getFailedChecks(item.strategy?.continuationChecks).slice(0, 3),
+    });
+  }
+
+  return {
+    tradeableAfterHistoryCount: (classified.mainPicks || []).length,
+    bucketDistribution: summarizeCountMap(bucketDistribution, BUCKET_LABELS),
+    mainRejectSummary: summarizeCountMap(mainRejectStats, BUCKET_CHECK_LABELS, 8),
+    observationRejectSummary: summarizeCountMap(observationRejectStats, BUCKET_CHECK_LABELS, 8),
+    continuationRejectSummary: summarizeCountMap(continuationRejectStats, BUCKET_CHECK_LABELS, 8),
+    continuationDemotionSummary: summarizeCountMap(continuationDemotionStats, BUCKET_CHECK_LABELS, 8),
+    bucketSamples,
+  };
+}
+
+function normalizeTradeRejectReason(reason = '') {
+  if (reason.includes('仅低吸主池/趋势延续池允许开仓')) return 'bucketNotTradeable';
+  if (reason.includes('市场状态未知')) return 'marketUnknown';
+  if (reason.includes('已持仓')) return 'alreadyHolding';
+  if (reason.includes('冷却期')) return 'cooldown';
+  if (reason.includes('已有2只')) return 'sectorLimit';
+  if (reason.startsWith('趋势延续确认不足(')) return 'continuationWeak';
+  if (reason.startsWith('回撤恢复模式仅允许HIGH开仓')) return 'recoveryHighOnly';
+  if (reason.startsWith('回撤恢复模式拒绝短线过热')) return 'recoveryTooHot';
+  if (reason.includes('综合') && reason.includes('历史') && reason.includes('不足')) return 'scoreTooLow';
+  if (reason.includes('熊市')) return 'bearRegimeBlock';
+  if (reason.includes('禁止低置信度开仓')) return 'lowConfidenceBlocked';
+  if (reason.startsWith('近期低分段表现差')) return 'lowBandPenalty';
+  if (reason.startsWith('近期中分段表现差')) return 'mediumBandPenalty';
+  if (reason.startsWith('近期高分段表现差')) return 'highBandPenalty';
+  if (reason.startsWith('组合回撤压力')) return 'drawdownPressure';
+  if (reason.startsWith('当前不在首选开仓窗口')) return 'outsidePreferredWindow';
+  if (reason.startsWith('策略仅允许上午窗口开仓')) return 'afternoonBlocked';
+  if (reason.includes('中置信度开仓')) return 'mediumCutoff';
+  if (reason.includes('停止新开仓')) return 'latestCutoff';
+  if (reason.startsWith('中分段确认不足(')) return 'mediumWeak';
+  if (reason.startsWith('隔夜风险过高(')) return 'overnightRisk';
+  if (reason.startsWith('早盘承接不足(')) return 'entryQuality';
+  if (reason.startsWith('建议仓位不足')) return 'insufficientLot';
+  return 'other';
+}
+
+function buildTradeDecisionDiagnostics(tradeDecisionLog = {}, overrides = {}) {
+  const rejected = tradeDecisionLog.rejected || [];
+  const accepted = tradeDecisionLog.accepted || [];
+  const rejectStats = {};
+
+  for (const item of rejected) {
+    incrementCount(rejectStats, normalizeTradeRejectReason(item.reason));
+  }
+
+  return {
+    ...createEmptyTradeDiagnostics(),
+    ...overrides,
+    acceptedCount: accepted.length,
+    rejectedCount: rejected.length,
+    rejectSummary: summarizeCountMap(rejectStats, TRADE_REJECT_LABELS, 8),
+    accepted: accepted.slice(0, 8),
+    rejected: rejected.slice(0, 12).map(item => ({
+      ...item,
+      rejectCategory: TRADE_REJECT_LABELS[normalizeTradeRejectReason(item.reason)] || TRADE_REJECT_LABELS.other,
+    })),
+  };
 }
 
 function getIntradayDataQuality(scored = [], ts = new Date()) {
@@ -1214,13 +1488,7 @@ class MarketScanner {
             generatedFrom: this.researchWatchlist.generatedFrom,
           },
           diagnostics: {
-            initialCandidateCount: 0,
-            finalPickCount: 0,
-            observationCount: 0,
-            researchCandidateCount: 0,
-            filterStats: {},
-            filterSummary: [],
-            filteredSamples: [],
+            ...createEmptyScanDiagnostics(),
             dataQuality,
             skippedReason: reason,
           },
@@ -1232,6 +1500,7 @@ class MarketScanner {
       const initialPool = pool.candidates;
       let candidates = initialPool;
       let observationPicks = [];
+      let bucketDiagnostics = createEmptyScanDiagnostics();
       let filterStats = {
         noHistory: 0,
         trend60dLow: 0,
@@ -1299,6 +1568,7 @@ class MarketScanner {
             combinedScore: combineCandidateScores(p, this.runtimeStrategy)
           }));
         const classified = classifyCandidateBuckets(historyQualifiedCandidates, this.runtimeStrategy);
+        bucketDiagnostics = buildBucketDiagnostics(classified);
         candidates = classified.mainPicks
           .slice(0, this.config.strategy.topN);
 
@@ -1422,6 +1692,8 @@ class MarketScanner {
         }
         ,
         diagnostics: {
+          ...createEmptyScanDiagnostics(),
+          ...bucketDiagnostics,
           initialCandidateCount: initialPool.length,
           finalPickCount: candidates.length,
           observationCount: observationPicks.length,
@@ -1512,6 +1784,7 @@ class PaperAccount {
     this.equityPath = path.join(logsDir, 'equity.log');
     this.statisticsPath = path.join(logsDir, 'statistics.json');
     this.alertsPath = path.join(logsDir, 'alerts.log');
+    this.latestTradeDiagnostics = createEmptyTradeDiagnostics();
     this.loadState();
 
     // 如果是首次启动，保存初始状态
@@ -1537,6 +1810,8 @@ class PaperAccount {
           }
         }
         this.rebuildRecentPerformance();
+        this.latestTradeDiagnostics = data.latestTradeDiagnostics || this.latestTradeDiagnostics;
+        this.saveState();
         const posCount = this.positions.size;
         const orderCount = this.orders.length;
         if (posCount > 0 || orderCount > 0) {
@@ -1558,6 +1833,7 @@ class PaperAccount {
         closedTrades: this.recentPerformance.closedTrades,
         scoreRangeStats: Array.from(this.recentPerformance.scoreRangeStats.entries())
       },
+      latestTradeDiagnostics: this.latestTradeDiagnostics,
       savedAt: new Date().toISOString()
     };
     fs.writeFileSync(this.ordersPath, JSON.stringify(state, null, 2));
@@ -1586,6 +1862,27 @@ class PaperAccount {
       },
       tradeWindows: {
         mediumConfidenceCutoffMinutes: tradeWindows.mediumConfidenceCutoffMinutes ?? (13 * 60 + 30),
+        latestEntryCutoffMinutes: tradeWindows.latestEntryCutoffMinutes ?? (13 * 60 + 40),
+        preferredEntryStartMinutes: tradeWindows.preferredEntryStartMinutes ?? (9 * 60 + 35),
+        preferredEntryEndMinutes: tradeWindows.preferredEntryEndMinutes ?? (10 * 60 + 45),
+        allowAfternoonEntries: tradeWindows.allowAfternoonEntries ?? false,
+      },
+      overnightRisk: {
+        enabled: adaptive.overnightRisk?.enabled !== false,
+        minScoreToCheck: adaptive.overnightRisk?.minScoreToCheck ?? 80,
+        maxGain10d: adaptive.overnightRisk?.maxGain10d ?? 18,
+        maxGain5d: adaptive.overnightRisk?.maxGain5d ?? 4,
+        maxDeviationFromMA20: adaptive.overnightRisk?.maxDeviationFromMA20 ?? 8,
+        maxVolatility: adaptive.overnightRisk?.maxVolatility ?? 20,
+        maxRecent10LimitUps: adaptive.overnightRisk?.maxRecent10LimitUps ?? 0,
+      },
+      entryQuality: {
+        enabled: adaptive.entryQuality?.enabled !== false,
+        requireAboveOpen: adaptive.entryQuality?.requireAboveOpen !== false,
+        maxPullbackFromHighPct: adaptive.entryQuality?.maxPullbackFromHighPct ?? 1.2,
+        maxIntradayReturnPct: adaptive.entryQuality?.maxIntradayReturnPct ?? 4.5,
+        maxOpenDrawdownPct: adaptive.entryQuality?.maxOpenDrawdownPct ?? 1.8,
+        maxVolumeRatio: adaptive.entryQuality?.maxVolumeRatio ?? 1.6,
       },
       exitUrgencyWeights: adaptive.exitUrgencyWeights || {
         stopLoss: 100,
@@ -1620,23 +1917,49 @@ class PaperAccount {
 
   rebuildRecentPerformance(seedTrades = null) {
     const adaptive = this.getAdaptiveConfig();
+    const entryOrderMeta = new Map(
+      this.orders
+        .filter(order => order.side === 'BUY')
+        .map(order => {
+          const key = `${order.symbol}:${order.ts}`;
+          return [
+            key,
+            {
+              score: extractOrderScore(order),
+              confidence: extractOrderConfidence(order),
+              source: this.resolveTradeSource(order),
+              marketRegime: order.marketRegime || order.entryMarketRegime || 'UNKNOWN',
+            }
+          ];
+        })
+    );
     const closedTrades = Array.isArray(seedTrades)
       ? seedTrades
       : this.orders
           .filter(order => order.side === 'SELL')
-          .map(order => ({
-            symbol: order.symbol,
-            pnlPct: order.pnlPct || 0,
-            holdDays: order.holdDays || 0,
-            combinedScore: order.combinedScore || order.entryScore || 0,
-            confidence: order.confidence || 'UNKNOWN',
-            soldAt: order.ts || new Date().toISOString(),
-            reason: order.reason || '',
-            source: this.resolveTradeSource(order)
-          }));
+          .map(order => {
+            const entryKey = order.entryTs ? `${order.symbol}:${order.entryTs}` : null;
+            const entryMeta = entryKey ? entryOrderMeta.get(entryKey) : null;
+            return {
+              symbol: order.symbol,
+              pnlPct: order.pnlPct || 0,
+              holdDays: order.holdDays || 0,
+              combinedScore: extractOrderScore(order) || entryMeta?.score || 0,
+              confidence: extractOrderConfidence(order) !== 'UNKNOWN'
+                ? extractOrderConfidence(order)
+                : (entryMeta?.confidence || 'UNKNOWN'),
+              marketRegime: order.marketRegime || order.entryMarketRegime || entryMeta?.marketRegime || 'UNKNOWN',
+              soldAt: order.ts || new Date().toISOString(),
+              reason: order.reason || '',
+              source: this.resolveTradeSource(order) !== 'strategy'
+                ? this.resolveTradeSource(order)
+                : (entryMeta?.source || 'strategy')
+            };
+          });
 
     const filteredTrades = closedTrades
       .filter(trade => this.resolveTradeSource(trade) !== 'manual')
+      .filter(trade => trade.confidence && trade.confidence !== 'UNKNOWN')
       .slice(-adaptive.performanceWindow)
       .map(trade => {
         const score = trade.combinedScore || trade.entryScore || trade.score || 0;
@@ -1647,6 +1970,7 @@ class PaperAccount {
           score,
           scoreRangeKey: this.getScoreRangeKey(score),
           confidence: trade.confidence || 'UNKNOWN',
+          marketRegime: trade.marketRegime || 'UNKNOWN',
           soldAt: trade.soldAt || trade.ts || new Date().toISOString(),
           source: this.resolveTradeSource(trade)
         };
@@ -1679,7 +2003,7 @@ class PaperAccount {
     }
 
     const adaptive = this.getAdaptiveConfig();
-    const score = trade.combinedScore || trade.entryScore || 0;
+    const score = trade.combinedScore || trade.entryScore || extractScoreFromReason(trade.reason) || 0;
     const scoreRangeKey = this.getScoreRangeKey(score);
     const closedTrade = {
       symbol: trade.symbol,
@@ -1687,7 +2011,8 @@ class PaperAccount {
       holdDays: trade.holdDays || 0,
       score,
       scoreRangeKey,
-      confidence: trade.confidence || 'UNKNOWN',
+      confidence: trade.confidence || extractConfidenceFromReason(trade.reason) || 'UNKNOWN',
+      marketRegime: trade.marketRegime || trade.entryMarketRegime || 'UNKNOWN',
       soldAt: trade.ts || new Date().toISOString(),
       source: this.resolveTradeSource(trade)
     };
@@ -1700,6 +2025,8 @@ class PaperAccount {
   }
 
   getPerformanceFeedback() {
+    const totalEquity = this.getTotalEquity();
+    const drawdownPressure = this.peakEquity > 0 ? Math.max(0, ((this.peakEquity - totalEquity) / this.peakEquity) * 100) : 0;
     const trades = this.recentPerformance.closedTrades;
     if (!trades.length) {
       return {
@@ -1710,8 +2037,10 @@ class PaperAccount {
         avgWinPct: 0,
         avgLossPct: 0,
         lowBandPenalty: 0,
+        mediumBandPenalty: 0,
+        highBandPenalty: 0,
         highBandBonus: 0,
-        drawdownPressure: 0,
+        drawdownPressure: Number(drawdownPressure.toFixed(2)),
         scoreRangeStats: {}
       };
     }
@@ -1728,10 +2057,9 @@ class PaperAccount {
       };
     }
 
-    const lowBand = scoreRangeStats['70-79'] || scoreRangeStats['<70'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
+    const lowBand = scoreRangeStats['<70'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
+    const mediumBand = scoreRangeStats['70-79'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
     const highBand = scoreRangeStats['90+'] || scoreRangeStats['80-89'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
-    const totalEquity = this.getTotalEquity();
-    const drawdownPressure = this.peakEquity > 0 ? Math.max(0, ((this.peakEquity - totalEquity) / this.peakEquity) * 100) : 0;
 
     return {
       tradeCount: trades.length,
@@ -1741,6 +2069,8 @@ class PaperAccount {
       avgWinPct: wins.length ? Number((wins.reduce((sum, t) => sum + t.pnlPct, 0) / wins.length).toFixed(2)) : 0,
       avgLossPct: losses.length ? Number((losses.reduce((sum, t) => sum + t.pnlPct, 0) / losses.length).toFixed(2)) : 0,
       lowBandPenalty: lowBand.trades >= 3 && lowBand.avgPnlPct < 0 ? Math.min(8, Math.abs(lowBand.avgPnlPct)) : 0,
+      mediumBandPenalty: mediumBand.trades >= 3 && mediumBand.avgPnlPct < 0 ? Math.min(8, Math.abs(mediumBand.avgPnlPct)) : 0,
+      highBandPenalty: highBand.trades >= 1 && highBand.avgPnlPct < 0 ? Math.min(8, Math.abs(highBand.avgPnlPct)) : 0,
       highBandBonus: highBand.trades >= 3 && highBand.avgPnlPct > 0 ? Math.min(8, highBand.avgPnlPct / 2) : 0,
       drawdownPressure: Number(drawdownPressure.toFixed(2)),
       scoreRangeStats
@@ -1774,6 +2104,7 @@ class PaperAccount {
     const currentTime = options.currentTime || new Date();
     const h = pick.history || {};
     const signalStrength = [];
+    const nowMinutes = getBeijingMinutes(currentTime);
 
     if (h.distanceToHigh60d >= -20 && h.distanceToHigh60d <= -8) signalStrength.push('回撤到位');
     if (h.deviationFromMA20 >= -6 && h.deviationFromMA20 <= 3) signalStrength.push('接近MA20');
@@ -1845,6 +2176,34 @@ class PaperAccount {
         return { confidence: 'REJECT', reason: `组合回撤压力${performanceFeedback.drawdownPressure.toFixed(1)}%` };
       }
     }
+    if (performanceFeedback.tradeCount >= 3) {
+      if (performanceFeedback.mediumBandPenalty > 3.5 && baseConfidence === 'MEDIUM') {
+        return { confidence: 'REJECT', reason: `近期中分段表现差(${performanceFeedback.mediumBandPenalty.toFixed(1)}%均亏)` };
+      }
+      if (performanceFeedback.highBandPenalty > 4.5 && baseConfidence === 'HIGH') {
+        return { confidence: 'REJECT', reason: `近期高分段表现差(${performanceFeedback.highBandPenalty.toFixed(1)}%均亏)` };
+      }
+    }
+
+    if (isMarketOpen(currentTime)) {
+      const outsidePreferredWindow =
+        nowMinutes < adaptive.tradeWindows.preferredEntryStartMinutes ||
+        nowMinutes > adaptive.tradeWindows.preferredEntryEndMinutes;
+      const inAfternoonWindow = nowMinutes >= (13 * 60) && nowMinutes <= (15 * 60);
+
+      if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow) {
+        return {
+          confidence: 'REJECT',
+          reason: `策略仅允许上午窗口开仓(${adaptive.tradeWindows.preferredEntryStartMinutes}-${adaptive.tradeWindows.preferredEntryEndMinutes})`,
+        };
+      }
+      if (outsidePreferredWindow && !inAfternoonWindow) {
+        return {
+          confidence: 'REJECT',
+          reason: `当前不在首选开仓窗口(${adaptive.tradeWindows.preferredEntryStartMinutes}-${adaptive.tradeWindows.preferredEntryEndMinutes})`,
+        };
+      }
+    }
 
     if (baseConfidence === 'MEDIUM') {
       const stricterMediumChecks = {
@@ -1866,6 +2225,50 @@ class PaperAccount {
         confidence: 'REJECT',
         reason: `午后${adaptive.tradeWindows.mediumConfidenceCutoffMinutes}分钟后禁止中置信度开仓`,
       };
+    }
+    if (isMarketOpen(currentTime) && isLateAfternoonSession(currentTime, adaptive.tradeWindows.latestEntryCutoffMinutes)) {
+      return {
+        confidence: 'REJECT',
+        reason: `午后${adaptive.tradeWindows.latestEntryCutoffMinutes}分钟后停止新开仓`,
+      };
+    }
+    if (adaptive.overnightRisk?.enabled && combinedScore >= (adaptive.overnightRisk.minScoreToCheck ?? 80)) {
+      const overnightRiskChecks = {
+        gain10d: h.gain10d == null || h.gain10d <= (adaptive.overnightRisk.maxGain10d ?? 18),
+        gain5d: h.gain5d == null || h.gain5d <= (adaptive.overnightRisk.maxGain5d ?? 4),
+        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (adaptive.overnightRisk.maxDeviationFromMA20 ?? 8),
+        volatility: h.volatility == null || h.volatility <= (adaptive.overnightRisk.maxVolatility ?? 20),
+        recent10LimitUps: h.recent10LimitUps == null || h.recent10LimitUps <= (adaptive.overnightRisk.maxRecent10LimitUps ?? 0),
+      };
+      const failedOvernightRiskChecks = Object.entries(overnightRiskChecks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key);
+      if (failedOvernightRiskChecks.length > 0) {
+        return {
+          confidence: 'REJECT',
+          reason: `隔夜风险过高(${failedOvernightRiskChecks.join('/')})`,
+        };
+      }
+    }
+    if (adaptive.entryQuality?.enabled) {
+      const pullbackFromHighPct = getPullbackFromHighPct(pick);
+      const openDrawdownPct = getOpenDrawdownPct(pick);
+      const entryQualityChecks = {
+        aboveOpen: !adaptive.entryQuality.requireAboveOpen || !pick.open || !pick.price || pick.price >= pick.open * 0.998,
+        pullbackFromHigh: pullbackFromHighPct == null || pullbackFromHighPct <= (adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2),
+        intradayReturn: pick.intradayReturnPct == null || pick.intradayReturnPct <= (adaptive.entryQuality.maxIntradayReturnPct ?? 4.5),
+        openDrawdown: openDrawdownPct == null || openDrawdownPct <= (adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8),
+        volumeRatio: volumeRatio <= (adaptive.entryQuality.maxVolumeRatio ?? 1.6),
+      };
+      const failedEntryQualityChecks = Object.entries(entryQualityChecks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key);
+      if (failedEntryQualityChecks.length > 0) {
+        return {
+          confidence: 'REJECT',
+          reason: `早盘承接不足(${failedEntryQualityChecks.join('/')})`,
+        };
+      }
     }
 
     return {
@@ -2110,6 +2513,7 @@ class PaperAccount {
     const marketOpen = isMarketOpen(currentTime);
     const adaptive = this.getAdaptiveConfig();
     const performanceFeedback = this.getPerformanceFeedback();
+    const positionsBefore = this.positions.size;
 
     // 先更新持仓价格（无论是否交易时间，都要更新持仓价格）
     const symbolToPick = new Map(strategyPicks.map(p => [p.symbol, p]));
@@ -2138,6 +2542,16 @@ class PaperAccount {
 
     if (!marketOpen) {
       console.log(`[PAPER] 非交易时间，跳过交易 ts=${formatBeijingTime(ts)}`);
+      this.latestTradeDiagnostics = buildTradeDecisionDiagnostics({}, {
+        ts: formatBeijingTime(ts),
+        marketRegime,
+        marketOpen,
+        strategyCandidateCount: strategyPicks.length,
+        positionsBefore,
+        positionsAfter: this.positions.size,
+        skippedReason: '非交易时间',
+      });
+      this.saveState();
       this.logEquity(ts);
       return;
     }
@@ -2161,6 +2575,18 @@ class PaperAccount {
       for (const [symbol, pos] of this.positions.entries()) {
         this.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, `组合风险控制(回撤${portfolioDrawdown.toFixed(2)}%)`);
       }
+      this.latestTradeDiagnostics = buildTradeDecisionDiagnostics({}, {
+        ts: formatBeijingTime(ts),
+        marketRegime,
+        marketOpen,
+        portfolioDrawdown: Number(portfolioDrawdown.toFixed(2)),
+        recoveryMode,
+        strategyCandidateCount: strategyPicks.length,
+        positionsBefore,
+        positionsAfter: this.positions.size,
+        skippedReason: '组合回撤超过8%，触发清仓',
+      });
+      this.saveState();
       this.logEquity(ts);
       return;
     }
@@ -2227,8 +2653,9 @@ class PaperAccount {
       sectorCount.set(sector, (sectorCount.get(sector) || 0) + 1);
     }
 
+    let buyCandidates = [];
     if (availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode)) {
-      const buyCandidates = strategyPicks
+      buyCandidates = strategyPicks
         .filter(p => {
           const allowedBuckets = new Set(['main', 'continuation']);
           if (p.strategy?.bucket && !allowedBuckets.has(p.strategy.bucket)) {
@@ -2329,7 +2756,16 @@ class PaperAccount {
         const maxBuyValue = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
         if (maxBuyValue <= 0) break;
         const quantity = Math.floor(maxBuyValue / (pick.price * this.config.lotSize)) * this.config.lotSize;
-        if (quantity < this.config.lotSize) continue;
+        if (quantity < this.config.lotSize) {
+          buyDecisionLog.rejected.push({
+            symbol: pick.symbol,
+            name: pick.name,
+            reason: `建议仓位不足一手(可用${maxBuyValue.toFixed(0)}元)`,
+            dayScore: pick.score || 0,
+            historyScore: pick.historyScore || 0,
+          });
+          continue;
+        }
 
         const positionPct = (maxBuyValue / currentEquity * 100).toFixed(1);
         const buyReason = `置信度${confidence}(综合${combinedScore.toFixed(1)}分,${pick.tradeDecision.reason})`;
@@ -2352,6 +2788,38 @@ class PaperAccount {
     if ((buyDecisionLog.rejected.length > 0 || buyDecisionLog.accepted.length > 0) && global.scanLoggerRef) {
       global.scanLoggerRef.log('买入决策', buyDecisionLog);
     }
+
+    let skippedReason = null;
+    if (availablePositions <= 0) {
+      skippedReason = '持仓已满';
+    } else if (this.cash <= this.config.minCashReserve) {
+      skippedReason = '可用现金低于保留阈值';
+    } else if (portfolioDrawdown > 5 && !recoveryMode) {
+      skippedReason = '组合回撤超过5%，暂停开仓';
+    } else if (strategyPicks.length === 0) {
+      skippedReason = '无主候选';
+    } else if (buyCandidates.length === 0 && buyDecisionLog.rejected.length === 0) {
+      skippedReason = '主候选在排序前已被仓位约束过滤';
+    } else if (buyCandidates.length === 0) {
+      skippedReason = '候选均未通过交易层';
+    } else if (buyDecisionLog.accepted.length === 0) {
+      skippedReason = '通过过滤但仓位不足或被交易约束拒绝';
+    }
+
+    this.latestTradeDiagnostics = buildTradeDecisionDiagnostics(buyDecisionLog, {
+      ts: formatBeijingTime(ts),
+      marketRegime,
+      marketOpen,
+      portfolioDrawdown: Number(portfolioDrawdown.toFixed(2)),
+      recoveryMode,
+      strategyCandidateCount: strategyPicks.length,
+      buyCandidateCount: buyCandidates.length,
+      positionsBefore,
+      positionsAfter: this.positions.size,
+      availablePositions,
+      skippedReason,
+    });
+    this.saveState();
 
     this.logEquity(ts);
   }
@@ -2412,7 +2880,8 @@ class PaperAccount {
       positionCount: this.positions.size,
       maxPositions: dynamicMaxPositions,
       marketRegime: regime,
-      performanceFeedback: this.getPerformanceFeedback()
+      performanceFeedback: this.getPerformanceFeedback(),
+      latestTradeDiagnostics: this.latestTradeDiagnostics
     };
   }
 }
@@ -2433,15 +2902,7 @@ async function main() {
     scanRounds: 0,
     lastScanAt: null,
     researchWatchlist: { count: 0, generatedFrom: null },
-    diagnostics: {
-      initialCandidateCount: 0,
-      finalPickCount: 0,
-      observationCount: 0,
-      researchCandidateCount: 0,
-      filterStats: {},
-      filterSummary: [],
-      filteredSamples: [],
-    },
+    diagnostics: createEmptyScanDiagnostics(),
   };
   
   // 初始化模拟盘账户
@@ -2461,9 +2922,12 @@ async function main() {
     state.marketRegime = payload.marketRegime;
     global.latestMarketRegimeRef = payload.marketRegime?.regime || 'UNKNOWN';
     state.researchWatchlist = payload.researchWatchlist || state.researchWatchlist;
-    state.diagnostics = payload.diagnostics || state.diagnostics;
+    state.diagnostics = {
+      ...createEmptyScanDiagnostics(),
+      ...(payload.diagnostics || {}),
+      tradeDecision: state.diagnostics?.tradeDecision || createEmptyTradeDiagnostics(),
+    };
     appendJsonLine(scanLogPath, { ts: payload.ts, bjTime: formatBeijingTime(payload.ts), marketCount: payload.all.length, picks: payload.picks.slice(0, 20) });
-    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
     console.log(`[SCAN] round=${state.scanRounds} market=${state.marketCount} picks=${state.strategyPicks.length} ts=${formatBeijingTime(payload.ts)}`);
 
     // 补充持仓股票的实时价格（如果不在扫描结果中）
@@ -2484,8 +2948,14 @@ async function main() {
     if (paperAccount) {
       paperAccount.runTradeCycle(payload.picks, payload.ts, payload.marketRegime?.regime, payload.all);
       const portfolio = paperAccount.getPortfolio();
+      state.diagnostics = {
+        ...state.diagnostics,
+        tradeDecision: portfolio.latestTradeDiagnostics || createEmptyTradeDiagnostics(),
+      };
       console.log(`[PAPER] 权益: ${(portfolio.totalEquity / 10000).toFixed(2)}万 收益率: ${portfolio.pnlPct.toFixed(2)}% 持仓: ${portfolio.positionCount}/${portfolio.maxPositions}`);
     }
+
+    fs.writeFileSync(statePath, JSON.stringify(state, null, 2));
   }, logsDir);
   global.scanLoggerRef = scanner.scanLogger;
 

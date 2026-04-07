@@ -95,7 +95,12 @@
         "minRsi": 45,
         "maxRsi": 64,
         "minMacdHistogram": -0.02,
-        "maxConsecutiveDownDays": 2
+        "maxConsecutiveDownDays": 2,
+        "minTradeableHistoryScore": 60,
+        "minTradeableCombinedScore": 58,
+        "maxTradeableGain60d": 80,
+        "maxTradeableMaxDrawdown": 22,
+        "maxTradeableDeviationFromMA20": 14
       }
     },
     "researchUniverse": {

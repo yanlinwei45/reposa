@@ -341,6 +341,7 @@ function combineCandidateScores(item, runtimeConfig) {
 
 function classifyCandidateBuckets(candidates, runtimeConfig) {
   const researchUniverse = runtimeConfig.researchUniverse || {};
+  const continuationBucket = getBucketConfig(runtimeConfig, 'continuation');
   const enriched = candidates.map(item => {
     const qualification = evaluateBucketQualification(item, runtimeConfig);
     const bucketLabel = qualification.bucket === 'main'
@@ -373,6 +374,51 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
     nextItem.strategy.riskTags = buildRiskTags(nextItem);
     return nextItem;
   });
+
+  for (const item of enriched) {
+    if (item.strategy?.bucket !== 'continuation') continue;
+
+    const h = item.history || {};
+    const continuationTradeableChecks = {
+      historyScore: (item.historyScore || 0) >= (continuationBucket.minTradeableHistoryScore ?? 60),
+      combinedScore: (item.combinedScore || 0) >= (continuationBucket.minTradeableCombinedScore ?? 58),
+      gain60d: h.gain60d == null || h.gain60d <= (continuationBucket.maxTradeableGain60d ?? 80),
+      maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (continuationBucket.maxTradeableMaxDrawdown ?? 22),
+      deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (continuationBucket.maxTradeableDeviationFromMA20 ?? 14),
+    };
+    const failedContinuationTradeableChecks = Object.entries(continuationTradeableChecks)
+      .filter(([, passed]) => !passed)
+      .map(([key]) => key);
+
+    if (failedContinuationTradeableChecks.length === 0) {
+      item.strategy = {
+        ...(item.strategy || {}),
+        selectedReason: {
+          ...(item.strategy?.selectedReason || {}),
+          continuationTradeable: true,
+        },
+      };
+      continue;
+    }
+
+    const nextPositiveTags = Array.isArray(item.strategy?.positiveTags) ? [...item.strategy.positiveTags] : [];
+    nextPositiveTags.push(`延续观察:${failedContinuationTradeableChecks.join('/')}`);
+    const nextRiskTags = Array.isArray(item.strategy?.riskTags) ? [...item.strategy.riskTags] : [];
+    nextRiskTags.push('趋势延续过热');
+    item.strategy = {
+      ...(item.strategy || {}),
+      bucket: 'observation',
+      bucketLabel: `${continuationBucket.label || '趋势延续池'}(观察)`,
+      positiveTags: nextPositiveTags,
+      riskTags: nextRiskTags,
+      selectedReason: {
+        ...(item.strategy?.selectedReason || {}),
+        continuationTradeable: false,
+        continuationTradeableChecks,
+        continuationRejectedChecks: failedContinuationTradeableChecks,
+      },
+    };
+  }
 
   const mainBucket = getBucketConfig(runtimeConfig, 'main');
   const mainMaxVolumeRatio = mainBucket.maxVolumeRatio ?? 1.7;

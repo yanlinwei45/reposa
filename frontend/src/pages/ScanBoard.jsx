@@ -7,6 +7,29 @@ import { api } from '../services/api'
 import { useAutoRefresh } from '../hooks/useAutoRefresh'
 import { useScrollRestore } from '../hooks/useScrollRestore'
 
+function reasonTone(key) {
+  if (['main', 'continuation'].includes(key)) return 'rise'
+  if (['observation'].includes(key)) return 'sky'
+  return 'warn'
+}
+
+function ReasonList({ items, emptyText = '暂无' }) {
+  if (!items?.length) {
+    return <div className="text-sm text-slate-400">{emptyText}</div>
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.map(item => (
+        <div key={`${item.key}-${item.count}`} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-800 bg-slate-950/60 px-3 py-2">
+          <div className="text-sm text-slate-300">{item.label}</div>
+          <Badge tone="warn">{item.count}</Badge>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function renderTagCell(item) {
   return (
     <div className="flex flex-wrap gap-1">
@@ -94,6 +117,14 @@ export function ScanBoard() {
   const diagnostics = state.diagnostics || {}
   const filterSummary = diagnostics.filterSummary || []
   const filteredSamples = diagnostics.filteredSamples || []
+  const bucketDistribution = diagnostics.bucketDistribution || []
+  const mainRejectSummary = diagnostics.mainRejectSummary || []
+  const observationRejectSummary = diagnostics.observationRejectSummary || []
+  const continuationDemotionSummary = diagnostics.continuationDemotionSummary || []
+  const bucketSamples = diagnostics.bucketSamples || []
+  const tradeDecision = diagnostics.tradeDecision || {}
+  const tradeRejectSummary = tradeDecision.rejectSummary || []
+  const tradeRejected = tradeDecision.rejected || []
   const fallbackRows = [...(state.market || [])]
     .sort((a, b) => (b.combinedScore || b.score || 0) - (a.combinedScore || a.score || 0))
     .slice(0, 12)
@@ -169,16 +200,100 @@ export function ScanBoard() {
                 <div className="text-xs uppercase tracking-[0.18em] text-slate-500">观察候选</div>
                 <div className="mt-2 text-2xl font-semibold text-slate-100">{state.observationPicks?.length || 0}</div>
               </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">历史通过后可交易</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-100">{diagnostics.tradeableAfterHistoryCount || 0}</div>
+              </div>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
               {filterSummary.length > 0 ? filterSummary.slice(0, 6).map(item => (
                 <Badge key={item.key} tone="warn">{item.label} {item.count}只</Badge>
               )) : <span className="text-sm text-slate-400">当前没有明显淘汰项</span>}
             </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {bucketDistribution.length > 0 ? bucketDistribution.map(item => (
+                <Badge key={item.key} tone={reasonTone(item.key)}>{item.label} {item.count}只</Badge>
+              )) : <span className="text-sm text-slate-400">暂无分桶统计</span>}
+            </div>
           </Card>
 
-          <Card title="本轮诊断" subtitle={state.strategyPicks?.length ? '主候选已产出，可直接看交易池。' : '主候选为空，先看观察池和过滤原因。'}>
-            {filteredSamples.length > 0 ? (
+          <Card title="本轮诊断" subtitle={state.strategyPicks?.length ? '主候选已产出，继续看交易层为何开/不开。' : '主候选为空，优先看历史过滤、分桶和交易拒绝原因。'}>
+            <div className="space-y-4">
+              <div>
+                <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">主池为何过不去</div>
+                <ReasonList items={mainRejectSummary} emptyText="当前没有明显主池拦截项" />
+              </div>
+              <div>
+                <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">观察池主要来源</div>
+                <ReasonList items={observationRejectSummary} emptyText="当前没有明显观察池拦截项" />
+              </div>
+              <div>
+                <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">趋势延续为何降级观察</div>
+                <ReasonList items={continuationDemotionSummary} emptyText="当前没有趋势延续降级样本" />
+              </div>
+            </div>
+          </Card>
+        </div>
+
+        <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1fr]">
+          <Card
+            title="交易层诊断"
+            subtitle={
+              tradeDecision?.skippedReason
+                ? `最近一轮未开新仓: ${tradeDecision.skippedReason}`
+                : '最近一轮交易决策摘要'
+            }
+          >
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">主候选数</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.strategyCandidateCount || 0}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">交易筛后</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.buyCandidateCount || 0}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">通过买入</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.acceptedCount || 0}</div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">拒绝买入</div>
+                <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.rejectedCount || 0}</div>
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {tradeDecision.recoveryMode ? <Badge tone="warn">空仓恢复模式</Badge> : null}
+              <Badge tone={state.marketRegime?.regime === 'BULL' ? 'rise' : state.marketRegime?.regime === 'BEAR' ? 'fall' : 'neutral'}>
+                {tradeDecision.marketRegime || state.marketRegime?.regime || 'UNKNOWN'}
+              </Badge>
+              <Badge tone="neutral">可用仓位 {tradeDecision.availablePositions ?? 0}</Badge>
+              <Badge tone={Number(tradeDecision.portfolioDrawdown || 0) > 5 ? 'warn' : 'neutral'}>
+                回撤 {Number(tradeDecision.portfolioDrawdown || 0).toFixed(2)}%
+              </Badge>
+            </div>
+            <div className="mt-4">
+              <ReasonList items={tradeRejectSummary} emptyText="最近一轮没有交易拒绝" />
+            </div>
+          </Card>
+
+          <Card title="最近被拒样本" subtitle="直接看具体股票为何没有开仓">
+            {tradeRejected.length > 0 ? (
+              <div className="space-y-3">
+                {tradeRejected.slice(0, 5).map(item => (
+                  <div key={`${item.symbol}-${item.reason}`} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-100">{item.symbol} {item.name}</div>
+                        <div className="mt-1 text-xs text-slate-400">日内 {item.dayScore || 0} 分 · 历史 {item.historyScore || 0} 分</div>
+                      </div>
+                      <Badge tone="warn">{item.rejectCategory || '被拒'}</Badge>
+                    </div>
+                    <div className="mt-2 text-sm text-slate-300">{item.reason}</div>
+                  </div>
+                ))}
+              </div>
+            ) : filteredSamples.length > 0 ? (
               <div className="space-y-3">
                 {filteredSamples.slice(0, 4).map(item => (
                   <div key={`${item.symbol}-${item.reason}`} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
@@ -187,14 +302,41 @@ export function ScanBoard() {
                         <div className="text-sm font-semibold text-slate-100">{item.symbol} {item.name}</div>
                         <div className="mt-1 text-xs text-slate-400">日内 {item.score || 0} 分 · 历史 {item.historyScore || 0} 分</div>
                       </div>
-                      <Badge tone="warn">被拦截</Badge>
+                      <Badge tone="warn">历史拦截</Badge>
                     </div>
                     <div className="mt-2 text-sm text-slate-300">{item.reason}</div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-sm text-slate-400">暂无诊断样本</div>
+              <div className="text-sm text-slate-400">暂无样本</div>
+            )}
+          </Card>
+        </div>
+
+        <div className="mb-6">
+          <Card title="分桶迁移样本" subtitle="看哪些票被放进观察池，避免误以为它们凭空消失">
+            {bucketSamples.length > 0 ? (
+              <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+                {bucketSamples.slice(0, 6).map(item => (
+                  <div key={`${item.symbol}-${item.bucket}`} className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-slate-100">{item.symbol} {item.name}</div>
+                        <div className="mt-1 text-xs text-slate-400">日内 {item.dayScore || 0} 分 · 历史 {item.historyScore || 0} 分 · 综合 {item.combinedScore || 0} 分</div>
+                      </div>
+                      <Badge tone={reasonTone(item.bucket)}>{item.bucketLabel}</Badge>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {(item.failedPullback || []).map(key => <Badge key={`${item.symbol}-p-${key}`} tone="warn">主池:{key}</Badge>)}
+                      {(item.failedObservation || []).map(key => <Badge key={`${item.symbol}-o-${key}`} tone="sky">观察:{key}</Badge>)}
+                      {(item.failedContinuation || []).map(key => <Badge key={`${item.symbol}-c-${key}`} tone="neutral">延续:{key}</Badge>)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm text-slate-400">当前没有迁移样本</div>
             )}
           </Card>
         </div>

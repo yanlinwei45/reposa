@@ -998,142 +998,13 @@
   "recentPerformance": {
     "closedTrades": [
       {
-        "symbol": "sz000767",
-        "pnlPct": 21.5270375557457,
-        "holdDays": 2,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-27T01:39:58.813Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sz000993",
-        "pnlPct": -7.424888237130727,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-27T01:39:58.816Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sz000722",
-        "pnlPct": -5.28656938629239,
-        "holdDays": 2,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-27T02:52:45.536Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh600539",
-        "pnlPct": 20.242141036533557,
-        "holdDays": 3,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-30T01:31:10.031Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh603538",
-        "pnlPct": 21.852368594578234,
-        "holdDays": 2,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-30T01:31:10.035Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sz000037",
-        "pnlPct": -7.3669187954902196,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-30T01:31:10.036Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh600666",
-        "pnlPct": -5.443539511336119,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-30T01:38:07.501Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sz000720",
-        "pnlPct": -17.608816054411914,
-        "holdDays": 2,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-31T01:34:43.476Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh600666",
-        "pnlPct": -4.292552872994505,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-31T01:34:43.479Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh600844",
-        "pnlPct": -4.243270541613071,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-03-31T01:40:29.657Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh603017",
-        "pnlPct": -6.122138730834362,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-04-01T01:37:13.458Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sz000995",
-        "pnlPct": -7.816645194336001,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-04-01T01:37:13.462Z",
-        "source": "strategy"
-      },
-      {
-        "symbol": "sh600343",
-        "pnlPct": -4.183840111983816,
-        "holdDays": 1,
-        "score": 0,
-        "scoreRangeKey": "<70",
-        "confidence": "UNKNOWN",
-        "soldAt": "2026-04-01T01:38:22.973Z",
-        "source": "strategy"
-      },
-      {
         "symbol": "sz000545",
         "pnlPct": -5.158816338940562,
         "holdDays": 1,
         "score": 74.5,
         "scoreRangeKey": "70-79",
         "confidence": "MEDIUM",
+        "marketRegime": "UNKNOWN",
         "soldAt": "2026-04-02T03:19:24.185Z",
         "source": "strategy"
       },
@@ -1144,6 +1015,7 @@
         "score": 76.5,
         "scoreRangeKey": "70-79",
         "confidence": "MEDIUM",
+        "marketRegime": "UNKNOWN",
         "soldAt": "2026-04-02T05:33:30.907Z",
         "source": "strategy"
       },
@@ -1154,6 +1026,7 @@
         "score": 82.5,
         "scoreRangeKey": "80-89",
         "confidence": "HIGH",
+        "marketRegime": "UNKNOWN",
         "soldAt": "2026-04-02T05:33:30.915Z",
         "source": "strategy"
       },
@@ -1164,6 +1037,7 @@
         "score": 74.5,
         "scoreRangeKey": "70-79",
         "confidence": "MEDIUM",
+        "marketRegime": "UNKNOWN",
         "soldAt": "2026-04-06T01:57:52.034Z",
         "source": "strategy"
       },
@@ -1174,20 +1048,12 @@
         "score": 73.5,
         "scoreRangeKey": "70-79",
         "confidence": "MEDIUM",
+        "marketRegime": "UNKNOWN",
         "soldAt": "2026-04-06T01:57:52.037Z",
         "source": "strategy"
       }
     ],
     "scoreRangeStats": [
-      [
-        "<70",
-        {
-          "trades": 13,
-          "wins": 3,
-          "totalPnlPct": -6.167632249565643,
-          "totalHoldDays": 19
-        }
-      ],
       [
         "70-79",
         {
@@ -1208,5 +1074,23 @@
       ]
     ]
   },
-  "savedAt": "2026-04-06T01:57:52.037Z"
+  "latestTradeDiagnostics": {
+    "ts": "2026-04-07 17:31:38",
+    "marketRegime": "BULL",
+    "marketOpen": false,
+    "portfolioDrawdown": 0,
+    "recoveryMode": false,
+    "strategyCandidateCount": 0,
+    "buyCandidateCount": 0,
+    "acceptedCount": 0,
+    "rejectedCount": 0,
+    "positionsBefore": 0,
+    "positionsAfter": 0,
+    "availablePositions": 0,
+    "skippedReason": "非交易时间",
+    "rejectSummary": [],
+    "accepted": [],
+    "rejected": []
+  },
+  "savedAt": "2026-04-07T09:32:19.854Z"
 }

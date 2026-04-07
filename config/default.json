@@ -75,7 +75,28 @@
         "maxDeviationFromMA20": 14
       },
       "tradeWindows": {
-        "mediumConfidenceCutoffMinutes": 810
+        "mediumConfidenceCutoffMinutes": 810,
+        "latestEntryCutoffMinutes": 820,
+        "preferredEntryStartMinutes": 575,
+        "preferredEntryEndMinutes": 645,
+        "allowAfternoonEntries": false
+      },
+      "overnightRisk": {
+        "enabled": true,
+        "minScoreToCheck": 80,
+        "maxGain10d": 18,
+        "maxGain5d": 4,
+        "maxDeviationFromMA20": 8,
+        "maxVolatility": 20,
+        "maxRecent10LimitUps": 0
+      },
+      "entryQuality": {
+        "enabled": true,
+        "requireAboveOpen": true,
+        "maxPullbackFromHighPct": 1.2,
+        "maxIntradayReturnPct": 4.5,
+        "maxOpenDrawdownPct": 1.8,
+        "maxVolumeRatio": 1.6
       },
       "exitUrgencyWeights": {
         "stopLoss": 100,
