@@ -65,6 +65,18 @@
         "medium": { "minScore": 70, "minHistoryScore": 60, "positionMultiplier": 1.0 },
         "low": { "minScore": 65, "minHistoryScore": 55, "positionMultiplier": 0.5 }
       },
+      "continuationBand": {
+        "minDayScore": 82,
+        "minHistoryScore": 60,
+        "minCombinedScore": 58,
+        "minSignalStrength": 4,
+        "maxGain60d": 80,
+        "maxDrawdown": 22,
+        "maxDeviationFromMA20": 14
+      },
+      "tradeWindows": {
+        "mediumConfidenceCutoffMinutes": 810
+      },
       "exitUrgencyWeights": {
         "stopLoss": 100,
         "trailingStop": 80,

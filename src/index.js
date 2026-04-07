@@ -154,6 +154,16 @@ function isMarketOpen(date = new Date()) {
          (timeInMinutes >= afternoonStart && timeInMinutes <= afternoonEnd);
 }
 
+function getBeijingMinutes(date = new Date()) {
+  const bjTime = toBeijingTime(date);
+  return bjTime.getUTCHours() * 60 + bjTime.getUTCMinutes();
+}
+
+function isLateAfternoonSession(date = new Date(), cutoffMinutes = 13 * 60 + 30) {
+  const timeInMinutes = getBeijingMinutes(date);
+  return timeInMinutes >= cutoffMinutes && timeInMinutes <= (15 * 60);
+}
+
 function mergeHistoryIntoMarketItems(items = [], historyMap = new Map()) {
   const runtimeStrategy = getRuntimeStrategyConfig();
   return items.map(item => {
@@ -1555,6 +1565,8 @@ class PaperAccount {
 
   getAdaptiveConfig() {
     const adaptive = this.config.adaptive || {};
+    const continuationBand = adaptive.continuationBand || {};
+    const tradeWindows = adaptive.tradeWindows || {};
     return {
       enabled: adaptive.enabled !== false,
       performanceWindow: adaptive.performanceWindow || 20,
@@ -1562,6 +1574,18 @@ class PaperAccount {
         high: { minScore: 85, minHistoryScore: 70, positionMultiplier: 1.25 },
         medium: { minScore: 75, minHistoryScore: 60, positionMultiplier: 1.0 },
         low: { minScore: 70, minHistoryScore: 50, positionMultiplier: 0.5 }
+      },
+      continuationBand: {
+        minDayScore: continuationBand.minDayScore ?? 82,
+        minHistoryScore: continuationBand.minHistoryScore ?? 60,
+        minCombinedScore: continuationBand.minCombinedScore ?? 58,
+        minSignalStrength: continuationBand.minSignalStrength ?? 4,
+        maxGain60d: continuationBand.maxGain60d ?? 80,
+        maxDrawdown: continuationBand.maxDrawdown ?? 22,
+        maxDeviationFromMA20: continuationBand.maxDeviationFromMA20 ?? 14,
+      },
+      tradeWindows: {
+        mediumConfidenceCutoffMinutes: tradeWindows.mediumConfidenceCutoffMinutes ?? (13 * 60 + 30),
       },
       exitUrgencyWeights: adaptive.exitUrgencyWeights || {
         stopLoss: 100,
@@ -1728,7 +1752,7 @@ class PaperAccount {
     return this.cash + positionValue;
   }
 
-  assessBuyConfidence(pick, marketRegime, performanceFeedback) {
+  assessBuyConfidence(pick, marketRegime, performanceFeedback, options = {}) {
     const adaptive = this.getAdaptiveConfig();
     if (!adaptive.enabled) {
       return { confidence: 'MEDIUM', reason: '自适应未启用' };
@@ -1744,14 +1768,52 @@ class PaperAccount {
 
     const combinedScore = pick.combinedScore || pick.score || 0;
     const historyScore = pick.historyScore || 0;
-    const volumeRatio = pick.volumeRatio || pick.volumeBurstRatio || 0;
+    const volumeRatio = pick.volumeBurstRatio || pick.volumeRatio || 0;
     const bands = adaptive.confidenceBands;
+    const continuationBand = adaptive.continuationBand || {};
+    const currentTime = options.currentTime || new Date();
+    const h = pick.history || {};
+    const signalStrength = [];
+
+    if (h.distanceToHigh60d >= -20 && h.distanceToHigh60d <= -8) signalStrength.push('回撤到位');
+    if (h.deviationFromMA20 >= -6 && h.deviationFromMA20 <= 3) signalStrength.push('接近MA20');
+    if (h.rsi >= 35 && h.rsi <= 50) signalStrength.push('RSI低位');
+    if (h.macdHistogram > -0.05) signalStrength.push('MACD修复');
+    if (volumeRatio >= 0.9 && volumeRatio <= 1.6) signalStrength.push('温和承接');
+    if (pick.strategy?.bucket === 'continuation') {
+      if (h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5) signalStrength.push('延续不过热');
+      if (h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0) signalStrength.push('趋势贴近前高');
+      if (h.gain10d != null && h.gain10d >= 0) signalStrength.push('10日仍在抬升');
+    }
 
     // 基础置信度判断
     let baseConfidence = 'LOW';
     let baseReason = [];
 
-    if (combinedScore >= bands.high.minScore && historyScore >= bands.high.minHistoryScore) {
+    if (pick.strategy?.bucket === 'continuation') {
+      const continuationChecks = {
+        dayScore: (pick.score || 0) >= (continuationBand.minDayScore ?? 82),
+        historyScore: historyScore >= (continuationBand.minHistoryScore ?? 60),
+        combinedScore: combinedScore >= (continuationBand.minCombinedScore ?? 58),
+        signalStrength: signalStrength.length >= (continuationBand.minSignalStrength ?? 4),
+        gain5d: h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5,
+        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0,
+        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
+        gain60d: h.gain60d == null || h.gain60d <= (continuationBand.maxGain60d ?? 80),
+        maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (continuationBand.maxDrawdown ?? 22),
+        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (continuationBand.maxDeviationFromMA20 ?? 14),
+      };
+      const failedContinuationChecks = Object.entries(continuationChecks)
+        .filter(([, passed]) => !passed)
+        .map(([key]) => key);
+      if (failedContinuationChecks.length > 0) {
+        return { confidence: 'REJECT', reason: `趋势延续确认不足(${failedContinuationChecks.join('/')})` };
+      }
+      baseConfidence = 'HIGH';
+      baseReason.push(`延续日分${pick.score}分≥${continuationBand.minDayScore ?? 82}`);
+      baseReason.push(`历史${historyScore}分≥${continuationBand.minHistoryScore ?? 60}`);
+      baseReason.push(`综合${combinedScore}分≥${continuationBand.minCombinedScore ?? 58}`);
+    } else if (combinedScore >= bands.high.minScore && historyScore >= bands.high.minHistoryScore) {
       baseConfidence = 'HIGH';
       baseReason.push(`综合${combinedScore}分≥${bands.high.minScore}`);
       baseReason.push(`历史${historyScore}分≥${bands.high.minHistoryScore}`);
@@ -1784,21 +1846,6 @@ class PaperAccount {
       }
     }
 
-    // 低吸信号强度检查
-    const signalStrength = [];
-    const h = pick.history || {};
-
-    if (h.distanceToHigh60d >= -20 && h.distanceToHigh60d <= -8) signalStrength.push('回撤到位');
-    if (h.deviationFromMA20 >= -6 && h.deviationFromMA20 <= 3) signalStrength.push('接近MA20');
-    if (h.rsi >= 35 && h.rsi <= 50) signalStrength.push('RSI低位');
-    if (h.macdHistogram > -0.05) signalStrength.push('MACD修复');
-    if (volumeRatio >= 0.9 && volumeRatio <= 1.6) signalStrength.push('温和承接');
-    if (pick.strategy?.bucket === 'continuation') {
-      if (h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5) signalStrength.push('延续不过热');
-      if (h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0) signalStrength.push('趋势贴近前高');
-      if (h.gain10d != null && h.gain10d >= 0) signalStrength.push('10日仍在抬升');
-    }
-
     if (baseConfidence === 'MEDIUM') {
       const stricterMediumChecks = {
         signalStrength: signalStrength.length >= 3,
@@ -1814,20 +1861,11 @@ class PaperAccount {
         return { confidence: 'REJECT', reason: `中分段确认不足(${failedMediumChecks.join('/')})` };
       }
     }
-    if (pick.strategy?.bucket === 'continuation') {
-      const continuationChecks = {
-        confidence: baseConfidence === 'HIGH' || ((pick.score || 0) >= 82 && (pick.historyScore || 0) >= 58),
-        signalStrength: signalStrength.length >= 4,
-        gain5d: h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5,
-        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0,
-        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
+    if (baseConfidence === 'MEDIUM' && isMarketOpen(currentTime) && isLateAfternoonSession(currentTime, adaptive.tradeWindows.mediumConfidenceCutoffMinutes)) {
+      return {
+        confidence: 'REJECT',
+        reason: `午后${adaptive.tradeWindows.mediumConfidenceCutoffMinutes}分钟后禁止中置信度开仓`,
       };
-      const failedContinuationChecks = Object.entries(continuationChecks)
-        .filter(([, passed]) => !passed)
-        .map(([key]) => key);
-      if (failedContinuationChecks.length > 0) {
-        return { confidence: 'REJECT', reason: `趋势延续确认不足(${failedContinuationChecks.join('/')})` };
-      }
     }
 
     return {
@@ -2231,7 +2269,7 @@ class PaperAccount {
             return false;
           }
 
-          const confidenceDecision = this.assessBuyConfidence(p, marketRegime, performanceFeedback);
+          const confidenceDecision = this.assessBuyConfidence(p, marketRegime, performanceFeedback, { currentTime });
           p.tradeDecision = confidenceDecision;
           if (confidenceDecision.confidence === 'REJECT') {
             console.log(`[PAPER] ${p.symbol} ${p.name} 拒绝买入: ${confidenceDecision.reason}`);
@@ -2241,8 +2279,8 @@ class PaperAccount {
           if (recoveryMode) {
             const h = p.history || {};
             const signalStrength = confidenceDecision.signalStrength || 0;
-            if (confidenceDecision.confidence !== 'HIGH' && signalStrength < 4) {
-              const reason = `回撤恢复模式仅允许高确认信号(${confidenceDecision.confidence},强度${signalStrength})`;
+            if (confidenceDecision.confidence !== 'HIGH') {
+              const reason = `回撤恢复模式仅允许HIGH开仓(${confidenceDecision.confidence},强度${signalStrength})`;
               buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
               return false;
             }
@@ -2338,6 +2376,9 @@ class PaperAccount {
 
     let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
     basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
+    if (pick.strategy?.bucket === 'continuation') {
+      basePositionValue *= 0.45;
+    }
 
     if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
       basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
