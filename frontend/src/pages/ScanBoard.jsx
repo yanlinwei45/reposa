@@ -13,6 +13,12 @@ function reasonTone(key) {
   return 'warn'
 }
 
+function bucketTone(bucket) {
+  if (bucket === 'main' || bucket === 'continuation') return 'rise'
+  if (bucket === 'observation') return 'sky'
+  return 'neutral'
+}
+
 function ReasonList({ items, emptyText = '暂无' }) {
   if (!items?.length) {
     return <div className="text-sm text-slate-400">{emptyText}</div>
@@ -50,6 +56,12 @@ function renderTagCell(item) {
 
 function renderCandidateRow(item, idx) {
   const bucketLabel = item.strategy?.bucketLabel || (item.strategy?.bucket === 'main' ? '低吸主池' : item.strategy?.bucket === 'observation' ? '转强观察' : '高分样本')
+  const selectedDayScore = item.selectedDayScore ?? item.strategy?.selectedDayScore ?? item.score
+  const hasLivePrice = item.price != null
+  const displayPrice = hasLivePrice ? item.price?.toFixed(2) : (item.prevClose != null ? `${item.prevClose.toFixed(2)}*` : '-')
+  const displayChange = item.changePercent != null
+    ? `${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}%`
+    : '未开盘'
 
   return (
     <tr key={`${item.symbol}-${idx}`} className="hover:bg-slate-800/40">
@@ -65,19 +77,30 @@ function renderCandidateRow(item, idx) {
           {bucketLabel}
         </Badge>
       </td>
-      <td className="px-4 py-3 text-slate-200">{item.price?.toFixed(2) || '-'}</td>
-      <td className={`px-4 py-3 font-medium ${(item.changePercent || 0) >= 0 ? 'text-rise' : 'text-fall'}`}>
-        {item.changePercent != null ? `${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}%` : '-'}
+      <td className="px-4 py-3 text-slate-200">
+        <div>{displayPrice}</div>
+        {!hasLivePrice && item.prevClose != null ? <div className="mt-1 text-xs text-slate-500">昨收价</div> : null}
       </td>
-      <td className="px-4 py-3 text-slate-200">{item.score?.toFixed(1) || '-'}</td>
+      <td className={`px-4 py-3 font-medium ${item.changePercent == null ? 'text-slate-500' : (item.changePercent >= 0 ? 'text-rise' : 'text-fall')}`}>
+        {displayChange}
+        {item.changePercent == null ? <div className="mt-1 text-xs text-slate-500">09:30后刷新</div> : null}
+      </td>
+      <td className="px-4 py-3 text-slate-200">
+        <div>{item.score?.toFixed(1) || '-'}</div>
+        {selectedDayScore != null && Number(selectedDayScore) !== Number(item.score)
+          ? <div className="mt-1 text-xs text-slate-500">选桶 {Number(selectedDayScore).toFixed(1)}</div>
+          : null}
+      </td>
       <td className="px-4 py-3 text-slate-200">{item.historyScore?.toFixed(1) || '-'}</td>
       <td className="px-4 py-3 font-medium text-slate-100">{item.combinedScore?.toFixed(1) || '-'}</td>
       <td className="px-4 py-3 text-xs text-slate-400">
-        {item.strategy?.bucket === 'observation'
-          ? '不满足低吸主池，保留为盘中转强观察。'
-          : item.strategy?.bucket === 'main'
-            ? '满足回调低吸资格。'
-            : '当前未进入主池/观察池，仅作为高分样本展示。'}
+        {item.strategy?.bucket === 'continuation'
+          ? '强势延续，可交易但只在上午窗口评估开仓。'
+          : item.strategy?.bucket === 'observation'
+            ? '不满足主交易池，保留为盘中转强观察。'
+            : item.strategy?.bucket === 'main'
+              ? '满足回调低吸资格。'
+              : '当前未进入主池/观察池，仅作为高分样本展示。'}
       </td>
       <td className="px-4 py-3">{renderTagCell(item)}</td>
     </tr>
@@ -120,9 +143,11 @@ export function ScanBoard() {
   const bucketDistribution = diagnostics.bucketDistribution || []
   const mainRejectSummary = diagnostics.mainRejectSummary || []
   const observationRejectSummary = diagnostics.observationRejectSummary || []
+  const continuationRejectSummary = diagnostics.continuationRejectSummary || []
   const continuationDemotionSummary = diagnostics.continuationDemotionSummary || []
   const bucketSamples = diagnostics.bucketSamples || []
   const tradeDecision = diagnostics.tradeDecision || {}
+  const dataQuality = diagnostics.dataQuality || {}
   const tradeRejectSummary = tradeDecision.rejectSummary || []
   const tradeRejected = tradeDecision.rejected || []
   const fallbackRows = [...(state.market || [])]
@@ -154,6 +179,11 @@ export function ScanBoard() {
         <p className="mb-6 max-w-4xl text-sm leading-7 text-slate-400">
           主池只保留真正的回调低吸标的，盘中拉升转强但不再适合低吸的股票会被稳定放进观察池，不再和主池混排。
         </p>
+        {dataQuality.beforeOpen ? (
+          <div className="mb-6 rounded-2xl border border-amber-500/20 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+            当前是盘前阶段，东财很多股票的实时价、涨跌幅、成交额会返回空值。页面里带 `*` 的价格是昨收，09:30 后会自动切回实时价。
+          </div>
+        ) : null}
         <Navigation />
 
         <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -226,6 +256,10 @@ export function ScanBoard() {
               <div>
                 <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">观察池主要来源</div>
                 <ReasonList items={observationRejectSummary} emptyText="当前没有明显观察池拦截项" />
+              </div>
+              <div>
+                <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">延续池为何进不来</div>
+                <ReasonList items={continuationRejectSummary} emptyText="当前没有明显延续池拦截项" />
               </div>
               <div>
                 <div className="mb-2 text-xs uppercase tracking-[0.18em] text-slate-500">趋势延续为何降级观察</div>
@@ -338,6 +372,61 @@ export function ScanBoard() {
             ) : (
               <div className="text-sm text-slate-400">当前没有迁移样本</div>
             )}
+          </Card>
+        </div>
+
+        <div className="mb-6">
+          <Card title="候选池总览" subtitle="先看主候选和观察候选是否都还在，再看交易层为什么不开仓。">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">主候选</div>
+                <div className="mt-3 space-y-2">
+                  {mainRows.slice(0, 5).map(item => (
+                    <div key={`main-${item.symbol}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-900/70 px-3 py-2">
+                      <div>
+                        <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                        <div className="mt-1 text-xs text-slate-500">日 {Number(item.selectedDayScore ?? item.score ?? 0).toFixed(1)} · 历史 {Number(item.historyScore || 0).toFixed(1)} · 综合 {Number(item.combinedScore || 0).toFixed(1)}</div>
+                      </div>
+                      <Badge tone={bucketTone(item.strategy?.bucket)}>{item.strategy?.bucketLabel || '主候选'}</Badge>
+                    </div>
+                  ))}
+                  {mainRows.length === 0 ? <div className="text-sm text-slate-400">当前没有主候选</div> : null}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">观察候选</div>
+                <div className="mt-3 space-y-2">
+                  {observationRows.slice(0, 5).map(item => (
+                    <div key={`obs-${item.symbol}`} className="flex items-center justify-between gap-3 rounded-xl bg-slate-900/70 px-3 py-2">
+                      <div>
+                        <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                        <div className="mt-1 text-xs text-slate-500">日 {Number(item.selectedDayScore ?? item.score ?? 0).toFixed(1)} · 历史 {Number(item.historyScore || 0).toFixed(1)} · 综合 {Number(item.combinedScore || 0).toFixed(1)}</div>
+                      </div>
+                      <Badge tone={bucketTone(item.strategy?.bucket)}>{item.strategy?.bucketLabel || '观察候选'}</Badge>
+                    </div>
+                  ))}
+                  {observationRows.length === 0 ? <div className="text-sm text-slate-400">当前没有观察候选</div> : null}
+                </div>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/60 p-4">
+                <div className="text-xs uppercase tracking-[0.18em] text-slate-500">交易层结论</div>
+                <div className="mt-3 space-y-2">
+                  <div className="rounded-xl bg-slate-900/70 px-3 py-2 text-sm text-slate-300">
+                    最近一轮: {tradeDecision.skippedReason || '已执行交易或无阻塞'}
+                  </div>
+                  {(tradeRejected || []).slice(0, 4).map(item => (
+                    <div key={`reject-${item.symbol}-${item.reason}`} className="rounded-xl bg-slate-900/70 px-3 py-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                        <Badge tone="warn">{item.rejectCategory || '被拒'}</Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-400">{item.reason}</div>
+                    </div>
+                  ))}
+                  {(!tradeRejected || tradeRejected.length === 0) ? <div className="text-sm text-slate-400">最近没有交易拒绝样本</div> : null}
+                </div>
+              </div>
+            </div>
           </Card>
         </div>
 

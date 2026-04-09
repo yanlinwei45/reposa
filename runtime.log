@@ -65,3 +65,18 @@
 [HISTORY] 从磁盘加载713只股票的历史缓存
 [HTTP] server listening on http://localhost:3088
 [APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓1只, 历史订单47条, 现金932.83万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载698只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓1只, 历史订单47条, 现金932.83万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载698只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓0只, 历史订单48条, 现金964.18万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载808只股票的历史缓存
+[HTTP] server listening on http://localhost:3088
+[APP] Eastmoney DOM market scanner started

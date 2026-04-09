@@ -8,6 +8,7 @@ const { loadResearchWatchlist } = require('./strategy/watchlist');
 const {
   buildPositiveTags,
   buildRiskTags,
+  getSelectedBucketDayScore,
   scoreIntradayStrategy,
   buildInitialCandidatePool,
   combineCandidateScores,
@@ -118,12 +119,13 @@ function loadConfig() {
     ...currentAdaptive,
     continuationBand: {
       ...currentContinuationBand,
-      minDayScore: runtimeContinuation.minIntradayScore ?? currentContinuationBand.minDayScore,
+      minDayScore: runtimeContinuation.minTradeableDayScore ?? runtimeContinuation.minIntradayScore ?? currentContinuationBand.minDayScore,
       minHistoryScore: runtimeContinuation.minTradeableHistoryScore ?? currentContinuationBand.minHistoryScore,
       minCombinedScore: runtimeContinuation.minTradeableCombinedScore ?? currentContinuationBand.minCombinedScore,
       maxGain60d: runtimeContinuation.maxTradeableGain60d ?? currentContinuationBand.maxGain60d,
       maxDrawdown: runtimeContinuation.maxTradeableMaxDrawdown ?? currentContinuationBand.maxDrawdown,
       maxDeviationFromMA20: runtimeContinuation.maxTradeableDeviationFromMA20 ?? currentContinuationBand.maxDeviationFromMA20,
+      maxVolumeRatio: runtimeContinuation.maxTradeableVolumeRatio ?? currentContinuationBand.maxVolumeRatio,
       minSignalStrength: currentContinuationBand.minSignalStrength ?? 4,
     }
   };
@@ -142,6 +144,37 @@ function safeNumber(value) {
   if (!s || s === '-' || s === '--') return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
+}
+
+function formatThresholdValue(value, digits = 2) {
+  if (!Number.isFinite(value)) return '-';
+  const normalized = Number(value.toFixed(digits));
+  return Number.isInteger(normalized) ? String(normalized) : String(normalized);
+}
+
+function formatFailedChecks(checks, actualValues = {}, labels = {}) {
+  return checks.map((key) => {
+    const label = labels[key] || key;
+    const actual = actualValues[key];
+    if (!actual || actual.value == null) return label;
+    const op = actual.op || '<=';
+    const thresholdText = formatThresholdValue(actual.threshold);
+    const valueText = formatThresholdValue(actual.value);
+    return `${label}:${valueText}${op}${thresholdText}`;
+  });
+}
+
+function isProfitProtectedPosition(pos = {}) {
+  const pnlPct = Number(pos.pnlPct || 0);
+  const entryBucket = pos.entryBucket || 'main';
+  const liveBucket = pos.liveBucket || entryBucket;
+  const exitUrgency = Number(pos.exitUrgency || 0);
+  const selectedDayScore = Number(pos.liveSelectedDayScore || pos.entrySelectedDayScore || pos.entryScore || 0);
+  return pnlPct >= 0.5 &&
+    entryBucket === 'continuation' &&
+    liveBucket === 'continuation' &&
+    selectedDayScore >= 84 &&
+    exitUrgency < 60;
 }
 
 function parseAmountText(text) {
@@ -527,6 +560,28 @@ function buildObservationPool(candidates = [], runtimeStrategy = {}, limit = 12)
       return (b.combinedScore || b.preHistoryScore || b.score || 0) - (a.combinedScore || a.preHistoryScore || a.score || 0);
     })
     .slice(0, limit);
+}
+
+function getEffectiveCombinedScore(item = {}, runtimeStrategy = {}) {
+  const selectedDayScore = getSelectedBucketDayScore(item);
+  if (item.strategy?.bucket === 'continuation' || item.strategy?.bucket === 'observation') {
+    const combineWeights = runtimeStrategy.history?.combineWeights || {};
+    const researchUniverse = runtimeStrategy.researchUniverse || {};
+    const dayWeight = combineWeights.day ?? 0.5;
+    const historyWeight = combineWeights.history ?? 0.5;
+    const researchWeight = combineWeights.research ?? 0;
+    const researchComponent = item.researchScore;
+    const hasResearchComponent = researchComponent != null;
+    const finalBonus = item.researchSelected ? (researchUniverse.finalScoreBonus ?? 0) : 0;
+    const totalWeight = dayWeight + historyWeight + (hasResearchComponent ? researchWeight : 0);
+    const combined = (
+      selectedDayScore * dayWeight +
+      (item.historyScore || 0) * historyWeight +
+      ((hasResearchComponent ? researchComponent : 0) * researchWeight)
+    );
+    return Number(((totalWeight > 0 ? combined / totalWeight : 0) + finalBonus).toFixed(2));
+  }
+  return Number((item.combinedScore || item.score || 0).toFixed(2));
 }
 
 function filterMainBoardTenPercent(items) {
@@ -1227,10 +1282,18 @@ class MarketScanner {
         const data = JSON.parse(fs.readFileSync(this.historyCachePath, 'utf8'));
         const now = Date.now();
         const dayMs = 86400000; // 1天
+        const historyCfg = this.runtimeStrategy?.history?.degradedDataPolicy || {};
+        const preferStaleCache = historyCfg.preferStaleCache !== false;
+        const staleMaxAgeMs = historyCfg.staleCacheMaxAgeMs ?? (7 * dayMs);
         let loaded = 0;
         for (const [symbol, history] of Object.entries(data)) {
-          // 只加载1天内的缓存
-          if (history.fetchedAt && (now - history.fetchedAt) < dayMs) {
+          const ageMs = history?.fetchedAt ? (now - Number(history.fetchedAt)) : Number.POSITIVE_INFINITY;
+          const usableFresh = history.fetchedAt && ageMs < dayMs;
+          const usableStale = preferStaleCache &&
+            history?.indicators &&
+            history.indicators.degraded !== true &&
+            ageMs < staleMaxAgeMs;
+          if (usableFresh || usableStale) {
             this.historyCache.set(symbol, history);
             loaded++;
           }
@@ -1568,13 +1631,22 @@ class MarketScanner {
             combinedScore: combineCandidateScores(p, this.runtimeStrategy)
           }));
         const classified = classifyCandidateBuckets(historyQualifiedCandidates, this.runtimeStrategy);
+        const normalizedMainPicks = classified.mainPicks.map(item => ({
+          ...item,
+          selectedDayScore: getSelectedBucketDayScore(item),
+          combinedScore: getEffectiveCombinedScore(item, this.runtimeStrategy),
+        }));
         bucketDiagnostics = buildBucketDiagnostics(classified);
-        candidates = classified.mainPicks
+        candidates = normalizedMainPicks
           .slice(0, this.config.strategy.topN);
 
         const observationSourceMap = new Map();
         for (const item of classified.enriched.filter(candidate => candidate.strategy?.bucket !== 'main')) {
-          observationSourceMap.set(item.symbol, item);
+          observationSourceMap.set(item.symbol, {
+            ...item,
+            selectedDayScore: getSelectedBucketDayScore(item),
+            combinedScore: getEffectiveCombinedScore(item, this.runtimeStrategy),
+          });
         }
         for (const item of filteredOut
           .map(sample => initialPool.find(candidate => candidate.symbol === sample.symbol))
@@ -1752,6 +1824,7 @@ class MarketScanner {
 class PaperAccount {
   constructor(config, logsDir) {
     this.config = config.paperTrading;
+    this.runtimeStrategy = config.runtimeStrategy || getRuntimeStrategyConfig();
     this.logsDir = logsDir;
     this.cash = this.config.initialCash;
     this.positions = new Map(); // symbol => { symbol, name, entryPrice, currentPrice, quantity, value, pnlPct, entryTs, entryDate, holdRounds, holdDays, highPrice, lowPrice, sector, confidence }
@@ -1856,6 +1929,7 @@ class PaperAccount {
         minHistoryScore: continuationBand.minHistoryScore ?? 60,
         minCombinedScore: continuationBand.minCombinedScore ?? 58,
         minSignalStrength: continuationBand.minSignalStrength ?? 4,
+        maxVolumeRatio: continuationBand.maxVolumeRatio ?? 4.8,
         maxGain60d: continuationBand.maxGain60d ?? 80,
         maxDrawdown: continuationBand.maxDrawdown ?? 22,
         maxDeviationFromMA20: continuationBand.maxDeviationFromMA20 ?? 14,
@@ -2024,10 +2098,15 @@ class PaperAccount {
     this.rebuildRecentPerformance(this.recentPerformance.closedTrades);
   }
 
-  getPerformanceFeedback() {
+  getPerformanceFeedback(context = {}) {
     const totalEquity = this.getTotalEquity();
     const drawdownPressure = this.peakEquity > 0 ? Math.max(0, ((this.peakEquity - totalEquity) / this.peakEquity) * 100) : 0;
-    const trades = this.recentPerformance.closedTrades;
+    const marketRegime = context.marketRegime || 'UNKNOWN';
+    const closedTrades = this.recentPerformance.closedTrades || [];
+    const sameRegimeTrades = marketRegime !== 'UNKNOWN'
+      ? closedTrades.filter(t => !t.marketRegime || t.marketRegime === marketRegime)
+      : [];
+    const trades = sameRegimeTrades.length >= 3 ? sameRegimeTrades : closedTrades;
     if (!trades.length) {
       return {
         tradeCount: 0,
@@ -2041,7 +2120,9 @@ class PaperAccount {
         highBandPenalty: 0,
         highBandBonus: 0,
         drawdownPressure: Number(drawdownPressure.toFixed(2)),
-        scoreRangeStats: {}
+        scoreRangeStats: {},
+        feedbackTradeCount: 0,
+        feedbackScopedToRegime: false,
       };
     }
 
@@ -2059,7 +2140,16 @@ class PaperAccount {
 
     const lowBand = scoreRangeStats['<70'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
     const mediumBand = scoreRangeStats['70-79'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
-    const highBand = scoreRangeStats['90+'] || scoreRangeStats['80-89'] || { avgPnlPct: 0, winRate: 50, trades: 0 };
+    const highBandTradeStats = ['90+', '80-89']
+      .map(key => scoreRangeStats[key])
+      .filter(Boolean);
+    const highBand = highBandTradeStats.length
+      ? highBandTradeStats.reduce((acc, item) => ({
+          trades: acc.trades + item.trades,
+          totalPnl: acc.totalPnl + (item.avgPnlPct * item.trades),
+        }), { trades: 0, totalPnl: 0 })
+      : { trades: 0, totalPnl: 0 };
+    const highBandAvgPnl = highBand.trades > 0 ? (highBand.totalPnl / highBand.trades) : 0;
 
     return {
       tradeCount: trades.length,
@@ -2070,16 +2160,65 @@ class PaperAccount {
       avgLossPct: losses.length ? Number((losses.reduce((sum, t) => sum + t.pnlPct, 0) / losses.length).toFixed(2)) : 0,
       lowBandPenalty: lowBand.trades >= 3 && lowBand.avgPnlPct < 0 ? Math.min(8, Math.abs(lowBand.avgPnlPct)) : 0,
       mediumBandPenalty: mediumBand.trades >= 3 && mediumBand.avgPnlPct < 0 ? Math.min(8, Math.abs(mediumBand.avgPnlPct)) : 0,
-      highBandPenalty: highBand.trades >= 1 && highBand.avgPnlPct < 0 ? Math.min(8, Math.abs(highBand.avgPnlPct)) : 0,
-      highBandBonus: highBand.trades >= 3 && highBand.avgPnlPct > 0 ? Math.min(8, highBand.avgPnlPct / 2) : 0,
+      highBandPenalty: highBand.trades >= 3 && highBandAvgPnl < 0 ? Math.min(8, Math.abs(highBandAvgPnl)) : 0,
+      highBandBonus: highBand.trades >= 3 && highBandAvgPnl > 0 ? Math.min(8, highBandAvgPnl / 2) : 0,
       drawdownPressure: Number(drawdownPressure.toFixed(2)),
-      scoreRangeStats
+      scoreRangeStats,
+      feedbackTradeCount: trades.length,
+      feedbackScopedToRegime: sameRegimeTrades.length >= 3 && trades === sameRegimeTrades,
     };
   }
 
   getTotalEquity() {
     const positionValue = Array.from(this.positions.values()).reduce((sum, pos) => sum + pos.value, 0);
     return this.cash + positionValue;
+  }
+
+  buildPositionSignalMap(allMarketData = []) {
+    if (!this.positions.size || !Array.isArray(allMarketData) || allMarketData.length === 0) {
+      return new Map();
+    }
+
+    const trackedSymbols = new Set(this.positions.keys());
+    const candidates = allMarketData
+      .filter(item => trackedSymbols.has(item.symbol))
+      .map(item => ({
+        ...item,
+        combinedScore: item.combinedScore != null
+          ? item.combinedScore
+          : combineCandidateScores(item, this.runtimeStrategy),
+      }));
+
+    if (!candidates.length) {
+      return new Map();
+    }
+
+    const classified = classifyCandidateBuckets(candidates, this.runtimeStrategy);
+    return new Map((classified.enriched || []).map(item => [item.symbol, item]));
+  }
+
+  updatePositionExitSnapshot(pos, exitDecision = {}, pick = null, ts = new Date()) {
+    const reasons = Array.isArray(exitDecision.reasons) ? exitDecision.reasons : [];
+    const liveBucket = pick?.strategy?.bucket || pos.entryBucket || 'main';
+    const liveBucketLabel = pick?.strategy?.bucketLabel || BUCKET_LABELS[liveBucket] || liveBucket;
+    const liveSelectedDayScore = pick
+      ? getSelectedBucketDayScore(pick)
+      : (pos.entrySelectedDayScore || pos.entryScore || 0);
+    const liveCombinedScore = pick
+      ? getEffectiveCombinedScore(pick, this.runtimeStrategy)
+      : (pos.combinedScore || pos.entryScore || 0);
+
+    pos.liveBucket = liveBucket;
+    pos.liveBucketLabel = liveBucketLabel;
+    pos.liveSelectedDayScore = Number((Number(liveSelectedDayScore || 0)).toFixed(2));
+    pos.liveCombinedScore = Number((Number(liveCombinedScore || 0)).toFixed(2));
+    pos.exitUrgency = Number(exitDecision.urgency || 0);
+    pos.exitShouldExit = !!exitDecision.shouldExit;
+    pos.exitReasons = reasons.slice(0, 5).map(reason => ({ ...reason }));
+    pos.exitSummary = reasons.length > 0
+      ? reasons.map(reason => `${reason.type}${reason.detail ? `(${reason.detail})` : ''}`).join('，')
+      : '暂无强退出信号';
+    pos.lastEvaluatedAt = formatBeijingTime(ts);
   }
 
   assessBuyConfidence(pick, marketRegime, performanceFeedback, options = {}) {
@@ -2096,7 +2235,7 @@ class PaperAccount {
       return { confidence: 'REJECT', reason: '熊市仅允许研究白名单标的' };
     }
 
-    const combinedScore = pick.combinedScore || pick.score || 0;
+    let combinedScore = pick.combinedScore || pick.score || 0;
     const historyScore = pick.historyScore || 0;
     const volumeRatio = pick.volumeBurstRatio || pick.volumeRatio || 0;
     const bands = adaptive.confidenceBands;
@@ -2111,39 +2250,68 @@ class PaperAccount {
     if (h.rsi >= 35 && h.rsi <= 50) signalStrength.push('RSI低位');
     if (h.macdHistogram > -0.05) signalStrength.push('MACD修复');
     if (volumeRatio >= 0.9 && volumeRatio <= 1.6) signalStrength.push('温和承接');
-    if (pick.strategy?.bucket === 'continuation') {
-      if (h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5) signalStrength.push('延续不过热');
-      if (h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0) signalStrength.push('趋势贴近前高');
-      if (h.gain10d != null && h.gain10d >= 0) signalStrength.push('10日仍在抬升');
-    }
+      if (pick.strategy?.bucket === 'continuation') {
+        if (h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5) signalStrength.push('延续不过热');
+        if (h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0) signalStrength.push('趋势贴近前高');
+        if (h.gain10d != null && h.gain10d >= 0) signalStrength.push('10日仍在抬升');
+        if (h.macdHistogramImproving === true) signalStrength.push('MACD修复中');
+        if (volumeRatio >= 1.2 && volumeRatio <= 4.6) signalStrength.push('强势放量');
+      }
 
     // 基础置信度判断
     let baseConfidence = 'LOW';
     let baseReason = [];
 
     if (pick.strategy?.bucket === 'continuation') {
+      const selectedDayScore = getSelectedBucketDayScore(pick);
+      const effectiveCombinedScore = getEffectiveCombinedScore(pick, this.runtimeStrategy);
+      const continuationMaxVolumeRatio = continuationBand.maxVolumeRatio ?? 4.8;
+      const continuationMaxGain60d = continuationBand.maxGain60d ?? 80;
+      const continuationMaxDrawdown = continuationBand.maxDrawdown ?? 22;
+      const continuationMaxDeviationFromMA20 = continuationBand.maxDeviationFromMA20 ?? 14;
       const continuationChecks = {
-        dayScore: (pick.score || 0) >= (continuationBand.minDayScore ?? 82),
+        dayScore: selectedDayScore >= (continuationBand.minDayScore ?? 82),
         historyScore: historyScore >= (continuationBand.minHistoryScore ?? 60),
-        combinedScore: combinedScore >= (continuationBand.minCombinedScore ?? 58),
+        combinedScore: effectiveCombinedScore >= (continuationBand.minCombinedScore ?? 58),
         signalStrength: signalStrength.length >= (continuationBand.minSignalStrength ?? 4),
-        gain5d: h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5,
-        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0,
-        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
-        gain60d: h.gain60d == null || h.gain60d <= (continuationBand.maxGain60d ?? 80),
-        maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (continuationBand.maxDrawdown ?? 22),
-        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (continuationBand.maxDeviationFromMA20 ?? 14),
+        volumeRatio: volumeRatio <= continuationMaxVolumeRatio,
+        gain5d: h.gain5d != null && h.gain5d >= -2 && h.gain5d <= 12,
+        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -24 && h.distanceToHigh60d <= 2,
+        macdHistogram: h.macdHistogram != null && (h.macdHistogram >= -0.12 || h.macdHistogramImproving === true),
+        gain60d: h.gain60d == null || h.gain60d <= continuationMaxGain60d,
+        maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= continuationMaxDrawdown,
+        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= continuationMaxDeviationFromMA20,
       };
       const failedContinuationChecks = Object.entries(continuationChecks)
         .filter(([, passed]) => !passed)
         .map(([key]) => key);
       if (failedContinuationChecks.length > 0) {
-        return { confidence: 'REJECT', reason: `趋势延续确认不足(${failedContinuationChecks.join('/')})` };
+        const detailedChecks = formatFailedChecks(failedContinuationChecks, {
+          volumeRatio: { value: volumeRatio, threshold: continuationMaxVolumeRatio, op: '>' },
+          gain60d: { value: h.gain60d, threshold: continuationMaxGain60d, op: '>' },
+          maxDrawdown: { value: h.maxDrawdown, threshold: continuationMaxDrawdown, op: '>' },
+          deviationFromMA20: { value: h.deviationFromMA20, threshold: continuationMaxDeviationFromMA20, op: '>' },
+          signalStrength: { value: signalStrength.length, threshold: continuationBand.minSignalStrength ?? 4, op: '<' },
+          dayScore: { value: selectedDayScore, threshold: continuationBand.minDayScore ?? 82, op: '<' },
+          historyScore: { value: historyScore, threshold: continuationBand.minHistoryScore ?? 60, op: '<' },
+          combinedScore: { value: effectiveCombinedScore, threshold: continuationBand.minCombinedScore ?? 58, op: '<' },
+        }, {
+          volumeRatio: '量比',
+          gain60d: '60日涨幅',
+          maxDrawdown: '历史回撤',
+          deviationFromMA20: '偏离MA20',
+          signalStrength: '信号强度',
+          dayScore: '延续日分',
+          historyScore: '历史分',
+          combinedScore: '综合分',
+        });
+        return { confidence: 'REJECT', reason: `趋势延续确认不足(${detailedChecks.join('/')})` };
       }
       baseConfidence = 'HIGH';
-      baseReason.push(`延续日分${pick.score}分≥${continuationBand.minDayScore ?? 82}`);
+      baseReason.push(`延续日分${selectedDayScore}分≥${continuationBand.minDayScore ?? 82}`);
       baseReason.push(`历史${historyScore}分≥${continuationBand.minHistoryScore ?? 60}`);
-      baseReason.push(`综合${combinedScore}分≥${continuationBand.minCombinedScore ?? 58}`);
+      baseReason.push(`综合${effectiveCombinedScore}分≥${continuationBand.minCombinedScore ?? 58}`);
+      combinedScore = effectiveCombinedScore;
     } else if (combinedScore >= bands.high.minScore && historyScore >= bands.high.minHistoryScore) {
       baseConfidence = 'HIGH';
       baseReason.push(`综合${combinedScore}分≥${bands.high.minScore}`);
@@ -2186,21 +2354,24 @@ class PaperAccount {
     }
 
     if (isMarketOpen(currentTime)) {
+      const preferredEndMinutes = pick.strategy?.bucket === 'continuation'
+        ? Math.max(adaptive.tradeWindows.preferredEntryEndMinutes, 11 * 60)
+        : adaptive.tradeWindows.preferredEntryEndMinutes;
       const outsidePreferredWindow =
         nowMinutes < adaptive.tradeWindows.preferredEntryStartMinutes ||
-        nowMinutes > adaptive.tradeWindows.preferredEntryEndMinutes;
+        nowMinutes > preferredEndMinutes;
       const inAfternoonWindow = nowMinutes >= (13 * 60) && nowMinutes <= (15 * 60);
 
       if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow) {
         return {
           confidence: 'REJECT',
-          reason: `策略仅允许上午窗口开仓(${adaptive.tradeWindows.preferredEntryStartMinutes}-${adaptive.tradeWindows.preferredEntryEndMinutes})`,
+          reason: `策略仅允许上午窗口开仓(${adaptive.tradeWindows.preferredEntryStartMinutes}-${preferredEndMinutes})`,
         };
       }
       if (outsidePreferredWindow && !inAfternoonWindow) {
         return {
           confidence: 'REJECT',
-          reason: `当前不在首选开仓窗口(${adaptive.tradeWindows.preferredEntryStartMinutes}-${adaptive.tradeWindows.preferredEntryEndMinutes})`,
+          reason: `当前不在首选开仓窗口(${adaptive.tradeWindows.preferredEntryStartMinutes}-${preferredEndMinutes})`,
         };
       }
     }
@@ -2233,12 +2404,22 @@ class PaperAccount {
       };
     }
     if (adaptive.overnightRisk?.enabled && combinedScore >= (adaptive.overnightRisk.minScoreToCheck ?? 80)) {
+      const overnightRiskCfg = pick.strategy?.bucket === 'continuation'
+        ? {
+            ...adaptive.overnightRisk,
+            maxGain10d: Math.max(adaptive.overnightRisk.maxGain10d ?? 18, 24),
+            maxGain5d: Math.max(adaptive.overnightRisk.maxGain5d ?? 4, 8),
+            maxDeviationFromMA20: Math.max(adaptive.overnightRisk.maxDeviationFromMA20 ?? 8, 12),
+            maxVolatility: Math.max(adaptive.overnightRisk.maxVolatility ?? 20, 24),
+            maxRecent10LimitUps: Math.max(adaptive.overnightRisk.maxRecent10LimitUps ?? 0, 1),
+          }
+        : adaptive.overnightRisk;
       const overnightRiskChecks = {
-        gain10d: h.gain10d == null || h.gain10d <= (adaptive.overnightRisk.maxGain10d ?? 18),
-        gain5d: h.gain5d == null || h.gain5d <= (adaptive.overnightRisk.maxGain5d ?? 4),
-        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (adaptive.overnightRisk.maxDeviationFromMA20 ?? 8),
-        volatility: h.volatility == null || h.volatility <= (adaptive.overnightRisk.maxVolatility ?? 20),
-        recent10LimitUps: h.recent10LimitUps == null || h.recent10LimitUps <= (adaptive.overnightRisk.maxRecent10LimitUps ?? 0),
+        gain10d: h.gain10d == null || h.gain10d <= (overnightRiskCfg.maxGain10d ?? 18),
+        gain5d: h.gain5d == null || h.gain5d <= (overnightRiskCfg.maxGain5d ?? 4),
+        deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (overnightRiskCfg.maxDeviationFromMA20 ?? 8),
+        volatility: h.volatility == null || h.volatility <= (overnightRiskCfg.maxVolatility ?? 20),
+        recent10LimitUps: h.recent10LimitUps == null || h.recent10LimitUps <= (overnightRiskCfg.maxRecent10LimitUps ?? 0),
       };
       const failedOvernightRiskChecks = Object.entries(overnightRiskChecks)
         .filter(([, passed]) => !passed)
@@ -2253,12 +2434,21 @@ class PaperAccount {
     if (adaptive.entryQuality?.enabled) {
       const pullbackFromHighPct = getPullbackFromHighPct(pick);
       const openDrawdownPct = getOpenDrawdownPct(pick);
+      const entryQualityCfg = pick.strategy?.bucket === 'continuation'
+        ? {
+            ...adaptive.entryQuality,
+            maxIntradayReturnPct: Math.max(adaptive.entryQuality.maxIntradayReturnPct ?? 4.5, 8.5),
+            maxVolumeRatio: Math.max(adaptive.entryQuality.maxVolumeRatio ?? 1.6, 4.8),
+            maxPullbackFromHighPct: Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, 2.2),
+            maxOpenDrawdownPct: Math.max(adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8, 2.6),
+          }
+        : adaptive.entryQuality;
       const entryQualityChecks = {
-        aboveOpen: !adaptive.entryQuality.requireAboveOpen || !pick.open || !pick.price || pick.price >= pick.open * 0.998,
-        pullbackFromHigh: pullbackFromHighPct == null || pullbackFromHighPct <= (adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2),
-        intradayReturn: pick.intradayReturnPct == null || pick.intradayReturnPct <= (adaptive.entryQuality.maxIntradayReturnPct ?? 4.5),
-        openDrawdown: openDrawdownPct == null || openDrawdownPct <= (adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8),
-        volumeRatio: volumeRatio <= (adaptive.entryQuality.maxVolumeRatio ?? 1.6),
+        aboveOpen: !entryQualityCfg.requireAboveOpen || !pick.open || !pick.price || pick.price >= pick.open * 0.998,
+        pullbackFromHigh: pullbackFromHighPct == null || pullbackFromHighPct <= (entryQualityCfg.maxPullbackFromHighPct ?? 1.2),
+        intradayReturn: pick.intradayReturnPct == null || pick.intradayReturnPct <= (entryQualityCfg.maxIntradayReturnPct ?? 4.5),
+        openDrawdown: openDrawdownPct == null || openDrawdownPct <= (entryQualityCfg.maxOpenDrawdownPct ?? 1.8),
+        volumeRatio: volumeRatio <= (entryQualityCfg.maxVolumeRatio ?? 1.6),
       };
       const failedEntryQualityChecks = Object.entries(entryQualityChecks)
         .filter(([, passed]) => !passed)
@@ -2287,6 +2477,11 @@ class PaperAccount {
     const weights = adaptive.exitUrgencyWeights;
     let totalUrgency = 0;
     const reasons = [];
+    const entryBucket = pos.entryBucket || 'main';
+    const isContinuationPosition = entryBucket === 'continuation';
+    const effectiveDayScore = pick ? getSelectedBucketDayScore(pick) : (pos.entrySelectedDayScore || pos.entryScore || 0);
+    const entrySelectedDayScore = pos.entrySelectedDayScore || pos.entryScore || 0;
+    const highestPnlPct = pos.highPrice ? (((pos.highPrice - pos.entryPrice) / pos.entryPrice) * 100) : (pos.pnlPct || 0);
 
     // 1. 止损触发
     const stopLoss = pos.pnlPct <= (this.config.stopLossPct || -5);
@@ -2307,6 +2502,12 @@ class PaperAccount {
     // 3. 趋势失效止损
     if (pick) {
       const h = pick.history || {};
+      const liveBucket = pick.strategy?.bucket || entryBucket;
+
+      if (isContinuationPosition && liveBucket !== 'continuation') {
+        totalUrgency += 75;
+        reasons.push({ type: '强势失效', weight: 75, detail: `由${entryBucket}降为${liveBucket}` });
+      }
 
       // 跌破MA60
       if (h.ma60 && pos.currentPrice < h.ma60) {
@@ -2327,16 +2528,65 @@ class PaperAccount {
       }
 
       // 评分下跌
-      const dayScore = pick.score || pick.strategy?.score || 0;
-      const scoreDrop = dayScore < (this.config.exitScoreThreshold || 55);
+      const exitScoreThreshold = isContinuationPosition
+        ? Math.max(this.config.exitStrongScoreThreshold || 80, entrySelectedDayScore - 18)
+        : (this.config.exitScoreThreshold || 55);
+      const scoreDrop = effectiveDayScore < exitScoreThreshold;
       if (scoreDrop) {
         totalUrgency += weights.scoreDrop;
-        reasons.push({ type: '评分下跌', weight: weights.scoreDrop, detail: `${dayScore}分` });
+        reasons.push({ type: '评分下跌', weight: weights.scoreDrop, detail: `${effectiveDayScore}分<${exitScoreThreshold}` });
+      }
+
+      if (isContinuationPosition) {
+        const prevClose = Number(pick.prevClose || 0);
+        const continuationFailFast = (
+          pick.open &&
+          pos.currentPrice < pick.open * 0.997 &&
+          (pos.pnlPct || 0) < 0
+        );
+        if (continuationFailFast) {
+          totalUrgency += 70;
+          reasons.push({ type: '强势承接失效', weight: 70, detail: `价格${pos.currentPrice.toFixed(2)}弱于开盘${pick.open}` });
+        }
+
+        if (highestPnlPct >= 1.8 && drawdownFromHigh >= 1.6) {
+          totalUrgency += 70;
+          reasons.push({ type: '强势回撤过快', weight: 70, detail: `最高${highestPnlPct.toFixed(2)}%回撤${drawdownFromHigh.toFixed(2)}%` });
+        }
+
+        if (pos.holdDays >= 1 && pick.open && prevClose > 0) {
+          const weakVsOpen = pos.currentPrice < pick.open * 0.995;
+          const weakVsPrevClose = pos.currentPrice < prevClose * 0.998;
+          if (weakVsOpen && weakVsPrevClose) {
+            totalUrgency += 85;
+            reasons.push({ type: '次日承接失效', weight: 85, detail: `现价${pos.currentPrice.toFixed(2)}低于开盘${pick.open}和昨收${prevClose}` });
+          }
+
+          if (pick.open >= prevClose * 1.015 && pos.currentPrice <= prevClose * 0.998) {
+            totalUrgency += 90;
+            reasons.push({ type: '高开低走失效', weight: 90, detail: `高开${(((pick.open / prevClose) - 1) * 100).toFixed(2)}%后跌回昨收下` });
+          }
+
+          if (pick.high && pick.high >= pick.open * 1.02 && pos.currentPrice <= pick.open * 0.997) {
+            totalUrgency += 55;
+            reasons.push({ type: '冲高回落', weight: 55, detail: `高点${pick.high.toFixed(2)}后回落至${pos.currentPrice.toFixed(2)}` });
+          }
+        }
+
+        if (highestPnlPct >= 2 && (pos.pnlPct || 0) <= 0.3) {
+          totalUrgency += 80;
+          reasons.push({ type: '利润回吐过大', weight: 80, detail: `最高${highestPnlPct.toFixed(2)}%回落至${(pos.pnlPct || 0).toFixed(2)}%` });
+        }
+
+        if (pos.holdDays >= 2 && (pos.pnlPct || 0) < 0.8) {
+          totalUrgency += 45;
+          reasons.push({ type: '强势停滞', weight: 45, detail: `${pos.holdDays}天仅${(pos.pnlPct || 0).toFixed(2)}%` });
+        }
       }
     }
 
     // 4. 弱票固定止盈（到目标就走）
-    const isWeakStock = (pos.combinedScore || pos.entryScore || 0) < 80 && pos.confidence !== 'HIGH';
+    const isWeakStock = !isContinuationPosition && (pos.combinedScore || pos.entryScore || 0) < 80 && pos.confidence !== 'HIGH';
     const weakTakeProfitPct = this.config.weakTakeProfitPct || 8;
     if (isWeakStock && pos.pnlPct >= weakTakeProfitPct) {
       totalUrgency += 70;
@@ -2344,7 +2594,9 @@ class PaperAccount {
     }
 
     // 5. 时间止损
-    const maxHoldDays = this.config.maxHoldDays || 10;
+    const maxHoldDays = isContinuationPosition
+      ? Math.min(this.config.maxHoldDays || 10, 3)
+      : (this.config.maxHoldDays || 10);
     const holdTooLong = pos.holdDays >= maxHoldDays;
     if (holdTooLong) {
       totalUrgency += weights.holdTooLong;
@@ -2352,7 +2604,9 @@ class PaperAccount {
     }
 
     // 6. 弱势股（持有几天没起色）
-    const weakStockDays = this.config.weakStockHoldDays || 4;
+    const weakStockDays = isContinuationPosition
+      ? Math.max(2, (this.config.weakStockHoldDays || 4) - 1)
+      : (this.config.weakStockHoldDays || 4);
     const weakStockProfit = this.config.weakStockMinProfit || 2;
     const weakStock = !holdTooLong && pos.holdDays >= weakStockDays && pos.pnlPct < weakStockProfit;
     if (weakStock) {
@@ -2426,9 +2680,20 @@ class PaperAccount {
         lowPrice: executedPrice,
         confidence: metadata.confidence || 'UNKNOWN',
         entryScore: metadata.entryScore || 0,
+        entrySelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
         combinedScore: metadata.combinedScore || 0,
         marketRegime: metadata.marketRegime || 'UNKNOWN',
         sector: metadata.sector || 'UNKNOWN',
+        entryBucket: metadata.entryBucket || 'main',
+        liveBucket: metadata.entryBucket || 'main',
+        liveBucketLabel: BUCKET_LABELS[metadata.entryBucket || 'main'] || (metadata.entryBucket || 'main'),
+        liveSelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
+        liveCombinedScore: metadata.combinedScore || 0,
+        exitUrgency: 0,
+        exitShouldExit: false,
+        exitReasons: [],
+        exitSummary: '新开仓，等待下一轮评估',
+        lastEvaluatedAt: bjTime,
         source: metadata.source || 'strategy'
       });
       this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
@@ -2446,6 +2711,7 @@ class PaperAccount {
         order.entryBjTime = formatBeijingTime(pos.entryTs);
         order.combinedScore = pos.combinedScore || 0;
         order.confidence = pos.confidence || 'UNKNOWN';
+        order.entryBucket = pos.entryBucket || 'main';
         order.source = pos.source || metadata.source || 'strategy';
         this.cash += (order.amount - fee);
         this.positions.delete(symbol);
@@ -2467,7 +2733,9 @@ class PaperAccount {
           reason,
           confidence: pos.confidence || 'UNKNOWN',
           entryScore: Number(pos.entryScore || 0),
+          entrySelectedDayScore: Number(pos.entrySelectedDayScore || pos.entryScore || 0),
           combinedScore: Number(pos.combinedScore || pos.entryScore || 0),
+          entryBucket: pos.entryBucket || 'main',
           entryMarketRegime: pos.marketRegime || 'UNKNOWN',
           source: pos.source || 'strategy',
           bjTime
@@ -2512,16 +2780,26 @@ class PaperAccount {
     const currentTime = new Date(ts);
     const marketOpen = isMarketOpen(currentTime);
     const adaptive = this.getAdaptiveConfig();
-    const performanceFeedback = this.getPerformanceFeedback();
+    const performanceFeedback = this.getPerformanceFeedback({ marketRegime });
     const positionsBefore = this.positions.size;
 
     // 先更新持仓价格（无论是否交易时间，都要更新持仓价格）
     const symbolToPick = new Map(strategyPicks.map(p => [p.symbol, p]));
     const symbolToMarket = new Map(allMarketData.map(p => [p.symbol, p]));
+    const positionSignalMap = this.buildPositionSignalMap(allMarketData);
 
     for (const [symbol, pos] of this.positions.entries()) {
-      const pick = symbolToPick.get(symbol);
+      const pick = symbolToPick.get(symbol) || positionSignalMap.get(symbol);
       const marketData = symbolToMarket.get(symbol);
+
+      if (pick) {
+        if (!pos.entryBucket && pick.strategy?.bucket) {
+          pos.entryBucket = pick.strategy.bucket;
+        }
+        if (!pos.entrySelectedDayScore) {
+          pos.entrySelectedDayScore = getSelectedBucketDayScore(pick);
+        }
+      }
 
       if (marketData && marketData.price) {
         pos.currentPrice = marketData.price;
@@ -2540,23 +2818,32 @@ class PaperAccount {
       pos.pnlPct = ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100;
     }
 
+    const currentEquity = this.getTotalEquity();
+    const portfolioDrawdown = ((this.peakEquity - currentEquity) / this.peakEquity) * 100;
+    const recoveryMode = portfolioDrawdown > 5 && this.positions.size === 0;
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
+    const availablePositions = dynamicMaxPositions - this.positions.size;
+
     if (!marketOpen) {
       console.log(`[PAPER] 非交易时间，跳过交易 ts=${formatBeijingTime(ts)}`);
       this.latestTradeDiagnostics = buildTradeDecisionDiagnostics({}, {
         ts: formatBeijingTime(ts),
         marketRegime,
         marketOpen,
+        portfolioDrawdown: Number(portfolioDrawdown.toFixed(2)),
+        recoveryMode,
         strategyCandidateCount: strategyPicks.length,
+        buyCandidateCount: 0,
         positionsBefore,
         positionsAfter: this.positions.size,
+        availablePositions,
         skippedReason: '非交易时间',
       });
       this.saveState();
       this.logEquity(ts);
       return;
     }
-
-    const currentEquity = this.getTotalEquity();
     const holdObservations = [];
     const sellDecisions = [];
     const buyDecisionLog = { rejected: [], accepted: [] };
@@ -2564,8 +2851,11 @@ class PaperAccount {
       this.peakEquity = currentEquity;
     }
 
-    const portfolioDrawdown = ((this.peakEquity - currentEquity) / this.peakEquity) * 100;
-    const recoveryMode = portfolioDrawdown > 5 && this.positions.size === 0;
+    const protectedRecoveryPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
+    const guardedRecoveryMode = portfolioDrawdown > 5 &&
+      this.positions.size > 0 &&
+      this.positions.size < 2 &&
+      protectedRecoveryPositions.length > 0;
     if (portfolioDrawdown > 8) {
       if (this.lastAlertDrawdown < 8) {
         this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过8%，清仓所有持仓`);
@@ -2593,32 +2883,53 @@ class PaperAccount {
 
     if (portfolioDrawdown > 5) {
       if (this.lastAlertDrawdown < 5) {
-        this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${recoveryMode ? '进入空仓恢复模式' : '停止新开仓'}`);
+        const riskModeLabel = recoveryMode
+          ? '进入空仓恢复模式'
+          : guardedRecoveryMode
+            ? '进入防守恢复模式'
+            : '停止新开仓';
+        this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${riskModeLabel}`);
         this.lastAlertDrawdown = 5;
       }
-      console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${recoveryMode ? '空仓恢复模式：仅允许小仓高确认信号' : '停止新开仓'}`);
+      const riskModeText = recoveryMode
+        ? '空仓恢复模式：仅允许小仓高确认信号'
+        : guardedRecoveryMode
+          ? `防守恢复模式：已有${protectedRecoveryPositions.length}只盈利延续仓，允许极小仓试错`
+          : '停止新开仓';
+      console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${riskModeText}`);
     } else if (portfolioDrawdown < 3 && this.lastAlertDrawdown > 0) {
       this.lastAlertDrawdown = 0;
     }
 
     const toSell = [];
     for (const [symbol, pos] of this.positions.entries()) {
-      const pick = symbolToPick.get(symbol);
+      const pick = symbolToPick.get(symbol) || positionSignalMap.get(symbol);
       pos.holdRounds += 1;
       pos.holdDays = getTradingDaysBetween(pos.entryTs, currentTime);
 
       const canSell = canSellToday(pos.entryTs, currentTime);
       if (!canSell) {
+        this.updatePositionExitSnapshot(pos, {
+          urgency: 0,
+          shouldExit: false,
+          reasons: [{ type: 'T+1限制', weight: 0, detail: '当日买入不可卖出' }],
+        }, pick, currentTime);
         console.log(`[PAPER] T+1限制: ${symbol} 当天买入不能卖出`);
         continue;
       }
 
       if (pick && pick.changePercent <= -9.5) {
+        this.updatePositionExitSnapshot(pos, {
+          urgency: 0,
+          shouldExit: false,
+          reasons: [{ type: '跌停受限', weight: 0, detail: `${pick.changePercent}%` }],
+        }, pick, currentTime);
         console.log(`[PAPER] 跌停限制: ${symbol} ${pos.name} 跌停${pick.changePercent}%无法卖出`);
         continue;
       }
 
       const exitDecision = this.calculateExitUrgency(pos, pick, marketRegime);
+      this.updatePositionExitSnapshot(pos, exitDecision, pick, currentTime);
       if (exitDecision.shouldExit) {
         const reasonText = exitDecision.reasons.map(r => `${r.type}${r.detail ? `(${r.detail})` : ''}`).join(',');
         const sellItem = { ...pos, reason: `卖出紧迫度${exitDecision.urgency}: ${reasonText}`, urgency: exitDecision.urgency, reasons: exitDecision.reasons };
@@ -2642,10 +2953,13 @@ class PaperAccount {
       global.scanLoggerRef.log('卖出决策', { sold: sellDecisions });
     }
 
-    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
-    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
-    const availablePositions = dynamicMaxPositions - this.positions.size;
     const cooldownMinutes = this.config.buyCooldownMinutes || 60;
+    const profitableContinuationPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
+    const allowAddOnRecovery = portfolioDrawdown > 5 &&
+      this.positions.size > 0 &&
+      profitableContinuationPositions.length > 0 &&
+      this.positions.size < 2;
+    const allowGuardedRecovery = guardedRecoveryMode || allowAddOnRecovery;
 
     const sectorCount = new Map();
     for (const pos of this.positions.values()) {
@@ -2654,28 +2968,29 @@ class PaperAccount {
     }
 
     let buyCandidates = [];
-    if (availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode)) {
+    if (availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode || allowGuardedRecovery)) {
       buyCandidates = strategyPicks
         .filter(p => {
+          const selectedDayScore = p.selectedDayScore || getSelectedBucketDayScore(p);
           const allowedBuckets = new Set(['main', 'continuation']);
           if (p.strategy?.bucket && !allowedBuckets.has(p.strategy.bucket)) {
             buyDecisionLog.rejected.push({
               symbol: p.symbol,
               name: p.name,
               reason: `仅低吸主池/趋势延续池允许开仓，当前为${p.strategy?.bucketLabel || p.strategy.bucket}`,
-              dayScore: p.score || 0,
+              dayScore: selectedDayScore,
               historyScore: p.historyScore || 0,
             });
             return false;
           }
 
           if (marketRegime === 'UNKNOWN') {
-            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '市场状态未知，禁止开仓', dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '市场状态未知，禁止开仓', dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
             return false;
           }
 
           if (this.positions.has(p.symbol)) {
-            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '已持仓', dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '已持仓', dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
             return false;
           }
 
@@ -2684,7 +2999,7 @@ class PaperAccount {
             const minutesSinceSell = (currentTime - new Date(lastSellTs)) / (1000 * 60);
             if (minutesSinceSell < cooldownMinutes) {
               console.log(`[PAPER] ${p.symbol} ${p.name} 在冷却期内，跳过`);
-              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: `冷却期${minutesSinceSell.toFixed(0)}分钟`, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: `冷却期${minutesSinceSell.toFixed(0)}分钟`, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
             }
           }
@@ -2692,7 +3007,7 @@ class PaperAccount {
           const sector = p.sector || 'UNKNOWN';
           if ((sectorCount.get(sector) || 0) >= 2) {
             console.log(`[PAPER] ${p.symbol} ${p.name} 行业${sector}已有2只，跳过`);
-            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: `行业${sector}已有2只`, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: `行业${sector}已有2只`, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
             return false;
           }
 
@@ -2700,7 +3015,7 @@ class PaperAccount {
           p.tradeDecision = confidenceDecision;
           if (confidenceDecision.confidence === 'REJECT') {
             console.log(`[PAPER] ${p.symbol} ${p.name} 拒绝买入: ${confidenceDecision.reason}`);
-            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: confidenceDecision.reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: confidenceDecision.reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
             return false;
           }
           if (recoveryMode) {
@@ -2708,12 +3023,25 @@ class PaperAccount {
             const signalStrength = confidenceDecision.signalStrength || 0;
             if (confidenceDecision.confidence !== 'HIGH') {
               const reason = `回撤恢复模式仅允许HIGH开仓(${confidenceDecision.confidence},强度${signalStrength})`;
-              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
             }
             if (h.gain5d != null && h.gain5d > 6) {
               const reason = `回撤恢复模式拒绝短线过热(gain5d=${h.gain5d}%)`;
-              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: p.score || 0, historyScore: p.historyScore || 0 });
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
+              return false;
+            }
+          }
+          if (allowGuardedRecovery) {
+            if (p.strategy?.bucket !== 'continuation' || confidenceDecision.confidence !== 'HIGH') {
+              const reason = guardedRecoveryMode ? '防守恢复模式仅允许HIGH延续池' : '回撤加仓仅允许HIGH延续池';
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
+              return false;
+            }
+            const selectedCombinedScore = getEffectiveCombinedScore(p, this.runtimeStrategy);
+            if (selectedCombinedScore < 76) {
+              const reason = `防守恢复模式要求综合分≥76(当前${selectedCombinedScore.toFixed(2)})`;
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
             }
           }
@@ -2741,6 +3069,8 @@ class PaperAccount {
         }
         if (recoveryMode) {
           basePositionValue *= 0.35;
+        } else if (allowGuardedRecovery) {
+          basePositionValue *= 0.25;
         }
 
         if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
@@ -2755,13 +3085,14 @@ class PaperAccount {
 
         const maxBuyValue = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
         if (maxBuyValue <= 0) break;
+        const selectedDayScore = pick.selectedDayScore || getSelectedBucketDayScore(pick);
         const quantity = Math.floor(maxBuyValue / (pick.price * this.config.lotSize)) * this.config.lotSize;
         if (quantity < this.config.lotSize) {
           buyDecisionLog.rejected.push({
             symbol: pick.symbol,
             name: pick.name,
             reason: `建议仓位不足一手(可用${maxBuyValue.toFixed(0)}元)`,
-            dayScore: pick.score || 0,
+            dayScore: selectedDayScore,
             historyScore: pick.historyScore || 0,
           });
           continue;
@@ -2770,13 +3101,15 @@ class PaperAccount {
         const positionPct = (maxBuyValue / currentEquity * 100).toFixed(1);
         const buyReason = `置信度${confidence}(综合${combinedScore.toFixed(1)}分,${pick.tradeDecision.reason})`;
         console.log(`[PAPER] 买入: ${pick.symbol} ${pick.name} ${buyReason} 仓位${positionPct}% 市场${marketRegime}`);
-        buyDecisionLog.accepted.push({ symbol: pick.symbol, name: pick.name, confidence, reason: pick.tradeDecision.reason, positionValue: maxBuyValue, dayScore: pick.score || 0, historyScore: pick.historyScore || 0 });
+        buyDecisionLog.accepted.push({ symbol: pick.symbol, name: pick.name, confidence, reason: pick.tradeDecision.reason, positionValue: maxBuyValue, dayScore: selectedDayScore, historyScore: pick.historyScore || 0 });
         this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', quantity, buyReason, {
           confidence,
           entryScore: pick.score || 0,
+          entrySelectedDayScore: selectedDayScore,
           combinedScore,
           marketRegime,
           sector: pick.sector || 'UNKNOWN',
+          entryBucket: pick.strategy?.bucket || 'main',
           source: 'strategy'
         });
 
@@ -2794,7 +3127,7 @@ class PaperAccount {
       skippedReason = '持仓已满';
     } else if (this.cash <= this.config.minCashReserve) {
       skippedReason = '可用现金低于保留阈值';
-    } else if (portfolioDrawdown > 5 && !recoveryMode) {
+    } else if (portfolioDrawdown > 5 && !recoveryMode && !allowGuardedRecovery) {
       skippedReason = '组合回撤超过5%，暂停开仓';
     } else if (strategyPicks.length === 0) {
       skippedReason = '无主候选';

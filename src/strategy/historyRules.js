@@ -104,12 +104,12 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return (
       h.gain60d != null && h.gain60d >= 10 &&
       h.gain30d != null && h.gain30d >= 0 &&
-      h.gain10d != null && h.gain10d >= 0 &&
-      h.gain5d != null && h.gain5d >= 1 && h.gain5d <= 6.5 &&
-      h.distanceToHigh60d != null && h.distanceToHigh60d >= -22 && h.distanceToHigh60d <= 0 &&
-      h.deviationFromMA20 != null && h.deviationFromMA20 >= 0 && h.deviationFromMA20 <= 16 &&
-      h.rsi != null && h.rsi >= 45 && h.rsi <= 64 &&
-      h.macdHistogram != null && h.macdHistogram >= 0 &&
+      h.gain10d != null && h.gain10d >= -2 &&
+      h.gain5d != null && h.gain5d >= -2 && h.gain5d <= 14 &&
+      h.distanceToHigh60d != null && h.distanceToHigh60d >= -24 && h.distanceToHigh60d <= 2 &&
+      h.deviationFromMA20 != null && h.deviationFromMA20 >= -1 && h.deviationFromMA20 <= 18 &&
+      h.rsi != null && h.rsi >= 45 && h.rsi <= 72 &&
+      h.macdHistogram != null && (h.macdHistogram >= -0.12 || h.macdHistogramImproving === true) &&
       (item.turnover || 0) >= 500000000
     );
   })();

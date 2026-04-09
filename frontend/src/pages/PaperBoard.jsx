@@ -34,6 +34,13 @@ function StatCard({ title, value, subvalue, tone = 'neutral' }) {
   )
 }
 
+function bucketTone(bucket) {
+  if (bucket === 'continuation') return 'rise'
+  if (bucket === 'main') return 'sky'
+  if (bucket === 'observation') return 'warn'
+  return 'neutral'
+}
+
 export function PaperBoard() {
   const [portfolio, setPortfolio] = useState(null)
   const [state, setState] = useState(null)
@@ -105,15 +112,18 @@ export function PaperBoard() {
 
   const regimeColor = state?.marketRegime?.regime === 'BULL' ? 'rise' : state?.marketRegime?.regime === 'BEAR' ? 'fall' : 'neutral'
   const regimeText = state?.marketRegime?.regime === 'BULL' ? '牛市' : state?.marketRegime?.regime === 'BEAR' ? '熊市' : state?.marketRegime?.regime === 'NEUTRAL' ? '震荡' : '未知'
+  const tradeDecision = portfolio.latestTradeDiagnostics || state?.diagnostics?.tradeDecision || {}
 
   const positionsColumns = [
     { key: 'symbol', title: '代码' },
     { key: 'name', title: '名称' },
+    { key: 'bucket', title: '建仓/实时桶' },
     { key: 'currentPrice', title: '现价' },
     { key: 'entryPrice', title: '成本' },
     { key: 'value', title: '市值' },
     { key: 'pnlPct', title: '盈亏' },
     { key: 'holdDays', title: '持有' },
+    { key: 'exit', title: '退出诊断' },
     { key: 'confidence', title: '置信度' },
     { key: 'action', title: '操作' },
   ]
@@ -206,11 +216,30 @@ export function PaperBoard() {
                 <tr key={idx} className="hover:bg-slate-800/40">
                   <td className="px-4 py-3 text-blue-400">{pos.symbol}</td>
                   <td className="px-4 py-3 text-slate-200">{pos.name}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-col gap-1">
+                      <Badge tone={bucketTone(pos.entryBucket)}>{pos.entryBucket || 'main'}</Badge>
+                      <div className="text-xs text-slate-500">
+                        实时 {pos.liveBucketLabel || pos.liveBucket || '-'} / 日 {Number(pos.liveSelectedDayScore || pos.entrySelectedDayScore || 0).toFixed(1)}
+                      </div>
+                    </div>
+                  </td>
                   <td className="px-4 py-3 text-slate-200">{pos.currentPrice?.toFixed(3)}</td>
                   <td className="px-4 py-3 text-slate-400">{pos.entryPrice?.toFixed(3)}</td>
                   <td className="px-4 py-3 text-slate-200">{formatMoney(pos.value)}</td>
                   <td className={`px-4 py-3 font-medium ${pos.pnlPct >= 0 ? 'text-rise' : 'text-fall'}`}>{formatPct(pos.pnlPct)}</td>
                   <td className="px-4 py-3 text-slate-400">{pos.holdDays || 0}天</td>
+                  <td className="px-4 py-3">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Badge tone={pos.exitShouldExit ? 'warn' : Number(pos.exitUrgency || 0) >= 70 ? 'sky' : 'neutral'}>
+                          紧迫度 {pos.exitUrgency || 0}
+                        </Badge>
+                        {pos.lastEvaluatedAt ? <span className="text-xs text-slate-500">{pos.lastEvaluatedAt}</span> : null}
+                      </div>
+                      <div className="max-w-[240px] text-xs leading-5 text-slate-400">{pos.exitSummary || '暂无诊断'}</div>
+                    </div>
+                  </td>
                   <td className="px-4 py-3"><Badge tone={pos.confidence === 'HIGH' ? 'rise' : pos.confidence === 'LOW' ? 'warn' : 'neutral'}>{pos.confidence || 'UNKNOWN'}</Badge></td>
                   <td className="px-4 py-3">
                     <button
@@ -224,6 +253,69 @@ export function PaperBoard() {
                 </tr>
               )}
             />
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <Card title="本轮不开仓原因" subtitle={tradeDecision.skippedReason || '最近一轮交易层摘要'}>
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="rounded-xl bg-slate-800/60 p-4">
+                  <div className="text-sm text-slate-400">主候选</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.strategyCandidateCount || 0}</div>
+                </div>
+                <div className="rounded-xl bg-slate-800/60 p-4">
+                  <div className="text-sm text-slate-400">买入筛后</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.buyCandidateCount || 0}</div>
+                </div>
+                <div className="rounded-xl bg-slate-800/60 p-4">
+                  <div className="text-sm text-slate-400">通过</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.acceptedCount || 0}</div>
+                </div>
+                <div className="rounded-xl bg-slate-800/60 p-4">
+                  <div className="text-sm text-slate-400">拒绝</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.rejectedCount || 0}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {(tradeDecision.rejectSummary || []).map(item => (
+                  <Badge key={`${item.key}-${item.count}`} tone="warn">{item.label} {item.count}只</Badge>
+                ))}
+                {(!tradeDecision.rejectSummary || tradeDecision.rejectSummary.length === 0) ? <span className="text-sm text-slate-400">最近没有明显拒绝项</span> : null}
+              </div>
+              <div className="space-y-2">
+                {(tradeDecision.rejected || []).slice(0, 6).map(item => (
+                  <div key={`${item.symbol}-${item.reason}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                      <Badge tone="warn">{item.rejectCategory || '被拒'}</Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-slate-500">日 {item.dayScore || 0} 分 · 历史 {item.historyScore || 0} 分</div>
+                    <div className="mt-2 text-sm text-slate-300">{item.reason}</div>
+                  </div>
+                ))}
+                {(!tradeDecision.rejected || tradeDecision.rejected.length === 0) ? <div className="text-sm text-slate-400">最近一轮没有候选被交易层拒绝</div> : null}
+              </div>
+            </div>
+          </Card>
+
+          <Card title="实时候选快照" subtitle="直接对照当前主候选和持仓，避免误判为系统没票。">
+            <div className="space-y-2">
+              {(state?.strategyPicks || []).slice(0, 6).map(item => (
+                <div key={`paper-pick-${item.symbol}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        桶 {item.strategy?.bucketLabel || item.strategy?.bucket || '-'} · 日 {Number(item.selectedDayScore ?? item.score ?? 0).toFixed(1)} · 历史 {Number(item.historyScore || 0).toFixed(1)} · 综合 {Number(item.combinedScore || 0).toFixed(1)}
+                      </div>
+                    </div>
+                    <Badge tone={bucketTone(item.strategy?.bucket)}>{item.strategy?.bucket || '-'}</Badge>
+                  </div>
+                </div>
+              ))}
+              {(!state?.strategyPicks || state.strategyPicks.length === 0) ? <div className="text-sm text-slate-400">当前没有主候选</div> : null}
+            </div>
           </Card>
         </div>
 
