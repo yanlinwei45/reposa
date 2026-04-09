@@ -24,21 +24,21 @@
         "marketRegime": "BULL",
         "sector": "风电设备",
         "entryBucket": "continuation",
-        "liveBucket": "rejected",
-        "liveBucketLabel": "未达标",
-        "liveSelectedDayScore": 45,
-        "liveCombinedScore": 15.88,
+        "liveBucket": "continuation",
+        "liveBucketLabel": "趋势延续池",
+        "liveSelectedDayScore": 90,
+        "liveCombinedScore": 82.24,
         "exitUrgency": 0,
         "exitShouldExit": false,
         "exitReasons": [
           {
-            "type": "T+1限制",
+            "type": "非交易时间",
             "weight": 0,
-            "detail": "当日买入不可卖出"
+            "detail": "仅更新信号快照"
           }
         ],
-        "exitSummary": "T+1限制(当日买入不可卖出)",
-        "lastEvaluatedAt": "2026-04-09 15:00:51",
+        "exitSummary": "非交易时间(仅更新信号快照)",
+        "lastEvaluatedAt": "2026-04-09 15:52:22",
         "source": "strategy"
       }
     ]
@@ -1202,7 +1202,7 @@
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-09 15:21:11",
+    "ts": "2026-04-09 15:52:22",
     "marketRegime": "BULL",
     "marketOpen": false,
     "portfolioDrawdown": 7.33,
@@ -1219,5 +1219,5 @@
     "accepted": [],
     "rejected": []
   },
-  "savedAt": "2026-04-09T07:21:57.108Z"
+  "savedAt": "2026-04-09T07:53:06.144Z"
 }
