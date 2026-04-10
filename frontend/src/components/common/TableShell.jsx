@@ -1,12 +1,14 @@
-export function TableShell({ columns, rows, renderRow, emptyText = '暂无数据' }) {
+export function TableShell({ columns, rows, renderRow, emptyText = '暂无数据', tableClassName = '' }) {
+  const classes = ['w-full min-w-full divide-y divide-slate-800 text-sm', tableClassName].filter(Boolean).join(' ')
+
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-800">
-      <div className="overflow-x-auto">
-        <table className="min-w-full divide-y divide-slate-800 text-sm">
+    <div className="w-full overflow-hidden rounded-2xl border border-slate-800">
+      <div className="w-full overflow-x-auto">
+        <table className={classes}>
           <thead className="bg-slate-950/80">
             <tr>
               {columns.map(col => (
-                <th key={col.key} className="px-4 py-3 text-left font-medium text-slate-400">
+                <th key={col.key} className="whitespace-nowrap px-4 py-3 text-left font-medium text-slate-400">
                   {col.title}
                 </th>
               ))}

@@ -127,7 +127,36 @@ function loadConfig() {
       maxDrawdown: runtimeContinuation.maxTradeableMaxDrawdown ?? currentContinuationBand.maxDrawdown,
       maxDeviationFromMA20: runtimeContinuation.maxTradeableDeviationFromMA20 ?? currentContinuationBand.maxDeviationFromMA20,
       maxVolumeRatio: runtimeContinuation.maxTradeableVolumeRatio ?? currentContinuationBand.maxVolumeRatio,
+      maxGain10d: runtimeContinuation.maxTradeableGain10d ?? currentContinuationBand.maxGain10d,
+      maxGain5d: runtimeContinuation.maxTradeableGain5d ?? currentContinuationBand.maxGain5d,
+      maxVolatility: runtimeContinuation.maxTradeableVolatility ?? currentContinuationBand.maxVolatility,
       minSignalStrength: currentContinuationBand.minSignalStrength ?? 4,
+      requireNotObservationBias: currentContinuationBand.requireNotObservationBias ?? true,
+      enableSecondaryPromotion: runtimeContinuation.enableSecondaryPromotion ?? currentContinuationBand.enableSecondaryPromotion ?? true,
+      secondaryAllowedRejectedChecks: runtimeContinuation.secondaryAllowedRejectedChecks ?? currentContinuationBand.secondaryAllowedRejectedChecks ?? ['observationBias', 'gain10dTradeable', 'volatilityTradeable', 'maxDrawdown'],
+      secondaryMaxRejectedChecks: runtimeContinuation.secondaryMaxRejectedChecks ?? currentContinuationBand.secondaryMaxRejectedChecks ?? 3,
+      secondaryMinDayScore: runtimeContinuation.secondaryMinDayScore ?? currentContinuationBand.secondaryMinDayScore,
+      secondaryMinHistoryScore: runtimeContinuation.secondaryMinHistoryScore ?? currentContinuationBand.secondaryMinHistoryScore,
+      secondaryMinCombinedScore: runtimeContinuation.secondaryMinCombinedScore ?? currentContinuationBand.secondaryMinCombinedScore,
+      secondaryMinChangePercent: runtimeContinuation.secondaryMinChangePercent ?? currentContinuationBand.secondaryMinChangePercent,
+      secondaryMaxChangePercent: runtimeContinuation.secondaryMaxChangePercent ?? currentContinuationBand.secondaryMaxChangePercent,
+      secondaryMinVolumeRatio: runtimeContinuation.secondaryMinVolumeRatio ?? currentContinuationBand.secondaryMinVolumeRatio,
+      secondaryMaxVolumeRatio: runtimeContinuation.secondaryMaxVolumeRatio ?? currentContinuationBand.secondaryMaxVolumeRatio,
+      secondaryMinGain5d: runtimeContinuation.secondaryMinGain5d ?? currentContinuationBand.secondaryMinGain5d,
+      secondaryMaxGain5d: runtimeContinuation.secondaryMaxGain5d ?? currentContinuationBand.secondaryMaxGain5d,
+      secondaryMinGain10d: runtimeContinuation.secondaryMinGain10d ?? currentContinuationBand.secondaryMinGain10d,
+      secondaryMaxGain10d: runtimeContinuation.secondaryMaxGain10d ?? currentContinuationBand.secondaryMaxGain10d,
+      secondaryMinDistanceToHigh60d: runtimeContinuation.secondaryMinDistanceToHigh60d ?? currentContinuationBand.secondaryMinDistanceToHigh60d,
+      secondaryMaxDistanceToHigh60d: runtimeContinuation.secondaryMaxDistanceToHigh60d ?? currentContinuationBand.secondaryMaxDistanceToHigh60d,
+      secondaryMaxDeviationFromMA20: runtimeContinuation.secondaryMaxDeviationFromMA20 ?? currentContinuationBand.secondaryMaxDeviationFromMA20,
+      secondaryMinRsi: runtimeContinuation.secondaryMinRsi ?? currentContinuationBand.secondaryMinRsi,
+      secondaryMaxRsi: runtimeContinuation.secondaryMaxRsi ?? currentContinuationBand.secondaryMaxRsi,
+      secondaryMaxVolatility: runtimeContinuation.secondaryMaxVolatility ?? currentContinuationBand.secondaryMaxVolatility,
+      secondaryMaxMaxDrawdown: runtimeContinuation.secondaryMaxMaxDrawdown ?? currentContinuationBand.secondaryMaxMaxDrawdown,
+      secondaryMaxIntradayReturnPct: runtimeContinuation.secondaryMaxIntradayReturnPct ?? currentContinuationBand.secondaryMaxIntradayReturnPct,
+      secondaryMaxRecent10LimitUps: runtimeContinuation.secondaryMaxRecent10LimitUps ?? currentContinuationBand.secondaryMaxRecent10LimitUps,
+      secondaryRequireNotObservationBias: runtimeContinuation.secondaryRequireNotObservationBias ?? currentContinuationBand.secondaryRequireNotObservationBias,
+      secondaryRequireMacdSupport: runtimeContinuation.secondaryRequireMacdSupport ?? currentContinuationBand.secondaryRequireMacdSupport,
     }
   };
   config.runtimeStrategy = runtimeStrategyConfig;
@@ -176,6 +205,30 @@ function isProfitProtectedPosition(pos = {}) {
     liveBucket === 'continuation' &&
     selectedDayScore >= 84 &&
     exitUrgency < 60;
+}
+
+function isRecoveryAnchorPosition(pos = {}) {
+  const entryBucket = pos.entryBucket || 'main';
+  const liveBucket = pos.liveBucket || entryBucket;
+  const selectedDayScore = Number(pos.liveSelectedDayScore || pos.entrySelectedDayScore || pos.entryScore || 0);
+  const combinedScore = Number(pos.liveCombinedScore || pos.combinedScore || pos.entryScore || 0);
+  const pnlPct = Number(pos.pnlPct || 0);
+  const exitUrgency = Number(pos.exitUrgency || 0);
+  return (pos.confidence || 'UNKNOWN') === 'HIGH' &&
+    entryBucket === 'continuation' &&
+    liveBucket === 'continuation' &&
+    selectedDayScore >= 90 &&
+    combinedScore >= 82 &&
+    pnlPct >= -0.35 &&
+    exitUrgency < 45;
+}
+
+function ensureContinuationExitGuard(pos = {}) {
+  pos.continuationFailureStreak = Number(pos.continuationFailureStreak || 0);
+  pos.continuationRecoveryStreak = Number(pos.continuationRecoveryStreak || 0);
+  pos.continuationLastFailureAt = pos.continuationLastFailureAt || null;
+  pos.continuationLastRecoveryAt = pos.continuationLastRecoveryAt || null;
+  return pos;
 }
 
 function parseAmountText(text) {
@@ -379,6 +432,16 @@ const BUCKET_CHECK_LABELS = {
   historyScore: '历史分不足',
   combinedScore: '综合分不足',
   maxDrawdown: '回撤过深',
+  observationBias: '更像转强不是低吸',
+  gain10dTradeable: '10日过热',
+  gain5dTradeable: '5日过热',
+  volatilityTradeable: '波动过大',
+  rejectedChecks: '降级原因不在白名单',
+  dayScore: '日内分不足',
+  changePercent: '当日涨幅不符',
+  intradayReturn: '盘中涨幅过大',
+  recent10LimitUps: '近10日连板过热',
+  macdSupport: 'MACD承接不足',
 };
 
 const TRADE_REJECT_LABELS = {
@@ -452,6 +515,9 @@ function buildBucketDiagnostics(classified = {}) {
       failedPullback: getFailedChecks(item.strategy?.pullbackChecks).slice(0, 3),
       failedObservation: getFailedChecks(item.strategy?.observationChecks).slice(0, 3),
       failedContinuation: getFailedChecks(item.strategy?.continuationChecks).slice(0, 3),
+      continuationRejectedChecks: (item.strategy?.selectedReason?.continuationRejectedChecks || []).slice(0, 3),
+      continuationSecondary: !!item.strategy?.selectedReason?.continuationSecondary,
+      continuationSecondaryRejectedChecks: getFailedChecks(item.strategy?.selectedReason?.continuationSecondaryChecks).slice(0, 3),
     });
   }
 
@@ -1895,6 +1961,7 @@ class PaperAccount {
         this.statistics = data.statistics || this.statistics;
         this.peakEquity = data.peakEquity || this.getTotalEquity();
         for (const [, pos] of this.positions.entries()) {
+          ensureContinuationExitGuard(pos);
           if (!pos.source) {
             pos.source = 'strategy';
           }
@@ -1950,6 +2017,35 @@ class PaperAccount {
         maxGain60d: continuationBand.maxGain60d ?? 80,
         maxDrawdown: continuationBand.maxDrawdown ?? 22,
         maxDeviationFromMA20: continuationBand.maxDeviationFromMA20 ?? 14,
+        requireNotObservationBias: continuationBand.requireNotObservationBias ?? true,
+        maxGain10d: continuationBand.maxGain10d ?? 15,
+        maxGain5d: continuationBand.maxGain5d ?? 8,
+        maxVolatility: continuationBand.maxVolatility ?? 18,
+        enableSecondaryPromotion: continuationBand.enableSecondaryPromotion ?? true,
+        secondaryAllowedRejectedChecks: continuationBand.secondaryAllowedRejectedChecks ?? ['observationBias', 'gain10dTradeable', 'volatilityTradeable', 'maxDrawdown'],
+        secondaryMaxRejectedChecks: continuationBand.secondaryMaxRejectedChecks ?? 3,
+        secondaryMinDayScore: continuationBand.secondaryMinDayScore ?? 96,
+        secondaryMinHistoryScore: continuationBand.secondaryMinHistoryScore ?? 64,
+        secondaryMinCombinedScore: continuationBand.secondaryMinCombinedScore ?? 76,
+        secondaryMinChangePercent: continuationBand.secondaryMinChangePercent ?? 0.8,
+        secondaryMaxChangePercent: continuationBand.secondaryMaxChangePercent ?? 2.4,
+        secondaryMinVolumeRatio: continuationBand.secondaryMinVolumeRatio ?? 0.85,
+        secondaryMaxVolumeRatio: continuationBand.secondaryMaxVolumeRatio ?? 1.6,
+        secondaryMinGain5d: continuationBand.secondaryMinGain5d ?? -2.5,
+        secondaryMaxGain5d: continuationBand.secondaryMaxGain5d ?? 4.5,
+        secondaryMinGain10d: continuationBand.secondaryMinGain10d ?? 6,
+        secondaryMaxGain10d: continuationBand.secondaryMaxGain10d ?? 19.5,
+        secondaryMinDistanceToHigh60d: continuationBand.secondaryMinDistanceToHigh60d ?? -14,
+        secondaryMaxDistanceToHigh60d: continuationBand.secondaryMaxDistanceToHigh60d ?? -4,
+        secondaryMaxDeviationFromMA20: continuationBand.secondaryMaxDeviationFromMA20 ?? 12,
+        secondaryMinRsi: continuationBand.secondaryMinRsi ?? 50,
+        secondaryMaxRsi: continuationBand.secondaryMaxRsi ?? 61,
+        secondaryMaxVolatility: continuationBand.secondaryMaxVolatility ?? 24,
+        secondaryMaxMaxDrawdown: continuationBand.secondaryMaxMaxDrawdown ?? 27,
+        secondaryMaxIntradayReturnPct: continuationBand.secondaryMaxIntradayReturnPct ?? 2.4,
+        secondaryMaxRecent10LimitUps: continuationBand.secondaryMaxRecent10LimitUps ?? 0,
+        secondaryRequireNotObservationBias: continuationBand.secondaryRequireNotObservationBias ?? true,
+        secondaryRequireMacdSupport: continuationBand.secondaryRequireMacdSupport ?? true,
       },
       tradeWindows: {
         mediumConfidenceCutoffMinutes: tradeWindows.mediumConfidenceCutoffMinutes ?? (13 * 60 + 30),
@@ -1957,6 +2053,9 @@ class PaperAccount {
         preferredEntryStartMinutes: tradeWindows.preferredEntryStartMinutes ?? (9 * 60 + 35),
         preferredEntryEndMinutes: tradeWindows.preferredEntryEndMinutes ?? (10 * 60 + 45),
         allowAfternoonEntries: tradeWindows.allowAfternoonEntries ?? false,
+        allowAfternoonContinuationEntries: tradeWindows.allowAfternoonContinuationEntries ?? true,
+        continuationAfternoonCutoffMinutes: tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30),
+        secondaryContinuationAfternoonCutoffMinutes: tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? (14 * 60 + 45),
       },
       mainEntryGuard: {
         enabled: adaptive.mainEntryGuard?.enabled !== false,
@@ -2292,6 +2391,7 @@ class PaperAccount {
     const selectedDayScore = getSelectedBucketDayScore(pick);
     const bands = adaptive.confidenceBands;
     const continuationBand = adaptive.continuationBand || {};
+    const isSecondaryContinuation = pick.strategy?.selectedReason?.continuationSecondary === true;
     const mainEntryGuard = adaptive.mainEntryGuard || {};
     const currentTime = options.currentTime || new Date();
     const h = pick.history || {};
@@ -2319,22 +2419,82 @@ class PaperAccount {
 
     if (pick.strategy?.bucket === 'continuation') {
       const effectiveCombinedScore = getEffectiveCombinedScore(pick, this.runtimeStrategy);
-      const continuationMaxVolumeRatio = continuationBand.maxVolumeRatio ?? 4.8;
+      const continuationMaxVolumeRatio = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxVolumeRatio ?? 1.6, continuationBand.maxVolumeRatio ?? 4.8)
+        : (continuationBand.maxVolumeRatio ?? 4.8);
       const continuationMaxGain60d = continuationBand.maxGain60d ?? 80;
-      const continuationMaxDrawdown = continuationBand.maxDrawdown ?? 22;
-      const continuationMaxDeviationFromMA20 = continuationBand.maxDeviationFromMA20 ?? 14;
+      const continuationMaxDrawdown = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxMaxDrawdown ?? 27, Math.max(continuationBand.maxDrawdown ?? 22, continuationBand.secondaryMaxMaxDrawdown ?? 27))
+        : (continuationBand.maxDrawdown ?? 22);
+      const continuationMaxDeviationFromMA20 = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxDeviationFromMA20 ?? 12, continuationBand.maxDeviationFromMA20 ?? 14)
+        : (continuationBand.maxDeviationFromMA20 ?? 14);
+      const continuationMinDayScore = isSecondaryContinuation
+        ? Math.max(continuationBand.minDayScore ?? 82, continuationBand.secondaryMinDayScore ?? 96)
+        : (continuationBand.minDayScore ?? 82);
+      const continuationMinHistoryScore = isSecondaryContinuation
+        ? Math.max(continuationBand.minHistoryScore ?? 60, continuationBand.secondaryMinHistoryScore ?? 64)
+        : (continuationBand.minHistoryScore ?? 60);
+      const continuationMinCombinedScore = isSecondaryContinuation
+        ? Math.max(continuationBand.minCombinedScore ?? 58, continuationBand.secondaryMinCombinedScore ?? 76)
+        : (continuationBand.minCombinedScore ?? 58);
+      const continuationMinSignalStrength = isSecondaryContinuation
+        ? Math.max(continuationBand.minSignalStrength ?? 4, 5)
+        : (continuationBand.minSignalStrength ?? 4);
+      const continuationMaxGain5d = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxGain5d ?? 4.5, continuationBand.maxGain5d ?? 8)
+        : (continuationBand.maxGain5d ?? 8);
+      const continuationMaxGain10d = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxGain10d ?? 19.5, Math.max(continuationBand.maxGain10d ?? 15, continuationBand.secondaryMaxGain10d ?? 19.5))
+        : (continuationBand.maxGain10d ?? 15);
+      const continuationMinGain10d = isSecondaryContinuation
+        ? Math.max(continuationBand.secondaryMinGain10d ?? 6, 0)
+        : 0;
+      const continuationMinDistanceToHigh60d = isSecondaryContinuation
+        ? Math.max(continuationBand.secondaryMinDistanceToHigh60d ?? -14, -24)
+        : -24;
+      const continuationMaxDistanceToHigh60d = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxDistanceToHigh60d ?? -4, 2)
+        : 2;
+      const continuationMinRsi = isSecondaryContinuation
+        ? Math.max(continuationBand.secondaryMinRsi ?? 50, 45)
+        : 45;
+      const continuationMaxRsi = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxRsi ?? 61, 72)
+        : 72;
+      const continuationMinChangePercent = isSecondaryContinuation
+        ? Math.max(continuationBand.secondaryMinChangePercent ?? 0.8, 0.5)
+        : 0.5;
+      const continuationMaxChangePercent = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxChangePercent ?? 2.4, 7.2)
+        : 7.2;
+      const continuationMaxIntradayReturnPct = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxIntradayReturnPct ?? 2.4, 3)
+        : 8.5;
+      const continuationMaxVolatility = isSecondaryContinuation
+        ? Math.min(continuationBand.secondaryMaxVolatility ?? 24, Math.max(continuationBand.maxVolatility ?? 18, continuationBand.secondaryMaxVolatility ?? 24))
+        : (continuationBand.maxVolatility ?? 18);
+      const continuationRequireNotObservationBias = isSecondaryContinuation
+        ? (continuationBand.secondaryRequireNotObservationBias ?? true)
+        : (continuationBand.requireNotObservationBias ?? true);
       const continuationChecks = {
-        dayScore: selectedDayScore >= (continuationBand.minDayScore ?? 82),
-        historyScore: historyScore >= (continuationBand.minHistoryScore ?? 60),
-        combinedScore: effectiveCombinedScore >= (continuationBand.minCombinedScore ?? 58),
-        signalStrength: signalStrength.length >= (continuationBand.minSignalStrength ?? 4),
+        dayScore: selectedDayScore >= continuationMinDayScore,
+        historyScore: historyScore >= continuationMinHistoryScore,
+        combinedScore: effectiveCombinedScore >= continuationMinCombinedScore,
+        signalStrength: signalStrength.length >= continuationMinSignalStrength,
         volumeRatio: volumeRatio <= continuationMaxVolumeRatio,
-        gain5d: h.gain5d != null && h.gain5d >= -2 && h.gain5d <= 12,
-        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= -24 && h.distanceToHigh60d <= 2,
+        gain5d: h.gain5d != null && h.gain5d >= -2 && h.gain5d <= continuationMaxGain5d,
+        gain10d: h.gain10d != null && h.gain10d >= continuationMinGain10d && h.gain10d <= continuationMaxGain10d,
+        changePercent: pick.changePercent != null && pick.changePercent >= continuationMinChangePercent && pick.changePercent <= continuationMaxChangePercent,
+        intradayReturn: pick.intradayReturnPct == null || pick.intradayReturnPct <= continuationMaxIntradayReturnPct,
+        distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= continuationMinDistanceToHigh60d && h.distanceToHigh60d <= continuationMaxDistanceToHigh60d,
         macdHistogram: h.macdHistogram != null && (h.macdHistogram >= -0.12 || h.macdHistogramImproving === true),
+        rsi: h.rsi != null && h.rsi >= continuationMinRsi && h.rsi <= continuationMaxRsi,
         gain60d: h.gain60d == null || h.gain60d <= continuationMaxGain60d,
         maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= continuationMaxDrawdown,
         deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= continuationMaxDeviationFromMA20,
+        volatility: h.volatility == null || h.volatility <= continuationMaxVolatility,
+        observationBias: continuationRequireNotObservationBias ? !pick.strategy?.observationBias : true,
       };
       const failedContinuationChecks = Object.entries(continuationChecks)
         .filter(([, passed]) => !passed)
@@ -2342,29 +2502,56 @@ class PaperAccount {
       if (failedContinuationChecks.length > 0) {
         const detailedChecks = formatFailedChecks(failedContinuationChecks, {
           volumeRatio: { value: volumeRatio, threshold: continuationMaxVolumeRatio, op: '>' },
+          gain5d: { value: h.gain5d, threshold: continuationMaxGain5d, op: '>' },
+          gain10d: {
+            value: h.gain10d,
+            threshold: h.gain10d != null && h.gain10d < continuationMinGain10d ? continuationMinGain10d : continuationMaxGain10d,
+            op: h.gain10d != null && h.gain10d < continuationMinGain10d ? '<' : '>',
+          },
+          changePercent: { value: pick.changePercent, threshold: continuationMaxChangePercent, op: '>' },
+          intradayReturn: { value: pick.intradayReturnPct, threshold: continuationMaxIntradayReturnPct, op: '>' },
+          distanceToHigh60d: {
+            value: h.distanceToHigh60d,
+            threshold: h.distanceToHigh60d != null && h.distanceToHigh60d < continuationMinDistanceToHigh60d ? continuationMinDistanceToHigh60d : continuationMaxDistanceToHigh60d,
+            op: h.distanceToHigh60d != null && h.distanceToHigh60d < continuationMinDistanceToHigh60d ? '<' : '>',
+          },
+          rsi: {
+            value: h.rsi,
+            threshold: h.rsi != null && h.rsi < continuationMinRsi ? continuationMinRsi : continuationMaxRsi,
+            op: h.rsi != null && h.rsi < continuationMinRsi ? '<' : '>',
+          },
           gain60d: { value: h.gain60d, threshold: continuationMaxGain60d, op: '>' },
           maxDrawdown: { value: h.maxDrawdown, threshold: continuationMaxDrawdown, op: '>' },
           deviationFromMA20: { value: h.deviationFromMA20, threshold: continuationMaxDeviationFromMA20, op: '>' },
-          signalStrength: { value: signalStrength.length, threshold: continuationBand.minSignalStrength ?? 4, op: '<' },
-          dayScore: { value: selectedDayScore, threshold: continuationBand.minDayScore ?? 82, op: '<' },
-          historyScore: { value: historyScore, threshold: continuationBand.minHistoryScore ?? 60, op: '<' },
-          combinedScore: { value: effectiveCombinedScore, threshold: continuationBand.minCombinedScore ?? 58, op: '<' },
+          volatility: { value: h.volatility, threshold: continuationMaxVolatility, op: '>' },
+          signalStrength: { value: signalStrength.length, threshold: continuationMinSignalStrength, op: '<' },
+          dayScore: { value: selectedDayScore, threshold: continuationMinDayScore, op: '<' },
+          historyScore: { value: historyScore, threshold: continuationMinHistoryScore, op: '<' },
+          combinedScore: { value: effectiveCombinedScore, threshold: continuationMinCombinedScore, op: '<' },
         }, {
           volumeRatio: '量比',
+          gain5d: '5日强弱',
+          gain10d: '10日趋势',
+          changePercent: '当日涨幅',
+          intradayReturn: '盘中涨幅',
+          distanceToHigh60d: '距高点位置',
+          rsi: 'RSI',
           gain60d: '60日涨幅',
           maxDrawdown: '历史回撤',
           deviationFromMA20: '偏离MA20',
+          volatility: '波动率',
           signalStrength: '信号强度',
           dayScore: '延续日分',
           historyScore: '历史分',
           combinedScore: '综合分',
+          observationBias: '转强味太重',
         });
         return { confidence: 'REJECT', reason: `趋势延续确认不足(${detailedChecks.join('/')})` };
       }
       baseConfidence = 'HIGH';
-      baseReason.push(`延续日分${selectedDayScore}分≥${continuationBand.minDayScore ?? 82}`);
-      baseReason.push(`历史${historyScore}分≥${continuationBand.minHistoryScore ?? 60}`);
-      baseReason.push(`综合${effectiveCombinedScore}分≥${continuationBand.minCombinedScore ?? 58}`);
+      baseReason.push(`${isSecondaryContinuation ? '二阶延续' : '延续'}日分${selectedDayScore}分≥${continuationMinDayScore}`);
+      baseReason.push(`历史${historyScore}分≥${continuationMinHistoryScore}`);
+      baseReason.push(`综合${effectiveCombinedScore}分≥${continuationMinCombinedScore}`);
       combinedScore = effectiveCombinedScore;
     } else if (combinedScore >= bands.high.minScore && historyScore >= bands.high.minHistoryScore) {
       baseConfidence = 'HIGH';
@@ -2415,8 +2602,27 @@ class PaperAccount {
         nowMinutes < adaptive.tradeWindows.preferredEntryStartMinutes ||
         nowMinutes > preferredEndMinutes;
       const inAfternoonWindow = nowMinutes >= (13 * 60) && nowMinutes <= (15 * 60);
+      const allowAfternoonContinuationEntry = (
+        inAfternoonWindow &&
+        pick.strategy?.bucket === 'continuation' &&
+        adaptive.tradeWindows.allowAfternoonContinuationEntries !== false &&
+        baseConfidence === 'HIGH' &&
+        signalStrength.length >= (isSecondaryContinuation ? 5 : 4) &&
+        (pick.intradayReturnPct == null || pick.intradayReturnPct <= (isSecondaryContinuation ? 1.8 : 1.5)) &&
+        volumeRatio >= 0.9 &&
+        volumeRatio <= (isSecondaryContinuation ? 1.6 : 1.45) &&
+        h.gain5d != null &&
+        h.gain5d >= -1.5 &&
+        h.gain5d <= (isSecondaryContinuation ? 4.2 : 3.2) &&
+        h.rsi != null &&
+        h.rsi >= 48 &&
+        h.rsi <= 60 &&
+        nowMinutes <= (isSecondaryContinuation
+          ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
+          : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30)))
+      );
 
-      if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow) {
+      if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow && !allowAfternoonContinuationEntry) {
         return {
           confidence: 'REJECT',
           reason: `策略仅允许上午窗口开仓(${adaptive.tradeWindows.preferredEntryStartMinutes}-${preferredEndMinutes})`,
@@ -2544,13 +2750,30 @@ class PaperAccount {
         return { confidence: 'REJECT', reason: `中分段确认不足(${failedMediumChecks.join('/')})` };
       }
     }
-    if (baseConfidence === 'MEDIUM' && isMarketOpen(currentTime) && isLateAfternoonSession(currentTime, adaptive.tradeWindows.mediumConfidenceCutoffMinutes)) {
+    if (
+      baseConfidence === 'MEDIUM' &&
+      isMarketOpen(currentTime) &&
+      isLateAfternoonSession(currentTime, adaptive.tradeWindows.mediumConfidenceCutoffMinutes)
+    ) {
       return {
         confidence: 'REJECT',
         reason: `午后${adaptive.tradeWindows.mediumConfidenceCutoffMinutes}分钟后禁止中置信度开仓`,
       };
     }
-    if (isMarketOpen(currentTime) && isLateAfternoonSession(currentTime, adaptive.tradeWindows.latestEntryCutoffMinutes)) {
+    if (
+      isMarketOpen(currentTime) &&
+      isLateAfternoonSession(currentTime, adaptive.tradeWindows.latestEntryCutoffMinutes) &&
+      !(
+        pick.strategy?.bucket === 'continuation' &&
+        adaptive.tradeWindows.allowAfternoonContinuationEntries !== false &&
+        baseConfidence === 'HIGH' &&
+        (
+          nowMinutes <= (isSecondaryContinuation
+            ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
+            : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30)))
+        )
+      )
+    ) {
       return {
         confidence: 'REJECT',
         reason: `午后${adaptive.tradeWindows.latestEntryCutoffMinutes}分钟后停止新开仓`,
@@ -2595,12 +2818,16 @@ class PaperAccount {
       }
     }
     if (adaptive.entryQuality?.enabled) {
-      const entryQualityCfg = pick.strategy?.bucket === 'continuation'
+      const continuationEntryQuality = pick.strategy?.bucket === 'continuation';
+      const isAfternoonSession = nowMinutes >= (13 * 60);
+      const entryQualityCfg = continuationEntryQuality
         ? {
             ...adaptive.entryQuality,
             maxIntradayReturnPct: Math.max(adaptive.entryQuality.maxIntradayReturnPct ?? 4.5, 8.5),
             maxVolumeRatio: Math.max(adaptive.entryQuality.maxVolumeRatio ?? 1.6, 4.8),
-            maxPullbackFromHighPct: Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, 2.2),
+            maxPullbackFromHighPct: isAfternoonSession
+              ? Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, isSecondaryContinuation ? 2.8 : 2.5)
+              : Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, 2.2),
             maxOpenDrawdownPct: Math.max(adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8, 2.6),
           }
         : adaptive.entryQuality;
@@ -2635,6 +2862,7 @@ class PaperAccount {
       return { urgency: 0, reasons: [] };
     }
 
+    ensureContinuationExitGuard(pos);
     const weights = adaptive.exitUrgencyWeights;
     let totalUrgency = 0;
     const reasons = [];
@@ -2664,10 +2892,44 @@ class PaperAccount {
     if (pick) {
       const h = pick.history || {};
       const liveBucket = pick.strategy?.bucket || entryBucket;
+      let continuationBucketFailure = false;
+      let continuationBucketFailureWeight = 0;
 
-      if (isContinuationPosition && liveBucket !== 'continuation') {
-        totalUrgency += 75;
-        reasons.push({ type: '强势失效', weight: 75, detail: `由${entryBucket}降为${liveBucket}` });
+      if (isContinuationPosition) {
+        const prevClose = Number(pick.prevClose || 0);
+        const weakVsOpenNow = pick.open ? pos.currentPrice < pick.open * 0.997 : false;
+        const weakVsPrevCloseNow = prevClose > 0 ? pos.currentPrice < prevClose * 0.998 : false;
+        const negativePnl = (pos.pnlPct || 0) < 0;
+        if (liveBucket !== 'continuation') {
+          pos.continuationFailureStreak += 1;
+          pos.continuationRecoveryStreak = 0;
+          pos.continuationLastFailureAt = new Date().toISOString();
+          const failWeaknessCount = [weakVsOpenNow, weakVsPrevCloseNow, negativePnl].filter(Boolean).length;
+          const hasPriceWeakness = failWeaknessCount >= 2;
+          if (pos.continuationFailureStreak >= 2) {
+            continuationBucketFailureWeight = hasPriceWeakness ? 85 : 55;
+          } else if (hasPriceWeakness) {
+            continuationBucketFailureWeight = 45;
+          } else {
+            continuationBucketFailureWeight = 12;
+          }
+          continuationBucketFailure = true;
+          reasons.push({
+            type: '强势失效观察',
+            weight: continuationBucketFailureWeight,
+            detail: `第${pos.continuationFailureStreak}轮 ${entryBucket}->${liveBucket}${hasPriceWeakness ? ',价格走弱' : ',价格未明显走弱'}`
+          });
+        } else {
+          if (pos.continuationFailureStreak > 0) {
+            pos.continuationRecoveryStreak += 1;
+            pos.continuationLastRecoveryAt = new Date().toISOString();
+          } else {
+            pos.continuationRecoveryStreak = 0;
+          }
+          if (pos.continuationRecoveryStreak >= 1) {
+            pos.continuationFailureStreak = 0;
+          }
+        }
       }
 
       // 跌破MA60
@@ -2694,8 +2956,11 @@ class PaperAccount {
         : (this.config.exitScoreThreshold || 55);
       const scoreDrop = effectiveDayScore < exitScoreThreshold;
       if (scoreDrop) {
-        totalUrgency += weights.scoreDrop;
-        reasons.push({ type: '评分下跌', weight: weights.scoreDrop, detail: `${effectiveDayScore}分<${exitScoreThreshold}` });
+        const scoreDropWeight = isContinuationPosition && pos.continuationFailureStreak > 0
+          ? Math.max(12, Math.min(weights.scoreDrop, pos.continuationFailureStreak >= 2 ? 28 : 18))
+          : weights.scoreDrop;
+        totalUrgency += scoreDropWeight;
+        reasons.push({ type: '评分下跌', weight: scoreDropWeight, detail: `${effectiveDayScore}分<${exitScoreThreshold}` });
       }
 
       if (isContinuationPosition) {
@@ -2708,6 +2973,10 @@ class PaperAccount {
         if (continuationFailFast) {
           totalUrgency += 70;
           reasons.push({ type: '强势承接失效', weight: 70, detail: `价格${pos.currentPrice.toFixed(2)}弱于开盘${pick.open}` });
+        }
+
+        if (continuationBucketFailure) {
+          totalUrgency += continuationBucketFailureWeight;
         }
 
         if (highestPnlPct >= 1.8 && drawdownFromHigh >= 1.6) {
@@ -2882,6 +3151,10 @@ class PaperAccount {
         exitReasons: [],
         exitSummary: '新开仓，等待下一轮评估',
         lastEvaluatedAt: bjTime,
+        continuationFailureStreak: 0,
+        continuationRecoveryStreak: 0,
+        continuationLastFailureAt: null,
+        continuationLastRecoveryAt: null,
         source: metadata.source || 'strategy'
       });
       this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
@@ -3048,10 +3321,11 @@ class PaperAccount {
     }
 
     const protectedRecoveryPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
+    const recoveryAnchorPositions = Array.from(this.positions.values()).filter(isRecoveryAnchorPosition);
     const guardedRecoveryMode = portfolioDrawdown > 5 &&
       this.positions.size > 0 &&
       this.positions.size < 2 &&
-      protectedRecoveryPositions.length > 0;
+      (protectedRecoveryPositions.length > 0 || recoveryAnchorPositions.length > 0);
     if (portfolioDrawdown > 8) {
       if (this.lastAlertDrawdown < 8) {
         this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过8%，清仓所有持仓`);
@@ -3090,7 +3364,7 @@ class PaperAccount {
       const riskModeText = recoveryMode
         ? '空仓恢复模式：仅允许小仓高确认信号'
         : guardedRecoveryMode
-          ? `防守恢复模式：已有${protectedRecoveryPositions.length}只盈利延续仓，允许极小仓试错`
+          ? `防守恢复模式：已有${Math.max(protectedRecoveryPositions.length, recoveryAnchorPositions.length)}只高质量延续仓，允许极小仓试错`
           : '停止新开仓';
       console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过5%，${riskModeText}`);
     } else if (portfolioDrawdown < 3 && this.lastAlertDrawdown > 0) {
@@ -3151,9 +3425,10 @@ class PaperAccount {
 
     const cooldownMinutes = this.config.buyCooldownMinutes || 60;
     const profitableContinuationPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
+    const recoveryAnchors = Array.from(this.positions.values()).filter(isRecoveryAnchorPosition);
     const allowAddOnRecovery = portfolioDrawdown > 5 &&
       this.positions.size > 0 &&
-      profitableContinuationPositions.length > 0 &&
+      (profitableContinuationPositions.length > 0 || recoveryAnchors.length > 0) &&
       this.positions.size < 2;
     const allowGuardedRecovery = guardedRecoveryMode || allowAddOnRecovery;
 
@@ -3240,6 +3515,17 @@ class PaperAccount {
               buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
             }
+            if ((p.intradayReturnPct || 0) > 1.6) {
+              const reason = `防守恢复模式拒绝尾盘追强(intradayReturn=${(p.intradayReturnPct || 0).toFixed(2)}%)`;
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
+              return false;
+            }
+            const continuationVolumeRatio = p.volumeBurstRatio || p.volumeRatio || 0;
+            if (continuationVolumeRatio > 1.35) {
+              const reason = `防守恢复模式要求量比≤1.35(当前${continuationVolumeRatio.toFixed(2)})`;
+              buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
+              return false;
+            }
           }
           return true;
         })
@@ -3262,6 +3548,9 @@ class PaperAccount {
         basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
         if (pick.strategy?.bucket === 'continuation') {
           basePositionValue *= 0.45;
+          if (pick.strategy?.selectedReason?.continuationSecondary) {
+            basePositionValue *= 0.75;
+          }
         }
         if (recoveryMode) {
           basePositionValue *= 0.35;
@@ -3375,6 +3664,9 @@ class PaperAccount {
     basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
     if (pick.strategy?.bucket === 'continuation') {
       basePositionValue *= 0.45;
+      if (pick.strategy?.selectedReason?.continuationSecondary) {
+        basePositionValue *= 0.75;
+      }
     }
 
     if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {

@@ -445,6 +445,12 @@ function combineCandidateScores(item, runtimeConfig) {
 function classifyCandidateBuckets(candidates, runtimeConfig) {
   const researchUniverse = runtimeConfig.researchUniverse || {};
   const continuationBucket = getBucketConfig(runtimeConfig, 'continuation');
+  const secondaryAllowedRejectedChecks = new Set(continuationBucket.secondaryAllowedRejectedChecks || [
+    'observationBias',
+    'gain10dTradeable',
+    'volatilityTradeable',
+    'maxDrawdown',
+  ]);
   const enriched = candidates.map(item => {
     const qualification = evaluateBucketQualification(item, runtimeConfig);
     const bucketLabel = qualification.bucket === 'main'
@@ -499,6 +505,10 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
       gain60d: h.gain60d == null || h.gain60d <= (continuationBucket.maxTradeableGain60d ?? 80),
       maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (continuationBucket.maxTradeableMaxDrawdown ?? 22),
       deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (continuationBucket.maxTradeableDeviationFromMA20 ?? 14),
+      observationBias: continuationBucket.requireNotObservationBias === false ? true : !item.strategy?.observationBias,
+      gain10dTradeable: h.gain10d == null || h.gain10d <= (continuationBucket.maxTradeableGain10d ?? continuationBucket.maxGain10d ?? 15),
+      gain5dTradeable: h.gain5d == null || h.gain5d <= (continuationBucket.maxTradeableGain5d ?? continuationBucket.maxGain5d ?? 8),
+      volatilityTradeable: h.volatility == null || h.volatility <= (continuationBucket.maxTradeableVolatility ?? 18),
     };
     const failedContinuationTradeableChecks = Object.entries(continuationTradeableChecks)
       .filter(([, passed]) => !passed)
@@ -532,6 +542,72 @@ function classifyCandidateBuckets(candidates, runtimeConfig) {
         selectedDayScore,
         continuationTradeableChecks,
         continuationRejectedChecks: failedContinuationTradeableChecks,
+      },
+    };
+  }
+
+  for (const item of enriched) {
+    if (item.strategy?.bucket !== 'observation') continue;
+
+    const rejectedChecks = item.strategy?.selectedReason?.continuationRejectedChecks || [];
+    if (!continuationBucket.enableSecondaryPromotion || rejectedChecks.length === 0) continue;
+    if (rejectedChecks.length > (continuationBucket.secondaryMaxRejectedChecks ?? 3)) continue;
+    if (!rejectedChecks.every(key => secondaryAllowedRejectedChecks.has(key))) continue;
+
+    const h = item.history || {};
+    const volumeRatio = item.volumeBurstRatio || item.volumeRatio || 0;
+    const selectedDayScore = getSelectedBucketDayScore(item);
+    const macdSupported = continuationBucket.secondaryRequireMacdSupport === false
+      ? true
+      : (
+          h.macdHistogram != null &&
+          (
+            h.macdHistogram >= -0.02 ||
+            h.macdBullish === true ||
+            h.macdHistogramImproving === true
+          )
+        );
+    const secondaryChecks = {
+      rejectedChecks: true,
+      observationBias: continuationBucket.secondaryRequireNotObservationBias === false ? true : !item.strategy?.observationBias,
+      dayScore: selectedDayScore >= (continuationBucket.secondaryMinDayScore ?? 96),
+      historyScore: (item.historyScore || 0) >= (continuationBucket.secondaryMinHistoryScore ?? 64),
+      combinedScore: (item.combinedScore || 0) >= (continuationBucket.secondaryMinCombinedScore ?? 76),
+      changePercent: isWithinRange(item.changePercent, continuationBucket.secondaryMinChangePercent ?? 0.8, continuationBucket.secondaryMaxChangePercent ?? 2.4),
+      volumeRatio: isWithinRange(volumeRatio, continuationBucket.secondaryMinVolumeRatio ?? 0.85, continuationBucket.secondaryMaxVolumeRatio ?? 1.6),
+      gain5d: isWithinRange(h.gain5d, continuationBucket.secondaryMinGain5d ?? -2.5, continuationBucket.secondaryMaxGain5d ?? 4.5),
+      gain10d: isWithinRange(h.gain10d, continuationBucket.secondaryMinGain10d ?? 6, continuationBucket.secondaryMaxGain10d ?? 19.5),
+      distanceToHigh60d: isWithinRange(h.distanceToHigh60d, continuationBucket.secondaryMinDistanceToHigh60d ?? -14, continuationBucket.secondaryMaxDistanceToHigh60d ?? -4),
+      deviationFromMA20: h.deviationFromMA20 == null || h.deviationFromMA20 <= (continuationBucket.secondaryMaxDeviationFromMA20 ?? 12),
+      rsi: isWithinRange(h.rsi, continuationBucket.secondaryMinRsi ?? 50, continuationBucket.secondaryMaxRsi ?? 61),
+      volatility: h.volatility == null || h.volatility <= (continuationBucket.secondaryMaxVolatility ?? 24),
+      maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (continuationBucket.secondaryMaxMaxDrawdown ?? 27),
+      intradayReturn: item.intradayReturnPct == null || item.intradayReturnPct <= (continuationBucket.secondaryMaxIntradayReturnPct ?? 2.4),
+      recent10LimitUps: h.recent10LimitUps == null || h.recent10LimitUps <= (continuationBucket.secondaryMaxRecent10LimitUps ?? 0),
+      macdSupport: macdSupported,
+    };
+    const failedSecondaryChecks = Object.entries(secondaryChecks)
+      .filter(([, passed]) => !passed)
+      .map(([key]) => key);
+    if (failedSecondaryChecks.length > 0) continue;
+
+    const nextPositiveTags = Array.isArray(item.strategy?.positiveTags) ? [...item.strategy.positiveTags] : [];
+    nextPositiveTags.push(`二阶延续:${rejectedChecks.join('/')}`);
+    const nextRiskTags = Array.isArray(item.strategy?.riskTags)
+      ? item.strategy.riskTags.filter(tag => tag !== '趋势延续过热')
+      : [];
+    item.strategy = {
+      ...(item.strategy || {}),
+      bucket: 'continuation',
+      bucketLabel: `${continuationBucket.label || '趋势延续池'}(二阶放行)`,
+      positiveTags: nextPositiveTags,
+      riskTags: nextRiskTags,
+      selectedReason: {
+        ...(item.strategy?.selectedReason || {}),
+        continuationTradeable: true,
+        continuationSecondary: true,
+        continuationSecondaryChecks: secondaryChecks,
+        continuationSecondaryRejectedChecks: [],
       },
     };
   }

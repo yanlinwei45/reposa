@@ -72,14 +72,21 @@
         "minSignalStrength": 4,
         "maxGain60d": 80,
         "maxDrawdown": 22,
-        "maxDeviationFromMA20": 14
+        "maxDeviationFromMA20": 14,
+        "requireNotObservationBias": true,
+        "maxGain10d": 15,
+        "maxGain5d": 8,
+        "maxVolatility": 18
       },
       "tradeWindows": {
         "mediumConfidenceCutoffMinutes": 810,
         "latestEntryCutoffMinutes": 820,
         "preferredEntryStartMinutes": 575,
         "preferredEntryEndMinutes": 645,
-        "allowAfternoonEntries": false
+        "allowAfternoonEntries": false,
+        "allowAfternoonContinuationEntries": true,
+        "continuationAfternoonCutoffMinutes": 870,
+        "secondaryContinuationAfternoonCutoffMinutes": 885
       },
       "mainEntryGuard": {
         "enabled": true,
