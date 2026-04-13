@@ -1,44 +1,44 @@
 {
-  "cash": 9410738.026211202,
+  "cash": 9338620.131593602,
   "positions": [
     [
-      "sh605305",
+      "sh601311",
       {
-        "symbol": "sh605305",
-        "name": "中际联合",
-        "entryPrice": 43.26322,
-        "currentPrice": 43.21,
-        "quantity": 5400,
-        "value": 233334,
-        "pnlPct": -0.12301442195009075,
-        "entryTs": "2026-04-10T06:34:52.562Z",
-        "entryDate": "2026-04-10",
-        "holdRounds": 7,
+        "symbol": "sh601311",
+        "name": "骆驼股份",
+        "entryPrice": 10.07006,
+        "currentPrice": 10.11,
+        "quantity": 31300,
+        "value": 316443,
+        "pnlPct": 0.3966212713727589,
+        "entryTs": "2026-04-13T02:59:30.503Z",
+        "entryDate": "2026-04-13",
+        "holdRounds": 34,
         "holdDays": 1,
-        "highPrice": 43.27,
-        "lowPrice": 43.19,
+        "highPrice": 10.14,
+        "lowPrice": 10.05,
         "confidence": "HIGH",
-        "entryScore": 82,
-        "entrySelectedDayScore": 100,
-        "combinedScore": 86.41,
+        "entryScore": 75,
+        "entrySelectedDayScore": 98,
+        "combinedScore": 84.41,
         "marketRegime": "BULL",
-        "sector": "工程机械",
+        "sector": "电池",
         "entryBucket": "continuation",
-        "liveBucket": "continuation",
-        "liveBucketLabel": "趋势延续池(二阶放行)",
+        "liveBucket": "observation",
+        "liveBucketLabel": "趋势延续池(观察)",
         "liveSelectedDayScore": 100,
-        "liveCombinedScore": 86.41,
+        "liveCombinedScore": 85.12,
         "exitUrgency": 0,
         "exitShouldExit": false,
         "exitReasons": [
           {
-            "type": "非交易时间",
+            "type": "T+1限制",
             "weight": 0,
-            "detail": "仅更新信号快照"
+            "detail": "当日买入不可卖出"
           }
         ],
-        "exitSummary": "非交易时间(仅更新信号快照)",
-        "lastEvaluatedAt": "2026-04-10 16:37:47",
+        "exitSummary": "T+1限制(当日买入不可卖出)",
+        "lastEvaluatedAt": "2026-04-13 14:13:38",
         "continuationFailureStreak": 0,
         "continuationRecoveryStreak": 0,
         "continuationLastFailureAt": null,
@@ -1060,6 +1060,55 @@
       "sector": "工程机械",
       "entryBucket": "continuation",
       "source": "strategy"
+    },
+    {
+      "orderId": "ORD_1776048921292_e8bt3n",
+      "symbol": "sh605305",
+      "name": "中际联合",
+      "side": "SELL",
+      "price": 45.09,
+      "executedPrice": 45.04491,
+      "quantity": 5400,
+      "amount": 243242.514,
+      "fee": 72.9727542,
+      "status": "FILLED",
+      "reason": "卖出紧迫度153: 强势失效观察(第11轮 continuation->observation,价格未明显走弱),评分下跌(81分<82),强势回撤过快(最高6.05%回撤1.72%)",
+      "ts": "2026-04-13T02:55:21.292Z",
+      "bjTime": "2026-04-13 10:55:21",
+      "pnl": 9548.153245800026,
+      "pnlPct": 4.118255645326457,
+      "holdDays": 1,
+      "holdRounds": 18,
+      "entryPrice": 43.26322,
+      "entryTs": "2026-04-10T06:34:52.562Z",
+      "entryBjTime": "2026-04-10 14:34:52",
+      "combinedScore": 86.41,
+      "confidence": "HIGH",
+      "entryBucket": "continuation",
+      "source": "strategy"
+    },
+    {
+      "orderId": "ORD_1776049170503_uxw75b",
+      "symbol": "sh601311",
+      "name": "骆驼股份",
+      "side": "BUY",
+      "price": 10.06,
+      "executedPrice": 10.07006,
+      "quantity": 31300,
+      "amount": 315192.87799999997,
+      "fee": 94.55786339999999,
+      "status": "FILLED",
+      "reason": "置信度HIGH(综合84.4分,延续日分98分≥68,历史77分≥60,综合84.41分≥54,回撤到位,接近MA20,延续不过热,趋势贴近前高,10日仍在抬升,MACD修复中,强势放量)",
+      "ts": "2026-04-13T02:59:30.503Z",
+      "bjTime": "2026-04-13 10:59:30",
+      "confidence": "HIGH",
+      "entryScore": 75,
+      "entrySelectedDayScore": 98,
+      "combinedScore": 84.41,
+      "marketRegime": "BULL",
+      "sector": "电池",
+      "entryBucket": "continuation",
+      "source": "strategy"
     }
   ],
   "sellCooldown": [
@@ -1154,18 +1203,22 @@
     [
       "sh603063",
       "2026-04-10T02:00:33.456Z"
+    ],
+    [
+      "sh605305",
+      "2026-04-13T02:55:21.292Z"
     ]
   ],
   "statistics": {
-    "totalTrades": 25,
-    "winTrades": 7,
+    "totalTrades": 26,
+    "winTrades": 8,
     "lossTrades": 18,
-    "totalPnl": -348173.66082329943,
-    "totalWinPnl": 542730.9626427001,
+    "totalPnl": -338625.50757749943,
+    "totalWinPnl": 552279.1158885001,
     "totalLossPnl": 890904.6234659993,
     "maxGain": 21.852368594578234,
     "maxLoss": -17.608816054411914,
-    "totalHoldDays": 37
+    "totalHoldDays": 38
   },
   "peakEquity": 10402119.853255402,
   "recentPerformance": {
@@ -1246,6 +1299,17 @@
         "marketRegime": "BULL",
         "soldAt": "2026-04-10T02:00:33.456Z",
         "source": "strategy"
+      },
+      {
+        "symbol": "sh605305",
+        "pnlPct": 4.118255645326457,
+        "holdDays": 1,
+        "score": 86.41,
+        "scoreRangeKey": "80-89",
+        "confidence": "HIGH",
+        "marketRegime": "BULL",
+        "soldAt": "2026-04-13T02:55:21.292Z",
+        "source": "strategy"
       }
     ],
     "scoreRangeStats": [
@@ -1261,31 +1325,31 @@
       [
         "80-89",
         {
-          "trades": 3,
-          "wins": 1,
-          "totalPnlPct": -4.861816931538796,
-          "totalHoldDays": 3
+          "trades": 4,
+          "wins": 2,
+          "totalPnlPct": -0.7435612862123389,
+          "totalHoldDays": 4
         }
       ]
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-10 16:37:47",
+    "ts": "2026-04-13 14:13:38",
     "marketRegime": "BULL",
-    "marketOpen": false,
-    "portfolioDrawdown": 7.29,
+    "marketOpen": true,
+    "portfolioDrawdown": 7.18,
     "recoveryMode": false,
-    "strategyCandidateCount": 2,
+    "strategyCandidateCount": 0,
     "buyCandidateCount": 0,
     "acceptedCount": 0,
     "rejectedCount": 0,
     "positionsBefore": 1,
     "positionsAfter": 1,
     "availablePositions": 4,
-    "skippedReason": "非交易时间",
+    "skippedReason": "组合回撤超过5%，暂停开仓",
     "rejectSummary": [],
     "accepted": [],
     "rejected": []
   },
-  "savedAt": "2026-04-10T08:38:30.094Z"
+  "savedAt": "2026-04-13T06:14:22.590Z"
 }

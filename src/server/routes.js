@@ -5,6 +5,16 @@ const { handleLogsApi } = require('./handlers/logs');
 const { normalizeSymbol } = require('../utils/symbol');
 const { canSellToday } = require('../utils/time');
 
+function writeJson(res, payload, statusCode = 200) {
+  res.writeHead(statusCode, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, max-age=0',
+    Pragma: 'no-cache',
+    Expires: '0',
+  });
+  res.end(JSON.stringify(payload));
+}
+
 function serveFrontend(req, res, frontendDistPath) {
   const filePath = req.url === '/' || req.url === '/paper' || req.url === '/logs'
     ? path.join(frontendDistPath, 'index.html')
@@ -34,8 +44,7 @@ function serveFrontend(req, res, frontendDistPath) {
 function createApiRoutes(state, config, paperAccount, scanLogger) {
   return {
     '/api/health': (req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({
+      writeJson(res, {
         ok: true,
         mode: state.mode,
         startedAt: state.startedAt,
@@ -43,22 +52,19 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
         marketCount: state.marketCount,
         lastScanAt: state.lastScanAt,
         paperTradingEnabled: !!paperAccount
-      }));
+      });
     },
 
     '/api/state': (req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(state));
+      writeJson(res, state);
     },
 
     '/api/scan': (req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(state.market));
+      writeJson(res, state.market);
     },
 
     '/api/strategy': (req, res) => {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(state.strategyPicks));
+      writeJson(res, state.strategyPicks);
     },
 
     '/api/logs': (req, res) => {
@@ -67,77 +73,63 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
 
     '/api/portfolio': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(paperAccount.getPortfolio()));
+      writeJson(res, paperAccount.getPortfolio());
     },
 
     '/api/orders': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(paperAccount.orders.slice(-100)));
+      writeJson(res, paperAccount.orders.slice(-100));
     },
 
     '/api/trades': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
       const trades = readJsonLines(paperAccount.tradesPath, { reverse: true, limit: 100 });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(trades));
+      writeJson(res, trades);
     },
 
     '/api/settlement': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
       const settlement = readJsonLines(paperAccount.settlementPath, { reverse: true, limit: 100 });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(settlement));
+      writeJson(res, settlement);
     },
 
     '/api/statistics': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
       const stats = buildStatistics(paperAccount);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(stats));
+      writeJson(res, stats);
     },
 
     '/api/equity': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
       const equity = readJsonLines(paperAccount.equityPath);
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(equity));
+      writeJson(res, equity);
     },
 
     '/api/alerts': (req, res) => {
       if (!paperAccount) {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'paper trading not enabled' }));
+        writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
       }
       const alerts = readJsonLines(paperAccount.alertsPath, { reverse: true, limit: 50 });
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(alerts));
+      writeJson(res, alerts);
     },
 
     'POST /api/buy': (req, res) => {

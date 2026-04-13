@@ -84,7 +84,7 @@ export function PaperBoard() {
     fetchData()
   }, [])
 
-  useAutoRefresh(fetchData, 30000)
+  useAutoRefresh(fetchData, 15000)
 
   const handleSell = async (symbol) => {
     try {

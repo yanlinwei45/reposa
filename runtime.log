@@ -80,3 +80,41 @@
 [HISTORY] 从磁盘加载808只股票的历史缓存
 [HTTP] server listening on http://localhost:3088
 [APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓1只, 历史订单53条, 现金933.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1274只股票的历史缓存
+[UNCAUGHT_EXCEPTION] Error: listen EPERM: operation not permitted 127.0.0.1:3088
+    at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '127.0.0.1',
+  port: 3088
+}
+[PAPER] 恢复状态: 持仓1只, 历史订单53条, 现金933.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1280只股票的历史缓存
+[UNCAUGHT_EXCEPTION] Error: listen EPERM: operation not permitted 127.0.0.1:3088
+    at Server.setupListenHandle [as _listen2] (node:net:1918:21)
+    at listenInCluster (node:net:1997:12)
+    at node:net:2206:7
+    at process.processTicksAndRejections (node:internal/process/task_queues:89:21) {
+  code: 'EPERM',
+  errno: -1,
+  syscall: 'listen',
+  address: '127.0.0.1',
+  port: 3088
+}
+[PAPER] 恢复状态: 持仓1只, 历史订单53条, 现金933.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1280只股票的历史缓存
+[HTTP] server listening on http://127.0.0.1:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓1只, 历史订单53条, 现金933.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1280只股票的历史缓存
+[HTTP] server listening on http://127.0.0.1:3088
+[APP] Eastmoney DOM market scanner started

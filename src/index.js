@@ -1865,19 +1865,23 @@ class MarketScanner {
       console.error('[SCAN] initial scan error', err.message);
     }
 
-    const scheduleNext = () => {
+    const runScheduledScan = async () => {
+      const scanStartedAt = Date.now();
+      try {
+        await this.scanOnce();
+      } catch (err) {
+        console.error('[SCAN] interval error', err.message);
+      }
+      const elapsedMs = Date.now() - scanStartedAt;
       const interval = this.getNextScanInterval();
-      this.timer = setTimeout(async () => {
-        try {
-          await this.scanOnce();
-        } catch (err) {
-          console.error('[SCAN] interval error', err.message);
-        }
-        scheduleNext();
-      }, interval);
+      const nextDelayMs = Math.max(0, interval - elapsedMs);
+      const waitSec = (nextDelayMs / 1000).toFixed(1);
+      const elapsedSec = (elapsedMs / 1000).toFixed(1);
+      console.log(`[SCAN] 本轮耗时: ${elapsedSec}秒, 下轮等待: ${waitSec}秒`);
+      this.timer = setTimeout(runScheduledScan, nextDelayMs);
     };
 
-    scheduleNext();
+    this.timer = setTimeout(runScheduledScan, this.getNextScanInterval());
   }
 
   async stop() {
@@ -2646,6 +2650,9 @@ class PaperAccount {
       if (baseConfidence === 'LOW') {
         return { confidence: 'REJECT', reason: '普通主池仅允许MEDIUM/HIGH开仓' };
       }
+      if (mainEntryGuard.allowMedium === false && baseConfidence === 'MEDIUM') {
+        return { confidence: 'REJECT', reason: '主池亏损修复模式：普通低吸只允许HIGH开仓' };
+      }
 
       const mainMinSignalStrength = baseConfidence === 'HIGH'
         ? (mainEntryGuard.highMinSignalStrength ?? 4)
@@ -2664,12 +2671,19 @@ class PaperAccount {
         : (mainEntryGuard.mediumMaxIntradayReturnPct ?? 2.5);
       const mainChecks = {
         dayScore: selectedDayScore >= mainMinDayScore,
+        historyScore: historyScore >= (mainEntryGuard.minHistoryScore ?? 72),
         signalStrength: signalStrength.length >= mainMinSignalStrength,
         observationBias: mainEntryGuard.requireNotObservationBias === false ? true : !pick.strategy?.observationBias,
+        gain30d: h.gain30d == null || h.gain30d >= (mainEntryGuard.minGain30d ?? 0),
+        gain60d: h.gain60d == null || h.gain60d <= (mainEntryGuard.maxGain60d ?? 45),
         gain10d: h.gain10d != null && h.gain10d >= (mainEntryGuard.minGain10d ?? -2.5) && h.gain10d <= (mainEntryGuard.maxGain10d ?? 6),
         gain5d: h.gain5d != null && h.gain5d >= (mainEntryGuard.minGain5d ?? -4.5) && h.gain5d <= mainMaxGain5d,
         distanceToHigh60d: h.distanceToHigh60d != null && h.distanceToHigh60d >= (mainEntryGuard.minDistanceToHigh60d ?? -22) && h.distanceToHigh60d <= (mainEntryGuard.maxDistanceToHigh60d ?? -6),
         deviationFromMA20: h.deviationFromMA20 != null && h.deviationFromMA20 >= (mainEntryGuard.minDeviationFromMA20 ?? -3) && h.deviationFromMA20 <= (mainEntryGuard.maxDeviationFromMA20 ?? 2.2),
+        maxDrawdown: h.maxDrawdown == null || h.maxDrawdown <= (mainEntryGuard.maxMaxDrawdown ?? 25),
+        volatility: h.volatility == null || h.volatility <= (mainEntryGuard.maxVolatility ?? 10),
+        recent10LimitUps: h.recent10LimitUps == null || h.recent10LimitUps <= (mainEntryGuard.maxRecent10LimitUps ?? 0),
+        macdRepair: mainEntryGuard.requireMacdRepair === false || h.macdHistogram == null || h.macdHistogram >= (mainEntryGuard.minMacdHistogram ?? -0.05) || h.macdHistogramImproving === true,
         intradayReturn: pick.intradayReturnPct == null || pick.intradayReturnPct <= mainMaxIntradayReturnPct,
         pullbackFromHigh: pullbackFromHighPct == null || pullbackFromHighPct <= (mainEntryGuard.maxPullbackFromHighPct ?? 1),
         openDrawdown: openDrawdownPct == null || openDrawdownPct <= (mainEntryGuard.maxOpenDrawdownPct ?? 1.5),
@@ -2689,7 +2703,10 @@ class PaperAccount {
         const mainVolumeMin = mainEntryGuard.minVolumeRatio ?? 0.9;
         const detailedChecks = formatFailedChecks(failedMainChecks, {
           dayScore: { value: selectedDayScore, threshold: mainMinDayScore, op: '<' },
+          historyScore: { value: historyScore, threshold: mainEntryGuard.minHistoryScore ?? 72, op: '<' },
           signalStrength: { value: signalStrength.length, threshold: mainMinSignalStrength, op: '<' },
+          gain30d: { value: h.gain30d, threshold: mainEntryGuard.minGain30d ?? 0, op: '<' },
+          gain60d: { value: h.gain60d, threshold: mainEntryGuard.maxGain60d ?? 45, op: '>' },
           gain10d: {
             value: h.gain10d,
             threshold: h.gain10d != null && h.gain10d < mainGain10dMin ? mainGain10dMin : mainGain10dMax,
@@ -2710,6 +2727,10 @@ class PaperAccount {
             threshold: h.deviationFromMA20 != null && h.deviationFromMA20 < mainDeviationMin ? mainDeviationMin : mainDeviationMax,
             op: h.deviationFromMA20 != null && h.deviationFromMA20 < mainDeviationMin ? '<' : '>',
           },
+          maxDrawdown: { value: h.maxDrawdown, threshold: mainEntryGuard.maxMaxDrawdown ?? 25, op: '>' },
+          volatility: { value: h.volatility, threshold: mainEntryGuard.maxVolatility ?? 10, op: '>' },
+          recent10LimitUps: { value: h.recent10LimitUps, threshold: mainEntryGuard.maxRecent10LimitUps ?? 0, op: '>' },
+          macdRepair: { value: h.macdHistogram, threshold: mainEntryGuard.minMacdHistogram ?? -0.05, op: '<' },
           intradayReturn: { value: pick.intradayReturnPct, threshold: mainMaxIntradayReturnPct, op: '>' },
           pullbackFromHigh: { value: pullbackFromHighPct, threshold: mainEntryGuard.maxPullbackFromHighPct ?? 1, op: '>' },
           openDrawdown: { value: openDrawdownPct, threshold: mainEntryGuard.maxOpenDrawdownPct ?? 1.5, op: '>' },
@@ -2720,12 +2741,19 @@ class PaperAccount {
           },
         }, {
           dayScore: '主池日分',
+          historyScore: '历史分',
           signalStrength: '信号强度',
           observationBias: '转强味太重',
+          gain30d: '30日趋势',
+          gain60d: '60日涨幅',
           gain10d: '10日趋势',
           gain5d: '5日回调',
           distanceToHigh60d: '距高点位置',
           deviationFromMA20: '偏离MA20',
+          maxDrawdown: '历史回撤',
+          volatility: '波动率',
+          recent10LimitUps: '近10日涨停',
+          macdRepair: 'MACD修复',
           intradayReturn: '盘中涨幅',
           pullbackFromHigh: '冲高回落',
           openDrawdown: '开盘回撤',

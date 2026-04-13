@@ -2,7 +2,13 @@ const API_BASE = '';
 
 export const api = {
   async get(path) {
-    const res = await fetch(`${API_BASE}${path}`);
+    const res = await fetch(`${API_BASE}${path}`, {
+      cache: 'no-store',
+      headers: {
+        'Cache-Control': 'no-cache',
+        Pragma: 'no-cache',
+      },
+    });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return res.json();
   },

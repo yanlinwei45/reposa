@@ -142,7 +142,7 @@ export function ScanBoard() {
     fetchData()
   }, [])
 
-  useAutoRefresh(fetchData, 30000)
+  useAutoRefresh(fetchData, 15000)
 
   if (loading) return <div className="flex min-h-screen items-center justify-center text-slate-400">加载中...</div>
   if (!state) return <div className="flex min-h-screen items-center justify-center text-slate-400">无数据</div>
