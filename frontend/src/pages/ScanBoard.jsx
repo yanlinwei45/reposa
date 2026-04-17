@@ -19,6 +19,13 @@ function bucketTone(bucket) {
   return 'neutral'
 }
 
+function formatCutoff(minutes) {
+  if (minutes == null) return '-'
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0')
+  const m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
 function ReasonList({ items, emptyText = '暂无' }) {
   if (!items?.length) {
     return <div className="text-sm text-slate-400">{emptyText}</div>
@@ -121,6 +128,7 @@ function renderCandidateRow(item, idx) {
 
 export function ScanBoard() {
   const [state, setState] = useState(null)
+  const [portfolio, setPortfolio] = useState(null)
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
 
@@ -128,8 +136,12 @@ export function ScanBoard() {
 
   const fetchData = async () => {
     try {
-      const [stateData] = await Promise.all([api.getState()])
+      const [stateData, portfolioData] = await Promise.all([
+        api.getState(),
+        api.getPortfolio().catch(() => null),
+      ])
       setState(stateData)
+      setPortfolio(portfolioData)
       setLastUpdate(new Date().toLocaleTimeString('zh-CN'))
     } catch (err) {
       console.error('获取数据失败:', err)
@@ -162,6 +174,7 @@ export function ScanBoard() {
   const dataQuality = diagnostics.dataQuality || {}
   const tradeRejectSummary = tradeDecision.rejectSummary || []
   const tradeRejected = tradeDecision.rejected || []
+  const adaptiveTradeWindows = portfolio?.adaptive?.tradeWindows || {}
   const fallbackRows = [...(state.market || [])]
     .sort((a, b) => (b.combinedScore || b.score || 0) - (a.combinedScore || a.score || 0))
     .slice(0, 12)
@@ -315,6 +328,9 @@ export function ScanBoard() {
               <Badge tone={Number(tradeDecision.portfolioDrawdown || 0) > 5 ? 'warn' : 'neutral'}>
                 回撤 {Number(tradeDecision.portfolioDrawdown || 0).toFixed(2)}%
               </Badge>
+              <Badge tone="neutral">普通截止 {formatCutoff(adaptiveTradeWindows.latestEntryCutoffMinutes)}</Badge>
+              <Badge tone="rise">延续截止 {formatCutoff(adaptiveTradeWindows.continuationAfternoonCutoffMinutes)}</Badge>
+              <Badge tone="sky">恢复例外 {formatCutoff(adaptiveTradeWindows.recoveryLateContinuationCutoffMinutes)}</Badge>
             </div>
             <div className="mt-4">
               <ReasonList items={tradeRejectSummary} emptyText="最近一轮没有交易拒绝" />

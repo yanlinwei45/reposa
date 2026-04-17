@@ -41,6 +41,13 @@ function bucketTone(bucket) {
   return 'neutral'
 }
 
+function formatCutoff(minutes) {
+  if (minutes == null) return '-'
+  const h = String(Math.floor(minutes / 60)).padStart(2, '0')
+  const m = String(minutes % 60).padStart(2, '0')
+  return `${h}:${m}`
+}
+
 export function PaperBoard() {
   const [portfolio, setPortfolio] = useState(null)
   const [state, setState] = useState(null)
@@ -113,6 +120,9 @@ export function PaperBoard() {
   const regimeColor = state?.marketRegime?.regime === 'BULL' ? 'rise' : state?.marketRegime?.regime === 'BEAR' ? 'fall' : 'neutral'
   const regimeText = state?.marketRegime?.regime === 'BULL' ? '牛市' : state?.marketRegime?.regime === 'BEAR' ? '熊市' : state?.marketRegime?.regime === 'NEUTRAL' ? '震荡' : '未知'
   const tradeDecision = portfolio.latestTradeDiagnostics || state?.diagnostics?.tradeDecision || {}
+  const adaptiveTradeWindows = portfolio.adaptive?.tradeWindows || {}
+  const continuationCutoff = adaptiveTradeWindows.continuationAfternoonCutoffMinutes
+  const recoveryLateCutoff = adaptiveTradeWindows.recoveryLateContinuationCutoffMinutes
 
   const positionsColumns = [
     { key: 'symbol', title: '代码' },
@@ -259,6 +269,15 @@ export function PaperBoard() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <Card title="本轮不开仓原因" subtitle={tradeDecision.skippedReason || '最近一轮交易层摘要'}>
             <div className="space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {tradeDecision.recoveryMode ? <Badge tone="warn">空仓恢复模式</Badge> : null}
+                <Badge tone={Number(tradeDecision.portfolioDrawdown || 0) > 5 ? 'warn' : 'neutral'}>
+                  组合回撤 {Number(tradeDecision.portfolioDrawdown || 0).toFixed(2)}%
+                </Badge>
+                <Badge tone="neutral">普通最晚开仓 {formatCutoff(adaptiveTradeWindows.latestEntryCutoffMinutes)}</Badge>
+                <Badge tone="rise">延续池最晚 {formatCutoff(continuationCutoff)}</Badge>
+                <Badge tone="sky">恢复例外最晚 {formatCutoff(recoveryLateCutoff)}</Badge>
+              </div>
               <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="rounded-xl bg-slate-800/60 p-4">
                   <div className="text-sm text-slate-400">主候选</div>
@@ -308,6 +327,9 @@ export function PaperBoard() {
                       <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
                       <div className="mt-1 text-xs text-slate-500">
                         桶 {item.strategy?.bucketLabel || item.strategy?.bucket || '-'} · 日 {Number(item.selectedDayScore ?? item.score ?? 0).toFixed(1)} · 历史 {Number(item.historyScore || 0).toFixed(1)} · 综合 {Number(item.combinedScore || 0).toFixed(1)}
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        价格 {item.price != null ? Number(item.price).toFixed(2) : '-'} · 涨幅 {item.changePercent != null ? `${Number(item.changePercent).toFixed(2)}%` : '-'} · 盘中 {item.intradayReturnPct != null ? `${Number(item.intradayReturnPct).toFixed(2)}%` : '-'}
                       </div>
                     </div>
                     <Badge tone={bucketTone(item.strategy?.bucket)}>{item.strategy?.bucket || '-'}</Badge>

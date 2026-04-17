@@ -28,6 +28,9 @@ process.on('unhandledRejection', (reason) => {
 
 process.on('uncaughtException', (err) => {
   console.error('[UNCAUGHT_EXCEPTION]', err);
+  if (err && err.code === 'EADDRINUSE') {
+    process.exit(1);
+  }
 });
 
 function ensureDir(dirPath) {
@@ -223,6 +226,55 @@ function isRecoveryAnchorPosition(pos = {}) {
     exitUrgency < 45;
 }
 
+function isRecoveryLateContinuationCandidate(pick = {}, options = {}) {
+  const adaptive = options.adaptive || {};
+  const tradeWindows = adaptive.tradeWindows || {};
+  const history = pick.history || {};
+  const volumeRatio = pick.volumeBurstRatio || pick.volumeRatio || 0;
+  const selectedDayScore = Number(options.selectedDayScore ?? getSelectedBucketDayScore(pick) ?? 0);
+  const combinedScore = Number(options.combinedScore ?? getEffectiveCombinedScore(pick, options.runtimeStrategy || {}) ?? 0);
+  const historyScore = Number(options.historyScore ?? pick.historyScore ?? 0);
+  const signalStrength = Number(options.signalStrength || 0);
+  const intradayReturnPct = pick.intradayReturnPct;
+  const nowMinutes = options.nowMinutes;
+
+  if (tradeWindows.allowRecoveryLateContinuationEntries === false) return false;
+  if (pick.strategy?.bucket !== 'continuation') return false;
+  if ((options.confidence || 'LOW') !== 'HIGH') return false;
+  if (selectedDayScore < (tradeWindows.recoveryLateContinuationMinDayScore ?? 96)) return false;
+  if (historyScore < (tradeWindows.recoveryLateContinuationMinHistoryScore ?? 72)) return false;
+  if (combinedScore < (tradeWindows.recoveryLateContinuationMinCombinedScore ?? 84)) return false;
+  if (signalStrength < (tradeWindows.recoveryLateContinuationMinSignalStrength ?? 5)) return false;
+  if (
+    intradayReturnPct != null &&
+    intradayReturnPct > (tradeWindows.recoveryLateContinuationMaxIntradayReturnPct ?? 1.35)
+  ) return false;
+  if (
+    volumeRatio < (tradeWindows.recoveryLateContinuationMinVolumeRatio ?? 0.95) ||
+    volumeRatio > (tradeWindows.recoveryLateContinuationMaxVolumeRatio ?? 2.4)
+  ) return false;
+  if (
+    history.gain5d == null ||
+    history.gain5d < (tradeWindows.recoveryLateContinuationMinGain5d ?? 0.5) ||
+    history.gain5d > (tradeWindows.recoveryLateContinuationMaxGain5d ?? 7)
+  ) return false;
+  if (
+    history.rsi == null ||
+    history.rsi < (tradeWindows.recoveryLateContinuationMinRsi ?? 46) ||
+    history.rsi > (tradeWindows.recoveryLateContinuationMaxRsi ?? 62)
+  ) return false;
+  if (
+    history.macdHistogram != null &&
+    history.macdHistogram < (tradeWindows.recoveryLateContinuationMinMacdHistogram ?? -0.2) &&
+    history.macdHistogramImproving !== true
+  ) return false;
+  if (
+    Number.isFinite(nowMinutes) &&
+    nowMinutes > (tradeWindows.recoveryLateContinuationCutoffMinutes ?? (14 * 60 + 59))
+  ) return false;
+  return true;
+}
+
 function ensureContinuationExitGuard(pos = {}) {
   pos.continuationFailureStreak = Number(pos.continuationFailureStreak || 0);
   pos.continuationRecoveryStreak = Number(pos.continuationRecoveryStreak || 0);
@@ -393,6 +445,11 @@ function createEmptyTradeDiagnostics(overrides = {}) {
     marketOpen: false,
     portfolioDrawdown: 0,
     recoveryMode: false,
+    guardedRecoveryMode: false,
+    allowGuardedRecovery: false,
+    protectedRecoveryCount: 0,
+    recoveryAnchorCount: 0,
+    recoveryAddOnLimit: 0,
     strategyCandidateCount: 0,
     buyCandidateCount: 0,
     acceptedCount: 0,
@@ -2060,6 +2117,35 @@ class PaperAccount {
         allowAfternoonContinuationEntries: tradeWindows.allowAfternoonContinuationEntries ?? true,
         continuationAfternoonCutoffMinutes: tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30),
         secondaryContinuationAfternoonCutoffMinutes: tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? (14 * 60 + 45),
+        allowRecoveryLateContinuationEntries: tradeWindows.allowRecoveryLateContinuationEntries ?? true,
+        recoveryLateContinuationCutoffMinutes: tradeWindows.recoveryLateContinuationCutoffMinutes ?? (14 * 60 + 59),
+        recoveryLateContinuationMinDayScore: tradeWindows.recoveryLateContinuationMinDayScore ?? 96,
+        recoveryLateContinuationMinHistoryScore: tradeWindows.recoveryLateContinuationMinHistoryScore ?? 72,
+        recoveryLateContinuationMinCombinedScore: tradeWindows.recoveryLateContinuationMinCombinedScore ?? 84,
+        recoveryLateContinuationMinSignalStrength: tradeWindows.recoveryLateContinuationMinSignalStrength ?? 5,
+        recoveryLateContinuationMinVolumeRatio: tradeWindows.recoveryLateContinuationMinVolumeRatio ?? 0.95,
+        recoveryLateContinuationMaxVolumeRatio: tradeWindows.recoveryLateContinuationMaxVolumeRatio ?? 2.4,
+        recoveryLateContinuationMinGain5d: tradeWindows.recoveryLateContinuationMinGain5d ?? 0.5,
+        recoveryLateContinuationMaxGain5d: tradeWindows.recoveryLateContinuationMaxGain5d ?? 7,
+        recoveryLateContinuationMaxIntradayReturnPct: tradeWindows.recoveryLateContinuationMaxIntradayReturnPct ?? 1.35,
+        recoveryLateContinuationMinRsi: tradeWindows.recoveryLateContinuationMinRsi ?? 46,
+        recoveryLateContinuationMaxRsi: tradeWindows.recoveryLateContinuationMaxRsi ?? 62,
+        recoveryLateContinuationMinMacdHistogram: tradeWindows.recoveryLateContinuationMinMacdHistogram ?? -0.2,
+      },
+      recoveryGuard: {
+        enabled: adaptive.recoveryGuard?.enabled !== false,
+        maxPositions: adaptive.recoveryGuard?.maxPositions ?? 3,
+      },
+      positionSizing: {
+        continuationMultiplier: adaptive.positionSizing?.continuationMultiplier ?? 0.55,
+        secondaryContinuationMultiplier: adaptive.positionSizing?.secondaryContinuationMultiplier ?? 0.85,
+        recoveryModeMultiplier: adaptive.positionSizing?.recoveryModeMultiplier ?? 0.55,
+        guardedRecoveryMultiplier: adaptive.positionSizing?.guardedRecoveryMultiplier ?? 0.45,
+        drawdownPressureMultiplier: adaptive.positionSizing?.drawdownPressureMultiplier ?? 0.9,
+        maxDrawdownMultiplier: adaptive.positionSizing?.maxDrawdownMultiplier ?? 0.7,
+        highContinuationMinPositionValue: adaptive.positionSizing?.highContinuationMinPositionValue ?? 350000,
+        recoveryModeMinPositionValue: adaptive.positionSizing?.recoveryModeMinPositionValue ?? 300000,
+        guardedRecoveryMinPositionValue: adaptive.positionSizing?.guardedRecoveryMinPositionValue ?? 300000,
       },
       mainEntryGuard: {
         enabled: adaptive.mainEntryGuard?.enabled !== false,
@@ -2318,6 +2404,101 @@ class PaperAccount {
     return this.cash + positionValue;
   }
 
+  getPositionSizingContext(marketRegime = 'NEUTRAL') {
+    const adaptive = this.getAdaptiveConfig();
+    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
+    const currentEquity = this.getTotalEquity();
+    const portfolioDrawdown = this.peakEquity > 0
+      ? ((this.peakEquity - currentEquity) / this.peakEquity) * 100
+      : 0;
+    const recoveryGuard = adaptive.recoveryGuard || {};
+    const recoveryAddOnLimit = Math.max(2, Math.min(dynamicMaxPositions, recoveryGuard.maxPositions ?? 3));
+    const protectedRecoveryPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
+    const recoveryAnchorPositions = Array.from(this.positions.values()).filter(isRecoveryAnchorPosition);
+    const guardedRecoveryMode = portfolioDrawdown > 5 &&
+      recoveryGuard.enabled !== false &&
+      this.positions.size > 0 &&
+      this.positions.size < recoveryAddOnLimit &&
+      (protectedRecoveryPositions.length > 0 || recoveryAnchorPositions.length > 0);
+    const recoveryMode = portfolioDrawdown > 5 && this.positions.size === 0;
+    const allowGuardedRecovery = guardedRecoveryMode || (
+      portfolioDrawdown > 5 &&
+      recoveryGuard.enabled !== false &&
+      this.positions.size > 0 &&
+      this.positions.size < recoveryAddOnLimit &&
+      (protectedRecoveryPositions.length > 0 || recoveryAnchorPositions.length > 0)
+    );
+
+    return {
+      adaptive,
+      regimeConfig,
+      dynamicMaxPositions,
+      currentEquity,
+      portfolioDrawdown,
+      recoveryMode,
+      guardedRecoveryMode,
+      allowGuardedRecovery,
+      recoveryAddOnLimit,
+      protectedRecoveryCount: protectedRecoveryPositions.length,
+      recoveryAnchorCount: recoveryAnchorPositions.length,
+    };
+  }
+
+  calculateTargetPositionValue(pick, context = {}) {
+    const adaptive = context.adaptive || this.getAdaptiveConfig();
+    const performanceFeedback = context.performanceFeedback || this.getPerformanceFeedback({ marketRegime: context.marketRegime });
+    const marketRegime = context.marketRegime || 'NEUTRAL';
+    const confidence = context.confidence || 'LOW';
+    const allowGuardedRecovery = context.allowGuardedRecovery === true;
+    const recoveryMode = context.recoveryMode === true;
+    const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
+    const positionSizing = adaptive.positionSizing || {};
+    const regimeConfig = context.regimeConfig || adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
+    const maxDrawdown = pick.history?.maxDrawdown || 20;
+
+    let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
+    basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
+    if (pick.strategy?.bucket === 'continuation') {
+      basePositionValue *= (positionSizing.continuationMultiplier ?? 0.55);
+      if (pick.strategy?.selectedReason?.continuationSecondary) {
+        basePositionValue *= (positionSizing.secondaryContinuationMultiplier ?? 0.85);
+      }
+    }
+    if (recoveryMode) {
+      basePositionValue *= (positionSizing.recoveryModeMultiplier ?? 0.55);
+    } else if (allowGuardedRecovery) {
+      basePositionValue *= (positionSizing.guardedRecoveryMultiplier ?? 0.45);
+    }
+
+    if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
+      basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
+    }
+    if (performanceFeedback.drawdownPressure > 3) {
+      basePositionValue *= (positionSizing.drawdownPressureMultiplier ?? 0.9);
+    }
+    if (maxDrawdown > 20) {
+      basePositionValue *= (positionSizing.maxDrawdownMultiplier ?? 0.7);
+    }
+
+    let minFloor = 0;
+    if (confidence === 'HIGH' && pick.strategy?.bucket === 'continuation') {
+      minFloor = Math.max(minFloor, positionSizing.highContinuationMinPositionValue ?? 350000);
+    }
+    if (recoveryMode) {
+      minFloor = Math.max(minFloor, positionSizing.recoveryModeMinPositionValue ?? 300000);
+    } else if (allowGuardedRecovery) {
+      minFloor = Math.max(minFloor, positionSizing.guardedRecoveryMinPositionValue ?? 300000);
+    }
+
+    if (minFloor > 0) {
+      const cappedFloor = Math.min(minFloor, this.config.maxPositionValue);
+      basePositionValue = Math.max(basePositionValue, cappedFloor);
+    }
+
+    return basePositionValue;
+  }
+
   buildPositionSignalMap(allMarketData = []) {
     if (!this.positions.size || !Array.isArray(allMarketData) || allMarketData.length === 0) {
       return new Map();
@@ -2390,6 +2571,7 @@ class PaperAccount {
     }
 
     let combinedScore = pick.combinedScore || pick.score || 0;
+    let effectiveCombinedScore = combinedScore;
     const historyScore = pick.historyScore || 0;
     const volumeRatio = pick.volumeBurstRatio || pick.volumeRatio || 0;
     const selectedDayScore = getSelectedBucketDayScore(pick);
@@ -2422,7 +2604,7 @@ class PaperAccount {
     let baseReason = [];
 
     if (pick.strategy?.bucket === 'continuation') {
-      const effectiveCombinedScore = getEffectiveCombinedScore(pick, this.runtimeStrategy);
+      effectiveCombinedScore = getEffectiveCombinedScore(pick, this.runtimeStrategy);
       const continuationMaxVolumeRatio = isSecondaryContinuation
         ? Math.min(continuationBand.secondaryMaxVolumeRatio ?? 1.6, continuationBand.maxVolumeRatio ?? 4.8)
         : (continuationBand.maxVolumeRatio ?? 4.8);
@@ -2598,6 +2780,9 @@ class PaperAccount {
       }
     }
 
+    let allowAfternoonContinuationEntry = false;
+    let allowRecoveryLateContinuationEntry = false;
+    let continuationEntryCutoffMinutes = null;
     if (isMarketOpen(currentTime)) {
       const preferredEndMinutes = pick.strategy?.bucket === 'continuation'
         ? Math.max(adaptive.tradeWindows.preferredEntryEndMinutes, 11 * 60)
@@ -2606,7 +2791,10 @@ class PaperAccount {
         nowMinutes < adaptive.tradeWindows.preferredEntryStartMinutes ||
         nowMinutes > preferredEndMinutes;
       const inAfternoonWindow = nowMinutes >= (13 * 60) && nowMinutes <= (15 * 60);
-      const allowAfternoonContinuationEntry = (
+      const standardContinuationCutoffMinutes = isSecondaryContinuation
+        ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
+        : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30));
+      const standardAfternoonContinuationEntry = (
         inAfternoonWindow &&
         pick.strategy?.bucket === 'continuation' &&
         adaptive.tradeWindows.allowAfternoonContinuationEntries !== false &&
@@ -2621,10 +2809,28 @@ class PaperAccount {
         h.rsi != null &&
         h.rsi >= 48 &&
         h.rsi <= 60 &&
-        nowMinutes <= (isSecondaryContinuation
-          ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
-          : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30)))
+        nowMinutes <= standardContinuationCutoffMinutes
       );
+      allowRecoveryLateContinuationEntry = (
+        inAfternoonWindow &&
+        (options.recoveryMode || options.allowGuardedRecovery) === true &&
+        isRecoveryLateContinuationCandidate(pick, {
+          adaptive,
+          runtimeStrategy: this.runtimeStrategy,
+          confidence: baseConfidence,
+          signalStrength: signalStrength.length,
+          combinedScore: effectiveCombinedScore,
+          selectedDayScore,
+          historyScore,
+          nowMinutes,
+        })
+      );
+      allowAfternoonContinuationEntry = standardAfternoonContinuationEntry || allowRecoveryLateContinuationEntry;
+      if (standardAfternoonContinuationEntry) {
+        continuationEntryCutoffMinutes = standardContinuationCutoffMinutes;
+      } else if (allowRecoveryLateContinuationEntry) {
+        continuationEntryCutoffMinutes = adaptive.tradeWindows.recoveryLateContinuationCutoffMinutes ?? (14 * 60 + 59);
+      }
 
       if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow && !allowAfternoonContinuationEntry) {
         return {
@@ -2765,16 +2971,16 @@ class PaperAccount {
 
     if (baseConfidence === 'MEDIUM') {
       const stricterMediumChecks = {
-        signalStrength: signalStrength.length >= 3,
-        macdHistogram: h.macdHistogram != null && h.macdHistogram >= 0,
-        gain5d: h.gain5d != null && h.gain5d >= -5 && h.gain5d <= 2.5,
-        deviationFromMA20: h.deviationFromMA20 != null && h.deviationFromMA20 >= -4 && h.deviationFromMA20 <= 2.5,
-        volumeRatio: volumeRatio >= 0.9 && volumeRatio <= 1.45,
+        signalStrength: signalStrength.length >= 2,
+        macdHistogram: h.macdHistogram != null && (h.macdHistogram >= -0.05 || h.macdHistogramImproving === true),
+        gain5d: h.gain5d != null && h.gain5d >= -6.5 && h.gain5d <= 4,
+        deviationFromMA20: h.deviationFromMA20 != null && h.deviationFromMA20 >= -5 && h.deviationFromMA20 <= 3.5,
+        volumeRatio: volumeRatio >= 0.85 && volumeRatio <= 1.6,
       };
       const failedMediumChecks = Object.entries(stricterMediumChecks)
         .filter(([, passed]) => !passed)
         .map(([key]) => key);
-      if (failedMediumChecks.length > 0) {
+      if (failedMediumChecks.length > 1) {
         return { confidence: 'REJECT', reason: `中分段确认不足(${failedMediumChecks.join('/')})` };
       }
     }
@@ -2793,13 +2999,9 @@ class PaperAccount {
       isLateAfternoonSession(currentTime, adaptive.tradeWindows.latestEntryCutoffMinutes) &&
       !(
         pick.strategy?.bucket === 'continuation' &&
-        adaptive.tradeWindows.allowAfternoonContinuationEntries !== false &&
         baseConfidence === 'HIGH' &&
-        (
-          nowMinutes <= (isSecondaryContinuation
-            ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
-            : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30)))
-        )
+        allowAfternoonContinuationEntry &&
+        nowMinutes <= (continuationEntryCutoffMinutes ?? adaptive.tradeWindows.latestEntryCutoffMinutes)
       )
     ) {
       return {
@@ -2848,6 +3050,12 @@ class PaperAccount {
     if (adaptive.entryQuality?.enabled) {
       const continuationEntryQuality = pick.strategy?.bucket === 'continuation';
       const isAfternoonSession = nowMinutes >= (13 * 60);
+      const guardedContinuationEntry =
+        continuationEntryQuality &&
+        options.allowGuardedRecovery === true &&
+        baseConfidence === 'HIGH' &&
+        selectedDayScore >= 96 &&
+        effectiveCombinedScore >= 82;
       const entryQualityCfg = continuationEntryQuality
         ? {
             ...adaptive.entryQuality,
@@ -2855,8 +3063,8 @@ class PaperAccount {
             maxVolumeRatio: Math.max(adaptive.entryQuality.maxVolumeRatio ?? 1.6, 4.8),
             maxPullbackFromHighPct: isAfternoonSession
               ? Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, isSecondaryContinuation ? 2.8 : 2.5)
-              : Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, 2.2),
-            maxOpenDrawdownPct: Math.max(adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8, 2.6),
+              : Math.max(adaptive.entryQuality.maxPullbackFromHighPct ?? 1.2, guardedContinuationEntry ? 3.2 : 2.2),
+            maxOpenDrawdownPct: Math.max(adaptive.entryQuality.maxOpenDrawdownPct ?? 1.8, guardedContinuationEntry ? 3.0 : 2.6),
           }
         : adaptive.entryQuality;
       const entryQualityChecks = {
@@ -2899,6 +3107,9 @@ class PaperAccount {
     const effectiveDayScore = pick ? getSelectedBucketDayScore(pick) : (pos.entrySelectedDayScore || pos.entryScore || 0);
     const entrySelectedDayScore = pos.entrySelectedDayScore || pos.entryScore || 0;
     const highestPnlPct = pos.highPrice ? (((pos.highPrice - pos.entryPrice) / pos.entryPrice) * 100) : (pos.pnlPct || 0);
+    const exitScoreThreshold = isContinuationPosition
+      ? Math.max(this.config.exitStrongScoreThreshold || 80, entrySelectedDayScore - 18)
+      : (this.config.exitScoreThreshold || 55);
 
     // 1. 止损触发
     const stopLoss = pos.pnlPct <= (this.config.stopLossPct || -5);
@@ -2922,31 +3133,69 @@ class PaperAccount {
       const liveBucket = pick.strategy?.bucket || entryBucket;
       let continuationBucketFailure = false;
       let continuationBucketFailureWeight = 0;
+      let weakVsOpenNow = false;
+      let weakVsPrevCloseNow = false;
+      let negativePnl = false;
+      let continuationScoreGap = 0;
+      let continuationSoftWeakness = false;
+      let continuationHardWeakness = false;
 
       if (isContinuationPosition) {
         const prevClose = Number(pick.prevClose || 0);
-        const weakVsOpenNow = pick.open ? pos.currentPrice < pick.open * 0.997 : false;
-        const weakVsPrevCloseNow = prevClose > 0 ? pos.currentPrice < prevClose * 0.998 : false;
-        const negativePnl = (pos.pnlPct || 0) < 0;
+        weakVsOpenNow = pick.open ? pos.currentPrice < pick.open * 0.997 : false;
+        weakVsPrevCloseNow = prevClose > 0 ? pos.currentPrice < prevClose * 0.998 : false;
+        negativePnl = (pos.pnlPct || 0) < 0;
+        continuationScoreGap = Math.max(0, exitScoreThreshold - effectiveDayScore);
+        const failWeaknessCount = [weakVsOpenNow, weakVsPrevCloseNow, negativePnl].filter(Boolean).length;
+        continuationSoftWeakness = failWeaknessCount >= 1 || continuationScoreGap >= 3;
+        continuationHardWeakness = failWeaknessCount >= 2 || continuationScoreGap >= 6;
+        const protectedContinuation =
+          entrySelectedDayScore >= 96 &&
+          (pos.combinedScore || pos.entryScore || 0) >= 82 &&
+          (pos.pnlPct || 0) >= -0.8;
         if (liveBucket !== 'continuation') {
-          pos.continuationFailureStreak += 1;
-          pos.continuationRecoveryStreak = 0;
-          pos.continuationLastFailureAt = new Date().toISOString();
-          const failWeaknessCount = [weakVsOpenNow, weakVsPrevCloseNow, negativePnl].filter(Boolean).length;
-          const hasPriceWeakness = failWeaknessCount >= 2;
-          if (pos.continuationFailureStreak >= 2) {
-            continuationBucketFailureWeight = hasPriceWeakness ? 85 : 55;
-          } else if (hasPriceWeakness) {
-            continuationBucketFailureWeight = 45;
+          const hardRejectedWithoutPriceBreak =
+            liveBucket === 'rejected' &&
+            protectedContinuation &&
+            !weakVsOpenNow &&
+            !weakVsPrevCloseNow &&
+            (pos.pnlPct || 0) >= 0;
+          if (continuationSoftWeakness) {
+            if (hardRejectedWithoutPriceBreak) {
+              pos.continuationRecoveryStreak += 1;
+              if (pos.continuationRecoveryStreak >= 1) {
+                pos.continuationFailureStreak = 0;
+              }
+            } else {
+              pos.continuationFailureStreak += 1;
+              pos.continuationRecoveryStreak = 0;
+              pos.continuationLastFailureAt = new Date().toISOString();
+            }
           } else {
-            continuationBucketFailureWeight = 12;
+            pos.continuationRecoveryStreak += 1;
+            if (pos.continuationRecoveryStreak >= 1) {
+              pos.continuationFailureStreak = 0;
+            }
           }
-          continuationBucketFailure = true;
-          reasons.push({
-            type: '强势失效观察',
-            weight: continuationBucketFailureWeight,
-            detail: `第${pos.continuationFailureStreak}轮 ${entryBucket}->${liveBucket}${hasPriceWeakness ? ',价格走弱' : ',价格未明显走弱'}`
-          });
+          if (pos.continuationFailureStreak > 0) {
+            if (continuationHardWeakness && pos.continuationFailureStreak >= 2) {
+              continuationBucketFailureWeight = 78;
+            } else if (continuationHardWeakness) {
+              continuationBucketFailureWeight = 42;
+            } else if (pos.continuationFailureStreak >= 3) {
+              continuationBucketFailureWeight = 32;
+            } else if (pos.continuationFailureStreak >= 2) {
+              continuationBucketFailureWeight = 18;
+            } else {
+              continuationBucketFailureWeight = 8;
+            }
+            continuationBucketFailure = true;
+            reasons.push({
+              type: '强势失效观察',
+              weight: continuationBucketFailureWeight,
+              detail: `第${pos.continuationFailureStreak}轮 ${entryBucket}->${liveBucket}${continuationHardWeakness ? ',价格/评分明显走弱' : ',仅轻微转弱'}`
+            });
+          }
         } else {
           if (pos.continuationFailureStreak > 0) {
             pos.continuationRecoveryStreak += 1;
@@ -2979,16 +3228,33 @@ class PaperAccount {
       }
 
       // 评分下跌
-      const exitScoreThreshold = isContinuationPosition
-        ? Math.max(this.config.exitStrongScoreThreshold || 80, entrySelectedDayScore - 18)
-        : (this.config.exitScoreThreshold || 55);
       const scoreDrop = effectiveDayScore < exitScoreThreshold;
       if (scoreDrop) {
-        const scoreDropWeight = isContinuationPosition && pos.continuationFailureStreak > 0
-          ? Math.max(12, Math.min(weights.scoreDrop, pos.continuationFailureStreak >= 2 ? 28 : 18))
-          : weights.scoreDrop;
-        totalUrgency += scoreDropWeight;
-        reasons.push({ type: '评分下跌', weight: scoreDropWeight, detail: `${effectiveDayScore}分<${exitScoreThreshold}` });
+        let scoreDropWeight = weights.scoreDrop;
+        let shouldCountScoreDrop = true;
+        if (isContinuationPosition) {
+          const protectedContinuationScore =
+            entrySelectedDayScore >= 96 &&
+            (pos.combinedScore || pos.entryScore || 0) >= 82 &&
+            (pos.pnlPct || 0) >= 0;
+          if (protectedContinuationScore && !weakVsOpenNow && !weakVsPrevCloseNow && continuationScoreGap <= 35) {
+            shouldCountScoreDrop = false;
+          } else if (continuationScoreGap <= 1 && !continuationSoftWeakness && (pos.pnlPct || 0) >= 0.5) {
+            shouldCountScoreDrop = false;
+          } else if (continuationScoreGap <= 2) {
+            scoreDropWeight = (pos.pnlPct || 0) >= 1.5 && !continuationHardWeakness ? 6 : 10;
+          } else if (continuationScoreGap <= 4) {
+            scoreDropWeight = pos.continuationFailureStreak > 0 ? 12 : 10;
+          } else if (continuationScoreGap <= 7) {
+            scoreDropWeight = pos.continuationFailureStreak > 0 ? 18 : 16;
+          } else {
+            scoreDropWeight = pos.continuationFailureStreak > 0 ? 28 : 24;
+          }
+        }
+        if (shouldCountScoreDrop) {
+          totalUrgency += scoreDropWeight;
+          reasons.push({ type: '评分下跌', weight: scoreDropWeight, detail: `${effectiveDayScore}分<${exitScoreThreshold}` });
+        }
       }
 
       if (isContinuationPosition) {
@@ -3007,9 +3273,20 @@ class PaperAccount {
           totalUrgency += continuationBucketFailureWeight;
         }
 
-        if (highestPnlPct >= 1.8 && drawdownFromHigh >= 1.6) {
-          totalUrgency += 70;
-          reasons.push({ type: '强势回撤过快', weight: 70, detail: `最高${highestPnlPct.toFixed(2)}%回撤${drawdownFromHigh.toFixed(2)}%` });
+        const continuationDrawdownDanger = (
+          (highestPnlPct >= 2.5 && drawdownFromHigh >= 2.8) ||
+          (highestPnlPct >= 4.5 && drawdownFromHigh >= 2.1)
+        );
+        const continuationDrawdownWeak = (
+          weakVsOpenNow ||
+          weakVsPrevCloseNow ||
+          continuationScoreGap >= 3 ||
+          (pos.pnlPct || 0) <= 1.2
+        );
+        if (continuationDrawdownDanger && continuationDrawdownWeak) {
+          const drawdownWeight = highestPnlPct >= 4.5 ? 62 : 48;
+          totalUrgency += drawdownWeight;
+          reasons.push({ type: '强势回撤过快', weight: drawdownWeight, detail: `最高${highestPnlPct.toFixed(2)}%回撤${drawdownFromHigh.toFixed(2)}%` });
         }
 
         if (pos.holdDays >= 1 && pick.open && prevClose > 0) {
@@ -3307,11 +3584,12 @@ class PaperAccount {
       pos.pnlPct = ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100;
     }
 
-    const currentEquity = this.getTotalEquity();
-    const portfolioDrawdown = ((this.peakEquity - currentEquity) / this.peakEquity) * 100;
-    const recoveryMode = portfolioDrawdown > 5 && this.positions.size === 0;
-    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
-    const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
+    const sizingContext = this.getPositionSizingContext(marketRegime);
+    const currentEquity = sizingContext.currentEquity;
+    const portfolioDrawdown = sizingContext.portfolioDrawdown;
+    const recoveryMode = sizingContext.recoveryMode;
+    const regimeConfig = sizingContext.regimeConfig;
+    const dynamicMaxPositions = sizingContext.dynamicMaxPositions;
     const availablePositions = dynamicMaxPositions - this.positions.size;
 
     if (!marketOpen) {
@@ -3348,12 +3626,10 @@ class PaperAccount {
       this.peakEquity = currentEquity;
     }
 
+    const recoveryAddOnLimit = sizingContext.recoveryAddOnLimit;
     const protectedRecoveryPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
     const recoveryAnchorPositions = Array.from(this.positions.values()).filter(isRecoveryAnchorPosition);
-    const guardedRecoveryMode = portfolioDrawdown > 5 &&
-      this.positions.size > 0 &&
-      this.positions.size < 2 &&
-      (protectedRecoveryPositions.length > 0 || recoveryAnchorPositions.length > 0);
+    const guardedRecoveryMode = sizingContext.guardedRecoveryMode;
     if (portfolioDrawdown > 8) {
       if (this.lastAlertDrawdown < 8) {
         this.logAlert('PORTFOLIO_RISK', '', '', `组合回撤${portfolioDrawdown.toFixed(2)}%超过8%，清仓所有持仓`);
@@ -3452,13 +3728,7 @@ class PaperAccount {
     }
 
     const cooldownMinutes = this.config.buyCooldownMinutes || 60;
-    const profitableContinuationPositions = Array.from(this.positions.values()).filter(isProfitProtectedPosition);
-    const recoveryAnchors = Array.from(this.positions.values()).filter(isRecoveryAnchorPosition);
-    const allowAddOnRecovery = portfolioDrawdown > 5 &&
-      this.positions.size > 0 &&
-      (profitableContinuationPositions.length > 0 || recoveryAnchors.length > 0) &&
-      this.positions.size < 2;
-    const allowGuardedRecovery = guardedRecoveryMode || allowAddOnRecovery;
+    const allowGuardedRecovery = sizingContext.allowGuardedRecovery;
 
     const sectorCount = new Map();
     for (const pos of this.positions.values()) {
@@ -3496,7 +3766,14 @@ class PaperAccount {
           const lastSellTs = this.sellCooldown.get(p.symbol);
           if (lastSellTs) {
             const minutesSinceSell = (currentTime - new Date(lastSellTs)) / (1000 * 60);
-            if (minutesSinceSell < cooldownMinutes) {
+            const rapidReentryCandidate =
+              p.strategy?.bucket === 'continuation' &&
+              (p.tradeDecision?.confidence === 'HIGH' || getSelectedBucketDayScore(p) >= 96) &&
+              getEffectiveCombinedScore(p, this.runtimeStrategy) >= 82;
+            const effectiveCooldownMinutes = rapidReentryCandidate
+              ? Math.min(cooldownMinutes, 20)
+              : cooldownMinutes;
+            if (minutesSinceSell < effectiveCooldownMinutes) {
               console.log(`[PAPER] ${p.symbol} ${p.name} 在冷却期内，跳过`);
               buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: `冷却期${minutesSinceSell.toFixed(0)}分钟`, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
@@ -3510,7 +3787,11 @@ class PaperAccount {
             return false;
           }
 
-          const confidenceDecision = this.assessBuyConfidence(p, marketRegime, performanceFeedback, { currentTime });
+          const confidenceDecision = this.assessBuyConfidence(p, marketRegime, performanceFeedback, {
+            currentTime,
+            recoveryMode,
+            allowGuardedRecovery,
+          });
           p.tradeDecision = confidenceDecision;
           if (confidenceDecision.confidence === 'REJECT') {
             console.log(`[PAPER] ${p.symbol} ${p.name} 拒绝买入: ${confidenceDecision.reason}`);
@@ -3520,12 +3801,22 @@ class PaperAccount {
           if (recoveryMode) {
             const h = p.history || {};
             const signalStrength = confidenceDecision.signalStrength || 0;
+            const recoveryLateContinuationException = isRecoveryLateContinuationCandidate(p, {
+              adaptive,
+              runtimeStrategy: this.runtimeStrategy,
+              confidence: confidenceDecision.confidence,
+              signalStrength,
+              combinedScore: getEffectiveCombinedScore(p, this.runtimeStrategy),
+              selectedDayScore,
+              historyScore: p.historyScore || 0,
+              nowMinutes: getBeijingMinutes(currentTime),
+            });
             if (confidenceDecision.confidence !== 'HIGH') {
               const reason = `回撤恢复模式仅允许HIGH开仓(${confidenceDecision.confidence},强度${signalStrength})`;
               buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
             }
-            if (h.gain5d != null && h.gain5d > 6) {
+            if (h.gain5d != null && h.gain5d > 6 && !recoveryLateContinuationException) {
               const reason = `回撤恢复模式拒绝短线过热(gain5d=${h.gain5d}%)`;
               buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason, dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
               return false;
@@ -3569,32 +3860,19 @@ class PaperAccount {
       for (const pick of buyCandidates) {
         const confidence = pick.tradeDecision?.confidence || 'LOW';
         const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
+        const positionSizing = adaptive.positionSizing || {};
         const combinedScore = pick.combinedScore || pick.score || 70;
         const maxDrawdown = pick.history?.maxDrawdown || 20;
 
-        let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
-        basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
-        if (pick.strategy?.bucket === 'continuation') {
-          basePositionValue *= 0.45;
-          if (pick.strategy?.selectedReason?.continuationSecondary) {
-            basePositionValue *= 0.75;
-          }
-        }
-        if (recoveryMode) {
-          basePositionValue *= 0.35;
-        } else if (allowGuardedRecovery) {
-          basePositionValue *= 0.25;
-        }
-
-        if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
-          basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
-        }
-        if (performanceFeedback.drawdownPressure > 3) {
-          basePositionValue *= 0.8;
-        }
-        if (maxDrawdown > 20) {
-          basePositionValue *= 0.7;
-        }
+        let basePositionValue = this.calculateTargetPositionValue(pick, {
+          adaptive,
+          performanceFeedback,
+          marketRegime,
+          regimeConfig,
+          confidence,
+          recoveryMode,
+          allowGuardedRecovery,
+        });
 
         const maxBuyValue = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
         if (maxBuyValue <= 0) break;
@@ -3641,7 +3919,9 @@ class PaperAccount {
     } else if (this.cash <= this.config.minCashReserve) {
       skippedReason = '可用现金低于保留阈值';
     } else if (portfolioDrawdown > 5 && !recoveryMode && !allowGuardedRecovery) {
-      skippedReason = '组合回撤超过5%，暂停开仓';
+      skippedReason = this.positions.size > 0
+        ? `组合回撤超过5%，防守加仓上限${recoveryAddOnLimit}只或无高质量锚仓`
+        : '组合回撤超过5%，暂停开仓';
     } else if (strategyPicks.length === 0) {
       skippedReason = '无主候选';
     } else if (buyCandidates.length === 0 && buyDecisionLog.rejected.length === 0) {
@@ -3658,6 +3938,11 @@ class PaperAccount {
       marketOpen,
       portfolioDrawdown: Number(portfolioDrawdown.toFixed(2)),
       recoveryMode,
+      guardedRecoveryMode,
+      allowGuardedRecovery,
+      protectedRecoveryCount: protectedRecoveryPositions.length,
+      recoveryAnchorCount: recoveryAnchorPositions.length,
+      recoveryAddOnLimit,
       strategyCandidateCount: strategyPicks.length,
       buyCandidateCount: buyCandidates.length,
       positionsBefore,
@@ -3671,9 +3956,13 @@ class PaperAccount {
   }
 
   getSuggestedPositionValue(pick, marketRegime = 'NEUTRAL') {
-    const adaptive = this.getAdaptiveConfig();
-    const performanceFeedback = this.getPerformanceFeedback();
-    const confidenceDecision = this.assessBuyConfidence(pick, marketRegime, performanceFeedback);
+    const sizingContext = this.getPositionSizingContext(marketRegime);
+    const adaptive = sizingContext.adaptive;
+    const performanceFeedback = this.getPerformanceFeedback({ marketRegime });
+    const confidenceDecision = this.assessBuyConfidence(pick, marketRegime, performanceFeedback, {
+      recoveryMode: sizingContext.recoveryMode,
+      allowGuardedRecovery: sizingContext.allowGuardedRecovery,
+    });
     if (confidenceDecision.confidence === 'REJECT') {
       return {
         allowed: false,
@@ -3684,29 +3973,15 @@ class PaperAccount {
     }
 
     const confidence = confidenceDecision.confidence;
-    const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
-    const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
-    const maxDrawdown = pick.history?.maxDrawdown || 20;
-
-    let basePositionValue = this.config.maxPositionValue * (confidenceBand.positionMultiplier || 1);
-    basePositionValue = basePositionValue * (regimeConfig.positionSize || 1);
-    if (pick.strategy?.bucket === 'continuation') {
-      basePositionValue *= 0.45;
-      if (pick.strategy?.selectedReason?.continuationSecondary) {
-        basePositionValue *= 0.75;
-      }
-    }
-
-    if (performanceFeedback.highBandBonus > 0 && confidence === 'HIGH') {
-      basePositionValue *= 1 + Math.min(0.2, performanceFeedback.highBandBonus / 100);
-    }
-    if (performanceFeedback.drawdownPressure > 3) {
-      basePositionValue *= 0.8;
-    }
-    if (maxDrawdown > 20) {
-      basePositionValue *= 0.7;
-    }
-
+    const basePositionValue = this.calculateTargetPositionValue(pick, {
+      adaptive,
+      performanceFeedback,
+      marketRegime,
+      regimeConfig: sizingContext.regimeConfig,
+      confidence,
+      recoveryMode: sizingContext.recoveryMode,
+      allowGuardedRecovery: sizingContext.allowGuardedRecovery,
+    });
     const suggestedAmount = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
     return {
       allowed: suggestedAmount > 0,
@@ -3730,6 +4005,7 @@ class PaperAccount {
       maxPositions: dynamicMaxPositions,
       marketRegime: regime,
       performanceFeedback: this.getPerformanceFeedback(),
+      adaptive,
       latestTradeDiagnostics: this.latestTradeDiagnostics
     };
   }
@@ -3741,17 +4017,29 @@ async function main() {
   ensureDir(logsDir);
   const scanLogPath = path.join(logsDir, 'scan.log');
   const statePath = path.join(logsDir, 'state.json');
+  let persistedState = null;
+  if (fs.existsSync(statePath)) {
+    try {
+      persistedState = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+    } catch (err) {
+      console.warn(`[STATE] 读取历史状态失败: ${err.message}`);
+    }
+  }
   const state = {
     startedAt: new Date().toISOString(),
     mode: 'eastmoney-dom-scanner',
-    market: [],
-    strategyPicks: [],
-    observationPicks: [],
-    marketCount: 0,
-    scanRounds: 0,
-    lastScanAt: null,
-    researchWatchlist: { count: 0, generatedFrom: null },
-    diagnostics: createEmptyScanDiagnostics(),
+    market: persistedState?.market || [],
+    strategyPicks: persistedState?.strategyPicks || [],
+    observationPicks: persistedState?.observationPicks || [],
+    marketCount: persistedState?.marketCount || 0,
+    scanRounds: persistedState?.scanRounds || 0,
+    lastScanAt: persistedState?.lastScanAt || null,
+    marketRegime: persistedState?.marketRegime,
+    researchWatchlist: persistedState?.researchWatchlist || { count: 0, generatedFrom: null },
+    diagnostics: {
+      ...createEmptyScanDiagnostics(),
+      ...(persistedState?.diagnostics || {}),
+    },
   };
   
   // 初始化模拟盘账户

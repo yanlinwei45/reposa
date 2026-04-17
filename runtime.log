@@ -118,3 +118,45 @@
 [HISTORY] 从磁盘加载1280只股票的历史缓存
 [HTTP] server listening on http://127.0.0.1:3088
 [APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓1只, 历史订单53条, 现金933.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1367只股票的历史缓存
+[HTTP] server listening on http://127.0.0.1:3088
+[APP] Eastmoney DOM market scanner started
+[PAPER] 恢复状态: 持仓2只, 历史订单58条, 现金936.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1469只股票的历史缓存
+[HTTP] server listening on http://127.0.0.1:3088
+[APP] Eastmoney DOM market scanner started
+[MARKET] 上证指数: 4046.19 MA20: 3631.73 MA60: 3336.4 环境: BULL 来源: live
+[EMAPI] page=1 rows=100 kept=37 total=37
+[EMAPI] page=2 rows=100 kept=31 total=67
+[EMAPI] page=3 rows=100 kept=25 total=92
+[EMAPI] page=4 rows=100 kept=28 total=120
+[EMAPI] page=5 rows=100 kept=36 total=156
+[EMAPI] page=6 rows=100 kept=31 total=187
+[EMAPI] page=7 rows=100 kept=36 total=223
+[EMAPI] page=8 rows=100 kept=21 total=244
+[EMAPI] page=9 rows=100 kept=33 total=276
+[EMAPI] page=10 rows=100 kept=29 total=304
+[EMAPI] page=11 rows=100 kept=30 total=334
+[EMAPI] page=12 rows=100 kept=33 total=367
+[EMAPI] page=13 rows=100 kept=38 total=404
+[EMAPI] page=14 rows=100 kept=33 total=436
+[EMAPI] page=15 rows=100 kept=37 total=471
+[EMAPI] page=16 rows=100 kept=38 total=509
+[EMAPI] page=17 rows=100 kept=36 total=544
+[EMAPI] page=18 rows=100 kept=32 total=576
+[EMAPI] page=19 rows=100 kept=35 total=611
+[EMAPI] page=20 rows=100 kept=37 total=647
+[EMAPI] page=21 rows=100 kept=31 total=678
+[EMAPI] page=22 rows=100 kept=38 total=714
+[EMAPI] page=23 rows=100 kept=37 total=750
+[EMAPI] page=24 rows=100 kept=40 total=788
+[EMAPI] page=25 rows=100 kept=43 total=831
+[HISTORY] 开始获取150只股票的历史数据 (今日: 2026-04-16)
+[PAPER] 恢复状态: 持仓2只, 历史订单58条, 现金936.86万, 峰值权益1040.21万
+[PAPER] 模拟盘已启用，初始资金: 1000万
+[HISTORY] 从磁盘加载1467只股票的历史缓存
+[HTTP] server listening on http://127.0.0.1:3088
+[APP] Eastmoney DOM market scanner started

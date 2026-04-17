@@ -1,0 +1,376 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>前后端分离的API接口调试与文档管理系统设计与实现</title>
+  <style>
+    body {
+      font-family: SimSun, "Songti SC", serif;
+      font-size: 12pt;
+      line-height: 1.25;
+      color: #000;
+      margin: 48px 64px;
+    }
+    .cover {
+      text-align: center;
+      margin-top: 48px;
+      page-break-after: always;
+    }
+    .cover h1 {
+      font-size: 22pt;
+      font-weight: bold;
+      margin: 72px 0 80px;
+    }
+    .cover h2 {
+      font-size: 18pt;
+      font-weight: bold;
+      margin: 0 0 56px;
+    }
+    .meta {
+      width: 480px;
+      margin: 0 auto;
+      text-align: left;
+      font-size: 14pt;
+      line-height: 2.1;
+    }
+    .date {
+      margin-top: 80px;
+      font-size: 14pt;
+    }
+    h1 {
+      font-size: 16pt;
+      text-align: center;
+      font-weight: bold;
+      margin: 18px 0 12px;
+    }
+    h2 {
+      font-size: 12pt;
+      font-weight: bold;
+      margin: 12px 0 6px;
+    }
+    h3 {
+      font-size: 12pt;
+      font-weight: normal;
+      margin: 8px 0 4px;
+    }
+    p {
+      text-indent: 2em;
+      margin: 0 0 6px;
+      text-align: justify;
+    }
+    .no-indent {
+      text-indent: 0;
+    }
+    .center {
+      text-align: center;
+      text-indent: 0;
+    }
+    .abstract-title {
+      font-size: 16pt;
+      text-align: center;
+      font-weight: bold;
+      margin: 0 0 12px;
+    }
+    .keyword {
+      text-indent: 0;
+      margin-top: 12px;
+    }
+    .toc {
+      page-break-before: always;
+      page-break-after: always;
+    }
+    .toc p {
+      text-indent: 0;
+      line-height: 1.45;
+    }
+    .page-break {
+      page-break-before: always;
+    }
+    .english {
+      font-family: "Times New Roman", Times, serif;
+    }
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 8px 0 12px;
+      font-size: 10.5pt;
+    }
+    th, td {
+      border: 1px solid #000;
+      padding: 6px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      text-align: center;
+      font-weight: bold;
+    }
+    .table-title {
+      text-indent: 0;
+      text-align: center;
+      font-weight: bold;
+      margin-top: 8px;
+    }
+    .references p {
+      text-indent: 0;
+      margin-bottom: 4px;
+    }
+    sup {
+      font-size: 9pt;
+    }
+  </style>
+</head>
+<body>
+  <section class="cover">
+    <h2>本科生毕业论文</h2>
+    <h1>前后端分离的<span class="english">API</span>接口调试与文档管理系统设计与实现</h1>
+    <div class="meta">
+      <div>姓&nbsp;&nbsp;&nbsp;&nbsp;名&nbsp;&nbsp;&nbsp;&nbsp;[在此处键入作者姓名]</div>
+      <div>学&nbsp;&nbsp;&nbsp;&nbsp;号&nbsp;&nbsp;&nbsp;&nbsp;[在此处键入学号]</div>
+      <div>专&nbsp;&nbsp;&nbsp;&nbsp;业&nbsp;&nbsp;&nbsp;&nbsp;[在此处键入专业名称]</div>
+      <div>指导教师&nbsp;&nbsp;&nbsp;&nbsp;[在此处键入指导教师姓名和职称]</div>
+    </div>
+    <div class="date">2026年4月13日</div>
+  </section>
+
+  <section>
+    <div class="abstract-title">摘&nbsp;&nbsp;要</div>
+    <p>在企业数字化应用不断增多的背景下，网页端、移动端以及外部开放平台都需要稳定调用后端服务，接口逐渐成为前后端协作的核心对象。接口规模扩大以后，开发团队容易遇到文档存放位置不统一、调试参数需要反复填写、多环境配置难以复用、接口修改过程缺少留痕等问题，进而影响联调效率和交付质量。本文以“前后端分离的<span class="english">API</span>接口调试与文档管理系统”为研究对象，设计一个适合中小型开发团队使用的轻量化工具平台。系统前端采用<span class="english">Vue 3</span>、<span class="english">TypeScript</span>和组件化开发方式，完成项目空间、接口列表、请求编辑、响应查看和文档预览等页面；后端采用<span class="english">Node.js</span>与<span class="english">Express</span>实现认证、项目、接口、环境、代理调试和记录查询等接口服务；数据库选用<span class="english">MySQL</span>存储用户、项目、接口和历史记录等数据，并使用<span class="english">JWT</span>维护登录状态。论文在分析建设背景、应用价值和技术路线的基础上，给出需求分析、数据库建模、接口安全和模块实现方案，并结合功能用例与性能观察对系统运行效果进行验证。结果表明，该系统能够支持接口集中维护、调试配置复用、文档自动展示和历史记录追溯，对改善前后端联调过程具有一定实践意义。</p>
+    <p class="keyword"><strong>关键词：</strong>前后端分离；接口调试；文档管理；<span class="english">Vue</span>；<span class="english">Node.js</span></p>
+  </section>
+
+  <section class="page-break english">
+    <div class="abstract-title">Abstract</div>
+    <p>This paper designs and implements a front-end and back-end separated API debugging and documentation management system. With the continuous expansion of web applications and open services, development teams often need to maintain a large number of API documents, request parameters, test environments and change records. When these materials are scattered in chat tools, spreadsheets or static documents, front-end and back-end collaboration becomes inefficient and error-prone. To solve this problem, the system proposed in this paper provides project workspace management, API group management, request parameter configuration, environment variable reuse, response visualization, debugging history and API document preview. The front end is built with Vue 3 and TypeScript, and the back end is developed with Node.js and Express. MySQL is used for data persistence, while JSON Web Token is adopted for authentication. This paper analyzes the system requirements, architecture design, database design, core module implementation and testing process. The result shows that the system can support centralized API management, reusable request configuration and lightweight documentation generation for small and medium-sized development teams.</p>
+    <p class="keyword"><strong>Key Words:</strong> Front-End And Back-End Separation, API Debugging, Document Management, Vue, Node.js</p>
+  </section>
+
+  <section class="toc">
+    <h1>目&nbsp;&nbsp;录</h1>
+    <p>1 引言</p>
+    <p>1.1 选题背景</p>
+    <p>1.2 研究意义</p>
+    <p>1.3 国内外研究现状</p>
+    <p>1.4 论文组织结构</p>
+    <p>2 相关技术与可行性分析</p>
+    <p>2.1 前后端分离架构</p>
+    <p>2.2 前端开发技术</p>
+    <p>2.3 后端开发与数据存储技术</p>
+    <p>2.4 系统可行性分析</p>
+    <p>3 系统需求分析</p>
+    <p>3.1 用户角色分析</p>
+    <p>3.2 功能性需求分析</p>
+    <p>3.3 非功能性需求分析</p>
+    <p>3.4 业务流程分析</p>
+    <p>4 系统总体设计</p>
+    <p>4.1 总体架构设计</p>
+    <p>4.2 功能模块设计</p>
+    <p>4.3 数据库设计</p>
+    <p>4.4 接口安全设计</p>
+    <p>5 系统详细实现</p>
+    <p>5.1 用户认证与权限控制模块</p>
+    <p>5.2 项目空间与接口管理模块</p>
+    <p>5.3 请求调试与响应展示模块</p>
+    <p>5.4 接口文档生成与历史记录模块</p>
+    <p>6 系统测试与结果分析</p>
+    <p>6.1 测试环境</p>
+    <p>6.2 功能测试</p>
+    <p>6.3 性能与安全测试</p>
+    <p>7 结论与展望</p>
+    <p>参考文献</p>
+    <p>致谢</p>
+  </section>
+
+  <section>
+    <h1>1 引言</h1>
+    <h2>1.1 选题背景</h2>
+    <p>在传统<span class="english">Web</span>开发模式中，页面渲染、业务逻辑和数据访问往往集中在同一套后端工程中，前端更多承担静态页面编写和样式调整工作。随着单页应用、移动端应用、小程序和开放平台等应用形态的发展，业务系统逐渐转向以接口为中心的协作方式。后端通过<span class="english">RESTful API</span>或类似风格暴露业务能力，前端围绕接口完成页面状态管理、数据展示和用户交互。<span class="english">REST</span>架构思想强调资源、统一接口、无状态交互和可缓存等约束<sup>[1]</sup>，为现代前后端分离系统提供了重要的设计基础。</p>
+    <p>在实际开发过程中，接口不仅是技术连接点，也是团队协作契约。一个接口从提出到交付通常经历需求沟通、字段约定、后端开发、前端联调、测试验证和上线维护等环节。如果团队仅依赖即时通讯、表格或零散文档记录接口信息，就容易出现字段含义不一致、请求示例过期、测试环境混乱、接口变更无法追溯等问题。对于前端开发者而言，调试接口时还需要反复配置请求地址、请求头、认证令牌、查询参数和请求体，重复性工作较多。对于后端开发者而言，接口修改后如果不能及时同步文档，也会导致沟通成本上升。</p>
+    <p>市场上已经存在<span class="english">Postman</span>、<span class="english">Apifox</span>、<span class="english">Swagger</span>等成熟工具，但毕业设计项目不宜简单复刻大型商业软件，而应结合教学场景和中小团队的基本需求，抽取其中的核心流程进行工程化实现。本文选择“前后端分离的<span class="english">API</span>接口调试与文档管理系统”作为研究对象，既能体现前端开发的页面组织、组件封装、状态管理和交互设计能力，也能覆盖后端接口设计、数据库建模、权限控制和系统测试等内容，符合前后端综合项目的实践要求。</p>
+
+    <h2>1.2 研究意义</h2>
+    <p>从应用价值看，接口调试与文档管理系统可以帮助团队建立统一的接口资产库。项目成员在同一空间中维护接口分组、请求方法、路径、参数、响应示例和文档说明，减少因文档版本不一致导致的沟通误差。系统支持环境变量后，开发、测试和预生产环境的域名、令牌、公共请求头等配置可以复用，调试时只需要切换环境即可完成请求地址和认证信息的自动替换。调试历史记录还能帮助开发者回溯某次请求的参数与响应结果，便于排查问题。</p>
+    <p>从能力训练角度看，本系统能够覆盖前端和后端两个方向的典型任务。前端部分需要处理多栏工作台、参数表单、动态字段、响应结果样式和文档页面渲染等交互问题，能够体现组件拆分和页面状态组织能力；后端部分需要完成登录校验、项目资源归属判断、接口定义持久化、请求代理、敏感信息过滤和操作记录保存等逻辑，能够训练<span class="english">Node.js</span>服务端开发与数据库建模能力。通过完成该项目，可以把软件工程、数据库、<span class="english">Web</span>开发和测试方法放在同一个业务场景中综合运用，形成较完整的工程实践过程。</p>
+    <p>从论文写作看，工具类系统比普通信息管理系统更容易体现前端开发特色。系统不只包含常见的增删改查，还涉及请求构造、变量替换、响应解析、文档生成等具有明确技术含量的功能点。论文可以围绕接口契约、调试效率、数据结构设计和安全控制展开论述，避免内容停留在简单页面展示层面。</p>
+
+    <h2>1.3 国内外研究现状</h2>
+    <p>国外关于<span class="english">Web</span>架构和接口规范的研究起步较早。Fielding提出的<span class="english">REST</span>风格从资源表示、统一接口和无状态通信等方面解释了网络应用的组织方式，为后续接口化系统设计提供了重要参考<sup>[1]</sup>。OpenAPI Initiative维护的<span class="english">OpenAPI Specification</span>逐步成为描述<span class="english">HTTP API</span>的重要规范，它使用结构化文档描述接口路径、请求参数、响应模型和认证方式，便于生成文档、客户端代码和测试用例<sup>[2]</sup>。在工程工具方面，<span class="english">Postman</span>等平台将接口请求、集合、环境变量、团队协作和自动化测试集成在一起，说明接口已经从单纯的调试对象转变为可管理的工程资产。</p>
+    <p>在国内开发实践中，前后端分离已经成为企业信息系统和高校项目中较常见的实现方式。许多管理系统、政务平台和校园应用会将<span class="english">Vue</span>、<span class="english">React</span>等前端框架与<span class="english">Spring Boot</span>、<span class="english">Node.js</span>等服务端技术结合起来，通过<span class="english">JSON</span>接口完成数据交互。相关论文和项目通常会围绕模块拆分、权限控制、数据库设计和接口封装展开。对于接口管理类工具，国内团队更关注接口文档、在线调试、自动化测试和协同评审之间的衔接。成熟商业工具功能较多，但在毕业设计和中小项目场景下学习成本偏高，因此设计一个范围清晰、逻辑可解释、后续可扩展的接口调试与文档管理系统仍具有现实意义。</p>
+    <p>综合来看，现有工具和规范已经证明了接口集中管理的重要性，但在教学场景中仍需要一个规模适中、模块清晰、便于实现和阐述的系统样例。本文在成熟架构思想和主流技术栈基础上，重点完成接口调试、环境变量、文档预览和历史记录等核心功能，兼顾系统完整性与实现可控性。</p>
+
+    <h2>1.4 论文组织结构</h2>
+    <p>本文的章节安排如下：第一章说明选题背景、研究意义以及国内外相关情况；第二章介绍系统使用的前后端分离架构、前端框架、后端服务和数据存储技术，并讨论可行性；第三章围绕用户角色、功能需求、非功能需求和业务流程进行分析；第四章阐述总体架构、模块划分、数据库模型和安全控制方案；第五章对用户认证、项目空间、接口管理、请求调试和文档生成等关键模块进行实现说明；第六章从测试环境、功能用例、性能和安全角度验证系统；第七章总结本文工作，并提出后续改进方向。</p>
+
+    <h1>2 相关技术与可行性分析</h1>
+    <h2>2.1 前后端分离架构</h2>
+    <p>前后端分离架构强调浏览器端应用与服务端程序在工程和职责上的独立性。前端主要处理界面渲染、路由切换、交互反馈、页面状态和接口调用；后端集中处理业务规则、权限判断、数据访问、外部服务集成和日志记录。两端一般通过<span class="english">HTTP</span>传递<span class="english">JSON</span>数据完成协作。采用这种模式后，页面开发与服务端开发可以在接口契约明确后并行推进，后端服务也更容易复用于网页、移动端和第三方调用场景。</p>
+    <p>在本系统中，前端工程以单页应用形式运行，所有页面都通过路由和组件组织。用户在浏览器中完成登录、项目选择、接口编辑和请求调试等操作，前端通过封装后的请求方法访问后端接口。后端提供统一的<span class="english">RESTful API</span>，并按照资源类型划分路由，例如用户、项目、接口、环境和调试历史等。前后端之间通过明确的数据结构进行交互，前端不直接访问数据库，后端也不负责渲染页面，从而保持职责清晰。</p>
+
+    <h2>2.2 前端开发技术</h2>
+    <p>前端采用<span class="english">Vue 3</span>作为核心框架。<span class="english">Vue</span>官方文档指出，其声明式渲染和组件化模型有助于构建用户界面<sup>[3]</sup>。在本系统中，项目列表、接口分组、参数表格、响应面板等均可以拆分为独立组件。通过把相似界面抽象成组件，页面中的重复实现会明显减少，后续修改也更集中。例如请求参数编辑器组件既可用于查询参数，也可用于请求头和请求体字段；响应查看组件既可显示<span class="english">JSON</span>结果，也可显示错误提示和响应头信息。</p>
+    <p><span class="english">TypeScript</span>用于增强代码类型约束。接口调试系统中存在较多结构化数据，例如接口定义、环境变量、请求参数、响应记录等，如果仅使用动态类型，字段拼写错误和数据结构不一致的问题不容易在开发阶段发现。通过为这些对象定义类型，可以在编码阶段获得提示和校验，提高代码可维护性。<span class="english">Axios</span>用于浏览器端发送<span class="english">HTTP</span>请求，它支持请求拦截器、响应拦截器、超时控制和统一错误处理<sup>[4]</sup>。系统在请求拦截器中自动附加<span class="english">JWT</span>令牌，在响应拦截器中统一处理未登录、权限不足和服务异常等情况。</p>
+    <p>前端构建工具采用<span class="english">Vite</span>。相较传统打包工具，<span class="english">Vite</span>在开发阶段利用原生<span class="english">ES Module</span>提供较快的启动和热更新能力<sup>[5]</sup>，适合本系统这种页面模块较多、调试频繁的前端项目。组件库可选择<span class="english">Element Plus</span>，用于表单、表格、弹窗、标签页和提示信息等常见交互。对于毕业设计而言，组件库能够减少基础控件重复开发，使工作重点集中在业务流程和系统逻辑上。</p>
+
+    <h2>2.3 后端开发与数据存储技术</h2>
+    <p>后端采用<span class="english">Node.js</span>和<span class="english">Express</span>。<span class="english">Node.js</span>以事件循环处理大量<span class="english">I/O</span>操作，在接口服务、代理请求和日志写入等场景中具有实现简洁的特点<sup>[6]</sup>。<span class="english">Express</span>是常用的<span class="english">Node.js Web</span>框架，提供路由、中间件和请求响应封装，能够快速搭建<span class="english">API</span>服务<sup>[7]</sup>。在本系统中，后端按业务资源划分控制器和服务层，控制器负责参数接收与响应返回，服务层负责业务规则和数据库操作，减少路由文件中的复杂逻辑。</p>
+    <p>数据存储采用<span class="english">MySQL</span>。本系统中的主要数据包括用户、项目、成员、接口分组、接口定义、环境变量和调试记录，这些对象之间存在明确的主外键关系，并且字段变化相对可控，因此采用关系型数据库更便于维护。<span class="english">MySQL</span>提供事务、索引、约束和结构化查询能力<sup>[8]</sup>，便于保证项目资源归属和接口数据一致性。对于请求体、响应示例等字段，可使用<span class="english">JSON</span>类型或文本类型保存，使系统兼顾结构化查询和灵活扩展。</p>
+    <p>身份认证采用<span class="english">JWT</span>。<span class="english">RFC 7519</span>定义了<span class="english">JSON Web Token</span>的基本结构和声明方式<sup>[9]</sup>。登录校验通过后，服务端生成带签名的令牌并返回给浏览器，前端之后访问受保护接口时把该令牌放入请求头。后端中间件校验令牌有效性，并将用户身份写入请求上下文。相较服务端会话，<span class="english">JWT</span>更适合前后端分离场景，但也需要注意过期时间、签名密钥和客户端存储安全。</p>
+
+    <h2>2.4 系统可行性分析</h2>
+    <p>技术可行性方面，系统采用的<span class="english">Vue</span>、<span class="english">Node.js</span>、<span class="english">Express</span>和<span class="english">MySQL</span>均为成熟技术，社区资料和官方文档丰富，能够满足毕业设计开发需要。系统功能虽然包含接口请求转发和文档生成，但核心逻辑可以通过请求参数组装、变量替换、代理调用和数据持久化完成，实现难度可控。</p>
+    <p>经济可行性方面，系统开发所需工具均可使用开源或免费版本，开发环境只需普通个人电脑和本地数据库即可搭建。部署时可选择云服务器、容器或学校实验环境，不依赖昂贵硬件设备。对于毕业设计而言，系统可以在本地演示完整流程，经济成本较低。</p>
+    <p>操作可行性方面，系统面向开发人员，用户对接口、请求方法、请求头和参数等概念具有基本认知。页面采用左侧项目与分组导航、右侧详情编辑和底部响应结果的布局方式，接近常见开发工具的使用习惯。系统提供表单化参数编辑和文档预览功能，能够降低使用门槛。</p>
+    <p>安全可行性方面，系统不直接执行用户输入的脚本，不保存生产环境真实密码，主要风险集中在认证、权限校验和请求代理边界。通过登录校验、项目成员权限控制、请求地址白名单、敏感字段脱敏和操作日志记录，可以在毕业设计范围内形成较完整的安全控制方案。</p>
+
+    <h1>3 系统需求分析</h1>
+    <h2>3.1 用户角色分析</h2>
+    <p>系统的目标用户主要是中小型开发团队成员，按照使用职责可划分为普通成员、项目管理员和系统管理员三类。普通成员能够创建个人项目、加入团队项目、浏览接口文档，并对授权范围内的接口进行编辑和调试；项目管理员主要负责项目成员维护、接口分组整理、关键接口审核以及环境变量配置；系统管理员则面向平台层面，负责用户状态维护、系统参数配置和异常日志查看。</p>
+    <p>结合毕业设计的实现范围，本文重点落地普通成员和项目管理员两个层级，系统管理员作为后续扩展角色保留在权限模型中。这样的安排既保留了角色设计的完整性，也避免后台功能扩展过多。权限控制与项目成员关系绑定，同一账号在不同项目中可以拥有不同角色，例如某用户在项目A内具有管理权限，在项目B中则可能只具备只读能力。</p>
+
+    <h2>3.2 功能性需求分析</h2>
+    <p>系统功能需求围绕接口资产的创建、调试、展示和追溯展开，主要包括以下内容。</p>
+    <p>第一，用户认证功能。系统应支持注册、登录和退出，并在登录成功后返回认证令牌。前端保存登录状态，在后续请求时自动附带认证信息；未完成登录的用户不能进入项目空间或使用接口调试能力。为了保证安全性，用户口令在数据库中不得以明文形式保存，而应经过哈希处理后再写入数据表。</p>
+    <p>第二，项目空间管理功能。用户能够创建项目，填写项目名称、说明信息和基础路径，并在项目内部建立接口分组，用于按业务模块归类接口，如用户、订单和文件等分组。拥有管理权限的成员还可以邀请其他用户加入项目，并调整项目内的成员角色。</p>
+    <p>第三，接口管理功能。系统应允许用户在分组下新增接口，录入接口名称、请求方式、路径、说明、请求头、查询参数、路径参数、请求体和响应示例等内容。同时系统还需支持接口查询、修改、删除与复制，并允许用户按关键字、请求方式和分组快速筛选接口。</p>
+    <p>第四，环境变量管理功能。每个项目可以配置多个调试环境，例如本地环境、测试环境和预发布环境。环境信息除了基础地址外，还应包含变量键值对。接口路径和参数支持使用变量占位符，在实际调试时由系统按照当前环境完成替换，从而减少不同环境之间反复修改地址和认证信息的工作量。</p>
+    <p>第五，请求调试功能。用户选择接口和环境后，可以点击发送按钮发起请求。前端将接口定义、参数配置和当前环境提交给后端，后端完成变量替换、请求构造和代理转发，并返回状态码、响应头、响应体、耗时和错误信息。为避免浏览器跨域限制，实际调试请求由后端代理完成。</p>
+    <p>第六，文档预览功能。系统根据接口定义自动生成可阅读的接口文档，包括接口名称、请求方式、路径、参数表、请求示例和响应示例。文档可以按项目和分组展示，便于测试人员和其他开发者查看。该功能可以降低手动维护文档的成本。</p>
+    <p>第七，历史记录功能。每次调试请求完成后，系统保存请求时间、接口编号、环境编号、请求参数摘要、状态码、耗时和响应摘要。用户可以查看最近的调试记录，并将某条记录恢复为当前请求配置，用于问题复现。</p>
+
+    <p class="table-title">表3-1  系统主要功能需求</p>
+    <table>
+      <tr><th>模块</th><th>主要功能</th><th>说明</th></tr>
+      <tr><td>用户认证</td><td>注册、登录、退出、令牌校验</td><td>保证系统资源只向合法用户开放</td></tr>
+      <tr><td>项目空间</td><td>项目创建、成员维护、分组管理</td><td>以项目为单位组织接口资产</td></tr>
+      <tr><td>接口管理</td><td>新增、编辑、删除、查询、复制接口</td><td>记录请求方法、路径、参数和响应示例</td></tr>
+      <tr><td>环境变量</td><td>环境切换、基础地址配置、变量维护</td><td>支持开发、测试等多环境调试</td></tr>
+      <tr><td>请求调试</td><td>请求构造、代理转发、响应展示</td><td>解决跨域和重复配置问题</td></tr>
+      <tr><td>文档管理</td><td>自动生成文档、分组浏览、示例展示</td><td>提升接口说明的一致性</td></tr>
+      <tr><td>历史记录</td><td>保存调试结果、回放请求、错误追踪</td><td>便于定位接口问题</td></tr>
+    </table>
+
+    <h2>3.3 非功能性需求分析</h2>
+    <p>可用性方面，系统界面应符合开发工具的使用习惯。左侧显示项目和接口分组，中间显示接口列表，右侧显示接口详情和调试面板。常用操作应提供明显入口，例如新增接口、保存、发送请求和切换环境。对于请求失败、登录过期和参数缺失等场景，应提供明确提示。</p>
+    <p>性能方面，系统需要满足单个项目数百条接口信息的浏览与检索需求。为避免页面一次性渲染过多内容，接口列表宜按照项目和分组进行分页或分段加载。调试代理请求应设置合适的超时上限，避免后端连接长时间被占用；历史记录只保留近期常用数据或保存摘要，防止超大响应体使数据库容量快速增长。</p>
+    <p>安全方面，系统需要同时校验登录身份和项目权限。用户只能访问自己创建或被授权加入的项目资源，不能通过猜测编号方式读取其他项目的数据。请求代理功能还应限制可访问的协议和目标地址，避免被误用为内网探测入口。对于令牌、密码等敏感值，日志和历史记录中都应进行脱敏处理。OWASP关于<span class="english">Web</span>和<span class="english">API</span>安全的风险分类说明，访问控制、身份认证和敏感数据保护都是接口系统需要重点关注的问题<sup>[10]</sup>。</p>
+    <p>可维护性方面，前端代码宜按照页面、组件、类型定义和服务请求进行拆分；后端代码则适合按路由、控制器、服务层、数据模型和中间件进行组织。数据库字段命名和接口响应格式需要保持一致，统一的错误码与提示消息既方便前端统一处理异常，也为后续扩展自动化测试、接口导入导出等功能提供基础。</p>
+
+    <h2>3.4 业务流程分析</h2>
+    <p>系统核心业务流程可以概括为“登录认证、选择项目、维护接口、配置环境、发送调试、保存记录、生成文档”。用户首先登录系统，进入项目空间后选择目标项目。若项目尚未创建接口分组，用户先创建分组，然后新增接口并填写请求方法、路径和参数。用户选择调试环境后，系统把基础地址、接口路径和变量配置组合成完整请求。后端代理请求目标服务并记录结果，前端展示状态码、耗时、响应头和响应体。接口文档页面直接读取接口定义，不需要用户重复编写文档。</p>
+    <p>该流程的关键在于接口定义与调试配置共享同一份数据。传统方式下，接口文档和调试请求常常分别维护，容易出现“文档写了但调试参数没更新”或“调试通过但文档没更新”的情况。本系统将接口定义作为核心数据源，调试和文档都从该数据源派生，从而提高一致性。</p>
+
+    <h1>4 系统总体设计</h1>
+    <h2>4.1 总体架构设计</h2>
+    <p>系统整体由浏览器、前端应用、后端服务和数据库四个层次组成。浏览器负责展示界面并接收用户操作；前端应用负责页面路由、组件渲染、表单校验、状态维护以及对后端接口的调用；后端服务负责登录认证、权限判断、业务处理、调试代理和日志记录；数据库则承担用户、项目、接口、环境和历史记录等信息的持久化任务。</p>
+    <p>从接口类型看，后端主要提供两类服务：一类是系统内部业务接口，用于登录、项目查询、接口维护和历史记录检索；另一类是调试代理接口，用来根据用户提交的接口配置向目标服务发起实际请求。为了保证安全性，调试代理请求在执行前必须经过身份校验、项目权限判断、目标地址检测和变量替换等步骤。系统整体架构如图4-1所示。</p>
+    <p class="center">图4-1  系统总体架构示意图</p>
+    <p class="center">浏览器用户界面 → 前端单页应用 → 后端<span class="english">API</span>服务 → <span class="english">MySQL</span>数据库 / 目标接口服务</p>
+
+    <h2>4.2 功能模块设计</h2>
+    <p>前端功能可以拆分为登录注册、项目空间、接口管理、环境变量、请求调试、文档预览和历史记录等模块。登录注册模块负责账号录入、表单校验与令牌保存；项目空间模块用于展示项目列表、项目信息、成员角色和接口分组；接口管理模块承担接口表单编辑、参数编辑和响应示例维护；环境变量模块负责环境切换以及基础地址、变量项配置；请求调试模块负责发起请求、展示加载状态、格式化响应结果和提示错误；文档预览模块将接口定义组织成可阅读页面；历史记录模块则承担调试结果查询与回放。</p>
+    <p>后端部分可划分为认证、权限、项目、接口、环境、调试代理和日志等模块。认证模块负责注册、登录和令牌校验；权限模块依据项目成员关系判断操作资格；项目模块处理项目和分组相关业务；接口模块维护接口定义的新增、查询、修改和删除；环境模块管理环境变量；调试代理模块负责拼装请求并转发到目标地址；日志模块记录关键操作和异常信息。</p>
+    <p>前后端模块之间保持清晰边界。前端不拼接数据库字段，也不直接判断最终权限；后端不处理页面交互细节，只返回结构化数据和错误码。这样的设计有利于项目维护，也符合现代<span class="english">Web</span>应用的工程实践。</p>
+
+    <h2>4.3 数据库设计</h2>
+    <p>数据库设计遵循实体边界清晰、关联关系明确和适度冗余的原则。系统中的核心实体包括用户、项目、项目成员、接口分组、接口定义、环境配置以及调试历史。用户与项目之间是多对多关系，需要借助项目成员表进行关联，并在关联表中记录用户角色；项目和接口分组之间是一对多关系，接口分组和接口定义之间同样是一对多关系；环境配置依附于项目保存，调试历史则与具体接口形成从属关系。</p>
+    <p class="table-title">表4-1  数据库主要数据表设计</p>
+    <table>
+      <tr><th>表名</th><th>主要字段</th><th>用途</th></tr>
+      <tr><td>users</td><td>id, username, password_hash, email, created_at</td><td>保存用户基础信息和登录凭证</td></tr>
+      <tr><td>projects</td><td>id, name, description, owner_id, base_path, created_at</td><td>保存项目空间信息</td></tr>
+      <tr><td>project_members</td><td>id, project_id, user_id, role, joined_at</td><td>保存项目成员及权限角色</td></tr>
+      <tr><td>api_groups</td><td>id, project_id, name, sort_order</td><td>保存接口分组</td></tr>
+      <tr><td>apis</td><td>id, group_id, project_id, name, method, path, description, request_schema, response_example</td><td>保存接口定义和示例</td></tr>
+      <tr><td>environments</td><td>id, project_id, name, base_url, variables</td><td>保存不同环境的地址和变量</td></tr>
+      <tr><td>debug_histories</td><td>id, api_id, user_id, environment_id, request_snapshot, status_code, duration_ms, response_snapshot, created_at</td><td>保存调试请求记录</td></tr>
+    </table>
+    <p>在字段类型上，用户名、邮箱、项目名称等使用字符串类型；创建时间使用日期时间类型；接口参数结构、环境变量和响应示例可以使用<span class="english">JSON</span>类型或长文本类型。为提高查询效率，应在<span class="english">project_id</span>、<span class="english">group_id</span>、<span class="english">api_id</span>和<span class="english">user_id</span>等字段上建立索引。对于接口定义表，还可以在接口名称和路径字段上建立普通索引，用于关键字检索。</p>
+    <p>在数据库约束方面，项目成员表需要避免同一账号被重复加入同一项目，因此可对<span class="english">project_id</span>和<span class="english">user_id</span>建立联合唯一索引。接口表中的请求方式应限定在常见的<span class="english">GET</span>、<span class="english">POST</span>、<span class="english">PUT</span>、<span class="english">PATCH</span>和<span class="english">DELETE</span>等取值范围内。对于项目删除操作，应谨慎处理关联数据，更适合采用逻辑删除来降低误删风险。</p>
+
+    <h2>4.4 接口安全设计</h2>
+    <p>接口安全设计主要围绕身份认证、访问控制、输入合法性校验以及代理边界控制展开。认证机制采用<span class="english">JWT</span>。用户登录成功后，后端会生成包含用户标识和过期时间的令牌，前端在<span class="english">Authorization</span>请求头中携带该信息。服务端认证中间件负责校验签名与时效，校验未通过时直接返回未授权结果。</p>
+    <p>访问控制采用项目级权限模型。每次访问项目、接口、环境和历史记录相关接口时，后端都根据当前用户编号和项目编号查询项目成员表，判断用户是否属于该项目。对于编辑、删除、成员管理等操作，还要判断用户是否具有管理员权限。仅在前端隐藏按钮是不可靠的，后端必须进行最终权限校验。</p>
+    <p>输入校验主要针对接口名称、路径、请求方法、环境地址和变量键值对。接口路径应以斜杠开头，环境地址应符合<span class="english">HTTP</span>或<span class="english">HTTPS</span>格式，变量名应避免包含特殊控制字符。请求代理模块要拒绝<span class="english">file</span>、<span class="english">ftp</span>等非预期协议，并限制访问本机敏感地址。调试历史中保存的请求头和响应体应对<span class="english">token</span>、<span class="english">password</span>、<span class="english">secret</span>等敏感字段进行脱敏。</p>
+
+    <h1>5 系统详细实现</h1>
+    <h2>5.1 用户认证与权限控制模块</h2>
+    <p>用户认证模块的实现过程可分为账号注册、登录校验、令牌签发和令牌验证四个步骤。注册时，服务端先校验用户名与密码格式，再检查用户名是否重复；条件满足后，系统对密码进行哈希处理并写入用户表。登录时，后端根据用户名读取用户记录，将输入密码与已保存的哈希值进行比对，验证成功后再生成<span class="english">JWT</span>返回给前端。</p>
+    <p>浏览器端在登录成功后会保存令牌和用户基础信息，并将页面跳转到项目首页。为避免在每个页面重复处理登录状态，前端统一封装请求实例，在请求拦截器里读取本地令牌并写入请求头；如果响应拦截器检测到未授权状态，则自动清除本地登录信息并跳回登录页，从而把登录状态维护逻辑集中在统一入口中。</p>
+    <p>权限控制在后端通过中间件与服务函数配合实现。认证中间件先确认当前请求对应的用户身份，项目权限函数再判断该用户是否拥有目标项目的访问资格。以接口编辑为例，后端会先依据接口编号查出其所属项目，再核验当前用户是否属于该项目成员；若校验失败，系统直接返回错误，不继续执行更新操作，从而降低手工构造请求带来的越权风险。</p>
+
+    <h2>5.2 项目空间与接口管理模块</h2>
+    <p>项目空间是系统组织接口数据的基础单位。用户进入系统后首先看到项目列表，列表中展示项目名称、描述、当前用户角色和最近更新时间。点击项目后进入接口工作台页面。工作台采用左右分栏布局：左侧为接口分组树，中间为接口列表，右侧为接口详情和调试面板。该布局能够让用户在同一页面完成接口查找、编辑和调试。</p>
+    <p>接口管理模块的重点是参数结构设计。一个接口通常包含请求方法、路径、请求头、查询参数、路径参数、请求体和响应示例。为了便于前端动态编辑，系统将参数统一抽象为数组结构，每个参数包含名称、类型、是否必填、默认值和说明等字段。对于请求体，系统支持原始<span class="english">JSON</span>文本和表单化字段两种方式。表单化字段适合简单对象，原始<span class="english">JSON</span>适合复杂嵌套结构。</p>
+    <p>接口保存时，前端会先完成基础校验，例如判断接口名称是否为空、请求路径是否以斜杠开头、请求方式是否已选择。校验通过后，接口定义被提交到后端，由服务端再次核验字段合法性，并把参数结构序列化后写入数据库。采用前后端双层校验，一方面可以及时给用户反馈，另一方面也能保证入库数据的安全与一致。</p>
+    <p>接口查询支持关键字检索和请求方式筛选。当前端在搜索框中输入关键字后，会把项目编号、分组编号、关键字以及方法类型一并提交给后端，由服务端根据查询条件检索接口表并返回分页结果。为了减少频繁请求，前端可在输入搜索词时增加防抖处理。接口复制功能适合快速生成相似接口，例如同一资源下的新增、修改和删除接口往往共享相近的路径和参数结构。</p>
+
+    <h2>5.3 请求调试与响应展示模块</h2>
+    <p>请求调试模块是本系统的核心功能。用户在接口详情中选择环境并点击“发送”后，前端读取当前接口定义、用户临时修改的参数值和环境编号，提交给后端调试代理接口。后端根据环境编号查询基础地址和变量配置，将接口路径中的变量占位符替换为实际值，再组合查询参数、请求头和请求体，最终向目标服务发起请求。</p>
+    <p>变量替换是调试模块的重要步骤。例如环境中定义<span class="english">baseUrl</span>为<span class="english">http://localhost:3000</span>，定义<span class="english">token</span>为某个测试令牌，接口请求头中填写<span class="english">Authorization: Bearer {{token}}</span>。调试时系统将<span class="english">{{token}}</span>替换为当前环境的实际值。这样用户在切换环境时不需要逐个修改请求头和路径，减少人工错误。</p>
+    <p>后端在代理调试请求时会记录请求开始和结束时间，以便计算总耗时。若目标服务返回正常结果，系统把状态码、响应头和响应体一并回传给前端；若出现超时、连接失败或地址不合法等情况，则返回统一的错误结构。前端响应面板再按照状态码区分展示效果，例如<span class="english">2xx</span>表示成功、<span class="english">4xx</span>表示客户端错误、<span class="english">5xx</span>表示服务端错误。响应内容如果是<span class="english">JSON</span>格式，则自动格式化显示；若是普通文本，则直接展示原始返回值。</p>
+    <p>由于调试请求可能访问外部服务，系统需要设置超时时间和响应体大小限制。超时时间过短会影响慢接口调试，过长则可能占用服务资源。本文设计中默认超时时间为<span class="english">15</span>秒，响应体保存时只截取摘要，完整响应仅在页面当次展示。这样既能满足常规调试，又能避免历史记录表过大。</p>
+
+    <h2>5.4 接口文档生成与历史记录模块</h2>
+    <p>接口文档生成模块直接复用接口定义数据，不要求用户再单独维护一份完整说明。系统按项目、分组和接口三个层级组织文档目录。单个接口文档通常展示接口名称、功能说明、请求方式、访问路径、请求头、参数说明、请求示例、响应示例以及更新时间等信息。由于文档页面和接口编辑共用同一份数据源，因此接口参数发生调整后，文档内容也会同步更新，能够减少额外维护成本。</p>
+    <p>文档页面设计需要兼顾阅读效率。请求方式可以用不同颜色标签进行区分，例如<span class="english">GET</span>显示为绿色、<span class="english">POST</span>显示为蓝色、<span class="english">DELETE</span>显示为红色。参数说明区域应清楚给出字段名、类型、必填状态和说明文字。响应示例采用代码块展示，并提供复制入口。为了避免测试人员误修改接口定义，文档页面可以提供只读访问模式。</p>
+    <p>历史记录模块会在每次调试结束后写入数据库，保存接口编号、用户编号、环境编号、请求快照、响应状态、耗时和响应摘要等信息。请求快照记录的是当次调试的路径、请求头、参数和请求体，即便接口定义后来被修改，用户仍能够回看那次调试时的真实配置。历史记录列表默认按照时间倒序排列，并支持按照接口和状态码进行筛选。</p>
+    <p>回放历史记录时，系统不会自动直接发送请求，而是先把历史请求配置恢复到调试面板中，由用户确认后再发送。这样可以避免误触发具有副作用的接口，例如删除订单、提交审批等。对于<span class="english">GET</span>类查询接口，回放功能可以提高问题复现效率；对于<span class="english">POST</span>、<span class="english">PUT</span>和<span class="english">DELETE</span>类接口，系统应提示用户谨慎操作。</p>
+
+    <h1>6 系统测试与结果分析</h1>
+    <h2>6.1 测试环境</h2>
+    <p>系统测试在本地开发环境中进行。前端运行在现代浏览器中，后端运行在<span class="english">Node.js</span>环境下，数据库使用<span class="english">MySQL 8.0</span>。测试数据包括两个用户、三个项目、十个接口分组、五十条接口定义、三个环境配置和若干调试历史记录。测试重点覆盖用户认证、项目权限、接口增删改查、环境变量替换、请求代理、文档展示和历史记录回放等功能。</p>
+    <p>测试工作主要采用功能用例验证、边界场景验证和基础性能观察三种方式。功能用例验证关注用户在页面上执行的操作是否满足需求；边界场景验证重点检查空参数、非法路径、未登录访问、越权访问和目标服务异常等情况；性能观察则关注常规数据量下接口列表查询和调试代理的响应时间。测试过程中可结合浏览器开发者工具、后端日志、数据库查询和<span class="english">Apache JMeter</span>等工具完成验证。<span class="english">JMeter</span>可用于模拟并发请求和查看响应时间分布<sup>[11]</sup>。</p>
+
+    <h2>6.2 功能测试</h2>
+    <p>功能测试依据需求分析中的关键业务流程设计用例。用户认证部分检查新用户注册、重复用户名处理、正确密码登录、错误密码提示和令牌过期访问；项目空间部分检查项目创建、描述修改、分组创建、成员添加以及非成员访问拦截；接口管理部分检查接口新增、参数编辑、接口删除、关键字检索和接口复制；环境变量部分检查环境新增、环境切换、变量替换和缺失变量提示；请求调试部分检查<span class="english">GET</span>请求、携带请求体的<span class="english">POST</span>请求、目标地址不可达和超时场景；文档与历史记录部分检查文档同步更新、响应示例展示、历史记录查询和请求配置回放。</p>
+    <p class="table-title">表6-1  系统功能测试用例</p>
+    <table>
+      <tr><th>测试项</th><th>输入或操作</th><th>预期结果</th><th>测试结果</th></tr>
+      <tr><td>用户登录</td><td>输入正确用户名和密码</td><td>返回令牌并进入项目首页</td><td>通过</td></tr>
+      <tr><td>错误登录</td><td>输入错误密码</td><td>提示用户名或密码错误</td><td>通过</td></tr>
+      <tr><td>创建接口</td><td>填写名称、方法、路径和参数</td><td>接口保存成功并出现在列表中</td><td>通过</td></tr>
+      <tr><td>路径校验</td><td>输入不以斜杠开头的路径</td><td>前端或后端提示路径格式错误</td><td>通过</td></tr>
+      <tr><td>环境切换</td><td>从本地环境切换为测试环境</td><td>基础地址和变量按测试环境替换</td><td>通过</td></tr>
+      <tr><td>接口调试</td><td>发送正常<span class="english">GET</span>请求</td><td>展示状态码、耗时和响应体</td><td>通过</td></tr>
+      <tr><td>越权访问</td><td>非项目成员访问接口详情</td><td>返回无权限错误</td><td>通过</td></tr>
+      <tr><td>历史记录</td><td>查看最近调试记录并回放</td><td>恢复历史请求配置</td><td>通过</td></tr>
+    </table>
+    <p>从测试结果看，系统主要功能能够按照预期完成。用户登录和权限校验可以阻止未授权访问；接口管理模块能够保存复杂参数结构；环境变量能够在调试时进行替换；文档页面能够根据接口定义自动更新；历史记录能够保存调试结果并支持回放。测试过程中发现，若响应体过大，前端格式化展示会出现短暂卡顿，因此后续可考虑采用分片展示或延迟格式化方式优化体验。</p>
+
+    <h2>6.3 性能与安全测试</h2>
+    <p>性能测试主要关注接口列表加载和调试代理响应。在测试数据量为单项目五十条接口的情况下，接口列表查询和页面渲染可以在较短时间内完成，用户操作无明显等待。调试代理的总耗时主要取决于目标服务响应速度，系统自身增加的变量替换和记录保存开销较小。对于并发请求场景，<span class="english">Node.js</span>的非阻塞模型能够处理一定数量的并发连接，但如果目标服务响应很慢，仍可能造成代理请求堆积。因此系统设置了请求超时和错误返回机制。</p>
+    <p>安全测试重点覆盖未登录访问、越权访问、非法地址和敏感字段处理。未登录状态下请求项目相关接口时，服务端会返回未授权结果；非项目成员读取接口详情时，系统会拒绝访问并返回权限错误。调试代理模块会拦截非<span class="english">HTTP</span>协议地址，避免访问本地文件或其他非预期资源。历史记录写入时，系统会对<span class="english">password</span>、<span class="english">token</span>和<span class="english">secret</span>等字段进行脱敏，从而降低敏感信息泄露风险。</p>
+    <p>测试结果说明，系统在毕业设计和小型团队使用场景下具有基本可用性和安全性。但如果投入真实生产环境，还需要进一步增强安全能力，例如更严格的访问白名单、审计日志、限流策略、操作确认机制和更完善的异常监控。</p>
+
+    <h1>7 结论与展望</h1>
+    <p>本文围绕前后端协作中接口调试和文档维护效率不高的问题，设计并实现了一个前后端分离的<span class="english">API</span>接口调试与文档管理系统。系统采用<span class="english">Vue 3</span>、<span class="english">TypeScript</span>、<span class="english">Node.js</span>、<span class="english">Express</span>和<span class="english">MySQL</span>等技术，完成了用户认证、项目空间、接口管理、环境变量、请求调试、文档预览和历史记录等功能。通过将接口定义作为统一数据源，系统能够同时支撑调试请求和文档展示，减少重复维护，提高接口信息一致性。</p>
+    <p>在系统设计过程中，本文重点处理了前后端职责边界、数据库实体关系、项目级权限控制和请求代理安全边界等问题。前端把复杂工作台拆分为多个可复用组件，使页面维护更加集中；后端采用路由、控制器、服务层和中间件配合的方式组织业务逻辑，使接口处理流程更加清晰；数据库通过项目、成员、分组、接口和历史记录等数据表保存核心业务信息，能够支撑系统基本运行。测试结果表明，系统主要功能运行正常，具有较好的完整性和实践性。</p>
+    <p>由于时间和项目规模限制，系统仍存在一些可以改进的方向。第一，可以支持导入和导出<span class="english">OpenAPI</span>文档，使系统与现有接口生态更好兼容。第二，可以增加接口自动化测试功能，允许用户把多个接口组合成测试流程，并生成测试报告。第三，可以加入更细粒度的团队协作能力，例如接口评审、变更通知和版本对比。第四，可以进一步优化响应体展示和大型项目下的列表性能。第五，可以在部署层面引入容器化和持续集成，提高系统运行稳定性。总体而言，本系统实现了接口调试与文档管理的核心流程，为后续扩展为团队级接口协作平台奠定了基础。</p>
+
+    <h1>参考文献</h1>
+    <div class="references">
+      <p>[1] Fielding R T. Architectural Styles and the Design of Network-based Software Architectures[D]. Irvine: University of California, Irvine, 2000.</p>
+      <p>[2] OpenAPI Initiative. OpenAPI Specification v3.1.1[EB/OL].(2024-10-24)[2026-04-13]. https://spec.openapis.org/oas/v3.1.1.html.</p>
+      <p>[3] Vue.js Team. Vue.js Guide[EB/OL].(2026-04-13)[2026-04-13]. https://vuejs.org/guide/introduction.html.</p>
+      <p>[4] Axios. Getting Started[EB/OL].(2026-04-13)[2026-04-13]. https://axios-http.com/docs/intro.</p>
+      <p>[5] Vite. Vite Guide[EB/OL].(2026-04-13)[2026-04-13]. https://vite.dev/guide/.</p>
+      <p>[6] OpenJS Foundation. Node.js Documentation[EB/OL].(2026-04-13)[2026-04-13]. https://nodejs.org/api/.</p>
+      <p>[7] Express. Express Guide[EB/OL].(2026-04-13)[2026-04-13]. https://expressjs.com/en/guide/routing.html.</p>
+      <p>[8] Oracle. MySQL 8.0 Reference Manual[EB/OL].(2026-04-13)[2026-04-13]. https://dev.mysql.com/doc/refman/8.0/en/.</p>
+      <p>[9] Jones M, Bradley J, Sakimura N. JSON Web Token (JWT): RFC 7519[S/OL].(2015-05)[2026-04-13]. https://www.rfc-editor.org/rfc/rfc7519.</p>
+      <p>[10] OWASP Foundation. OWASP API Security Top 10 - 2023[EB/OL].(2023-06-05)[2026-04-13]. https://owasp.org/API-Security/editions/2023/en/0x11-t10/.</p>
+      <p>[11] Apache Software Foundation. Apache JMeter User's Manual[EB/OL].(2026-04-13)[2026-04-13]. https://jmeter.apache.org/usermanual/.</p>
+      <p>[12] Pressman R S, Maxim B R. Software Engineering: A Practitioner's Approach[M]. New York: McGraw-Hill Education, 2019.</p>
+      <p>[13] Sommerville I. Software Engineering[M]. 10th ed. Boston: Pearson, 2016.</p>
+      <p>[14] Elmasri R, Navathe S B. Fundamentals of Database Systems[M]. 7th ed. Boston: Pearson, 2016.</p>
+      <p>[15] Gamma E, Helm R, Johnson R, Vlissides J. Design Patterns: Elements of Reusable Object-Oriented Software[M]. Boston: Addison-Wesley, 1994.</p>
+      <p>[16] Fowler M. Patterns of Enterprise Application Architecture[M]. Boston: Addison-Wesley, 2002.</p>
+      <p>[17] Crockford D. The application/json Media Type for JavaScript Object Notation (JSON): RFC 4627[S/OL].(2006-07)[2026-04-13]. https://www.rfc-editor.org/rfc/rfc4627.</p>
+    </div>
+
+    <h1>致&nbsp;&nbsp;谢</h1>
+    <p>本论文从选题、系统构思到最终成稿，离不开指导教师和同学们的支持。指导教师在论文题目确定、需求分析、章节安排和格式规范等方面提出了许多具体意见，使我能够围绕前后端分离项目逐步形成较完整的设计思路。在系统实现与论文修改过程中，同学们也围绕页面交互、接口设计和测试流程提出建议，帮助我发现并修正了一些细节问题。</p>
+    <p>通过本次毕业论文和系统开发，我对前端工程化、后端接口设计、数据库建模和软件测试流程有了更系统的认识，也进一步理解了接口文档与调试工具在团队协作中的价值。受个人经验和开发时间限制，本文和系统实现中仍然存在可以继续完善之处，恳请各位老师给予批评和指导。</p>
+  </section>
+</body>
+</html>

@@ -34,7 +34,7 @@ if [ -n "$LISTENER_PID" ]; then
   exit 1
 fi
 
-nohup "$NODE_BIN" src/index.js >> runtime.log 2>&1 < /dev/null &
+nohup "$NODE_BIN" src/index.js >/dev/null 2>> runtime.log < /dev/null &
 APP_PID=$!
 disown "$APP_PID" 2>/dev/null || true
 echo "$APP_PID" > runtime.pid
