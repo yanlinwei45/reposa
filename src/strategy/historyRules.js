@@ -88,10 +88,19 @@ function score60DayHistory(indicators, scoringConfig = {}) {
   return Math.max(0, Math.min(100, score));
 }
 
+function isWithinRange(value, min, max) {
+  if (value == null) return false;
+  if (min != null && value < min) return false;
+  if (max != null && value > max) return false;
+  return true;
+}
+
 function evaluateHistoryFilters(item, historyConfig = {}) {
   const filters = historyConfig.filters || {};
   const degradedPolicy = historyConfig.degradedDataPolicy || {};
   const isResearchSelected = !!item.researchSelected;
+  const continuationExceptionMinHistoryScore = filters.continuationExceptionMinHistoryScore
+    ?? Math.max(48, (filters.minHistoryScore ?? 50) - 4);
   const sampleBase = {
     symbol: item.symbol,
     name: item.name,
@@ -99,18 +108,37 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     historyScore: item.historyScore || 0,
     price: item.price || 0,
   };
+  const preliminaryContinuationScore = Number(
+    item.strategy?.preliminaryBucketScores?.continuation ??
+    item.strategy?.bucketScores?.continuation ??
+    item.preHistoryScore ??
+    item.score ??
+    0
+  );
+  const volumeRatio = Number(item.volumeBurstRatio || item.volumeRatio || 0);
+  const changePercent = Number(item.changePercent || 0);
   const continuationProfile = (() => {
     const h = item.history || {};
+    const strongIntradayContinuation =
+      preliminaryContinuationScore >= (filters.continuationExceptionMinDayScore ?? 72) &&
+      changePercent >= (filters.continuationExceptionMinChangePercent ?? 0.2) &&
+      volumeRatio >= (filters.continuationExceptionMinVolumeRatio ?? 0.85) &&
+      (item.turnover || 0) >= (filters.continuationExceptionMinTurnover ?? 300000000);
+    if (!strongIntradayContinuation) return false;
     return (
-      h.gain60d != null && h.gain60d >= 10 &&
-      h.gain30d != null && h.gain30d >= 0 &&
-      h.gain10d != null && h.gain10d >= -2 &&
-      h.gain5d != null && h.gain5d >= -2 && h.gain5d <= 14 &&
-      h.distanceToHigh60d != null && h.distanceToHigh60d >= -24 && h.distanceToHigh60d <= 2 &&
-      h.deviationFromMA20 != null && h.deviationFromMA20 >= -1 && h.deviationFromMA20 <= 18 &&
-      h.rsi != null && h.rsi >= 45 && h.rsi <= 72 &&
-      h.macdHistogram != null && (h.macdHistogram >= -0.12 || h.macdHistogramImproving === true) &&
-      (item.turnover || 0) >= 500000000
+      isWithinRange(h.gain60d, filters.continuationExceptionMinGain60d ?? 5, filters.continuationExceptionMaxGain60d ?? 180) &&
+      (h.gain30d == null || h.gain30d >= (filters.continuationExceptionMinGain30d ?? -8)) &&
+      isWithinRange(h.gain10d, filters.continuationExceptionMinGain10d ?? -4, filters.continuationExceptionMaxGain10d ?? 22) &&
+      isWithinRange(h.gain5d, filters.continuationExceptionMinGain5d ?? -2.5, filters.continuationExceptionMaxGain5d ?? 16) &&
+      isWithinRange(h.distanceToHigh60d, filters.continuationExceptionMinDistanceToHigh60d ?? -26, filters.continuationExceptionMaxDistanceToHigh60d ?? 2) &&
+      isWithinRange(h.deviationFromMA20, filters.continuationExceptionMinDeviationFromMA20 ?? -2, filters.continuationExceptionMaxDeviationFromMA20 ?? 20) &&
+      isWithinRange(h.rsi, filters.continuationExceptionMinRsi ?? 42, filters.continuationExceptionMaxRsi ?? 74) &&
+      h.macdHistogram != null &&
+      (
+        h.macdHistogram >= (filters.continuationExceptionMinMacdHistogram ?? -0.15) ||
+        h.macdHistogramImproving === true
+      ) &&
+      (item.historyScore || 0) >= continuationExceptionMinHistoryScore
     );
   })();
 
@@ -190,8 +218,11 @@ function evaluateHistoryFilters(item, historyConfig = {}) {
     return { passed: false, reasonKey: 'avgTurnoverLow', reason: `60日均换手${h.avgTurnover60d}%不足${minAvgTurnover60d}%`, detail: { ...sampleBase, avgTurnover60d: h.avgTurnover60d } };
   }
 
-  if ((item.historyScore || 0) < (filters.minHistoryScore ?? 50)) {
-    return { passed: false, reasonKey: 'historyScoreLow', reason: `历史评分${item.historyScore}分不足${filters.minHistoryScore ?? 50}`, detail: sampleBase };
+  const minHistoryScore = continuationProfile
+    ? continuationExceptionMinHistoryScore
+    : (filters.minHistoryScore ?? 50);
+  if ((item.historyScore || 0) < minHistoryScore) {
+    return { passed: false, reasonKey: 'historyScoreLow', reason: `历史评分${item.historyScore}分不足${minHistoryScore}`, detail: sampleBase };
   }
 
   return { passed: true };

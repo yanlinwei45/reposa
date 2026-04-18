@@ -30,9 +30,15 @@
         "liveCombinedScore": 71.76,
         "exitUrgency": 0,
         "exitShouldExit": false,
-        "exitReasons": [],
-        "exitSummary": "暂无强退出信号",
-        "lastEvaluatedAt": "2026-04-17 15:00:40",
+        "exitReasons": [
+          {
+            "type": "非交易时间",
+            "weight": 0,
+            "detail": "仅更新信号快照"
+          }
+        ],
+        "exitSummary": "非交易时间(仅更新信号快照)",
+        "lastEvaluatedAt": "2026-04-18 10:21:46",
         "continuationFailureStreak": 0,
         "continuationRecoveryStreak": 158,
         "continuationLastFailureAt": "2026-04-17T01:34:58.633Z",
@@ -1542,7 +1548,7 @@
         "score": 81.47,
         "scoreRangeKey": "80-89",
         "confidence": "HIGH",
-        "marketRegime": "UNKNOWN",
+        "marketRegime": "BULL",
         "soldAt": "2026-04-17T01:34:58.633Z",
         "source": "strategy"
       },
@@ -1553,7 +1559,7 @@
         "score": 82.53,
         "scoreRangeKey": "80-89",
         "confidence": "HIGH",
-        "marketRegime": "UNKNOWN",
+        "marketRegime": "BULL",
         "soldAt": "2026-04-17T02:11:33.705Z",
         "source": "strategy"
       }
@@ -1580,27 +1586,28 @@
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-17 15:00:40",
+    "ts": "2026-04-18 10:21:46",
     "marketRegime": "BULL",
-    "marketOpen": true,
+    "marketOpen": false,
     "portfolioDrawdown": 7.12,
     "recoveryMode": false,
-    "guardedRecoveryMode": false,
-    "allowGuardedRecovery": false,
+    "guardedRecoveryMode": true,
+    "allowGuardedRecovery": true,
+    "bullProbeAllowed": true,
     "protectedRecoveryCount": 0,
-    "recoveryAnchorCount": 0,
+    "recoveryAnchorCount": 1,
     "recoveryAddOnLimit": 3,
-    "strategyCandidateCount": 0,
+    "strategyCandidateCount": 2,
     "buyCandidateCount": 0,
     "acceptedCount": 0,
     "rejectedCount": 0,
     "positionsBefore": 1,
     "positionsAfter": 1,
     "availablePositions": 4,
-    "skippedReason": "组合回撤超过5%，防守加仓上限3只或无高质量锚仓",
+    "skippedReason": "非交易时间",
     "rejectSummary": [],
     "accepted": [],
     "rejected": []
   },
-  "savedAt": "2026-04-17T07:01:30.499Z"
+  "savedAt": "2026-04-18T02:24:10.798Z"
 }

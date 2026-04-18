@@ -160,3 +160,11 @@
 [HISTORY] 从磁盘加载1467只股票的历史缓存
 [HTTP] server listening on http://127.0.0.1:3088
 [APP] Eastmoney DOM market scanner started
+[EMAPI] page=7 attempt=1 page.evaluate失败: page.evaluate: TypeError: Failed to fetch
+    at eval (eval at evaluate (:290:30), <anonymous>:2:32)
+    at UtilityScript.evaluate (<anonymous>:292:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)
+[EMAPI] page=7 attempt=2 page.evaluate失败: page.evaluate: TypeError: Failed to fetch
+    at eval (eval at evaluate (:290:30), <anonymous>:2:32)
+    at UtilityScript.evaluate (<anonymous>:292:16)
+    at UtilityScript.<anonymous> (<anonymous>:1:44)

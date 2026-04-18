@@ -74,9 +74,9 @@
         "maxDrawdown": 24,
         "maxDeviationFromMA20": 16,
         "requireNotObservationBias": true,
-        "maxGain10d": 18,
-        "maxGain5d": 10,
-        "maxVolatility": 20
+        "maxGain10d": 20,
+        "maxGain5d": 12,
+        "maxVolatility": 24
       },
       "tradeWindows": {
         "mediumConfidenceCutoffMinutes": 830,
@@ -104,7 +104,9 @@
       },
       "recoveryGuard": {
         "enabled": true,
-        "maxPositions": 3
+        "maxPositions": 3,
+        "bullProbeEnabled": true,
+        "bullProbeMaxPositions": 2
       },
       "positionSizing": {
         "continuationMultiplier": 0.55,
