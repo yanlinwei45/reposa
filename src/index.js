@@ -21,6 +21,7 @@ const { formatWan, formatPct } = require('./utils/format');
 const { normalizeSymbol, isMainBoardCode, isLikelyStName, toEastmoneyUrl } = require('./utils/symbol');
 const { createApiRoutes, serveFrontend } = require('./server/routes');
 const { renderHtml, renderPaperHtml, renderLogsHtml } = require('./render/legacyPages');
+const { EastmoneyWebTrader } = require('./live/eastmoneyTrader');
 
 process.on('unhandledRejection', (reason) => {
   console.error('[UNHANDLED_REJECTION]', reason);
@@ -69,6 +70,7 @@ function loadConfig() {
   if (!config.server) config.server = {};
   if (!config.server.port || Number(config.server.port) === 3000) config.server.port = 3088;
   if (!config.server.host) config.server.host = '127.0.0.1';
+  if (!config.liveTrading) config.liveTrading = {};
   if (!config.marketScan) config.marketScan = {};
   if (!config.marketScan.scanIntervalMs) config.marketScan.scanIntervalMs = 180000;
   if (!config.marketScan.scanIntervalOffHoursMs) config.marketScan.scanIntervalOffHoursMs = 600000;
@@ -4761,11 +4763,13 @@ async function main() {
   
   // 初始化模拟盘账户
   const paperAccount = config.paperTrading?.enabled ? new PaperAccount(config, logsDir) : null;
+  const liveTrader = new EastmoneyWebTrader(config.liveTrading || {});
   if (paperAccount) {
     paperAccount.syncHistoryCache();
     console.log(`[PAPER] 模拟盘已启用，初始资金: ${(paperAccount.config.initialCash / 10000).toFixed(0)}万`);
     global.paperAccountRef = paperAccount;
   }
+  global.liveTraderRef = liveTrader;
 
   const scanner = new MarketScanner(config, async (payload) => {
     state.scanRounds += 1;
@@ -4820,7 +4824,7 @@ async function main() {
   global.__legacyRenderLogsHtml = renderLogsHtmlLegacy;
 
   // 创建统一 API 路由
-  const apiRoutes = createApiRoutes(state, config, paperAccount, scanner.scanLogger, fetchRealtimePricesForSymbols);
+  const apiRoutes = createApiRoutes(state, config, paperAccount, scanner.scanLogger, fetchRealtimePricesForSymbols, liveTrader);
   const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
   const useFrontend = fs.existsSync(frontendDistPath);
 
@@ -4833,7 +4837,7 @@ async function main() {
     }
 
     // 新前端页面路由（如果已构建）
-    if (useFrontend && (req.url === '/' || req.url === '/paper' || req.url === '/logs' || req.url.startsWith('/assets/'))) {
+    if (useFrontend && (req.url === '/' || req.url === '/paper' || req.url === '/live' || req.url === '/logs' || req.url.startsWith('/assets/'))) {
       serveFrontend(req, res, frontendDistPath);
       return;
     }
@@ -4885,7 +4889,16 @@ async function main() {
 
     res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }));
   });
-  server.listen(config.server.port, config.server.host, async () => { console.log(`[HTTP] server listening on http://${config.server.host}:${config.server.port}`); console.log('[APP] Eastmoney DOM market scanner started'); await scanner.start(); });
+  server.listen(config.server.port, config.server.host, async () => {
+    console.log(`[HTTP] server listening on http://${config.server.host}:${config.server.port}`);
+    if (config.liveTrading?.enabled && config.liveTrading?.autoStart) {
+      liveTrader.start()
+        .then(() => console.log('[LIVE] 东方财富实盘窗口已自动打开，请手动完成登录'))
+        .catch(err => console.error('[LIVE] 自动打开东方财富实盘窗口失败:', err.message));
+    }
+    console.log('[APP] Eastmoney DOM market scanner started');
+    await scanner.start();
+  });
   const shutdown = async () => { console.log('[APP] shutting down'); await scanner.stop(); server.close(() => process.exit(0)); };
   process.on('SIGINT', shutdown); process.on('SIGTERM', shutdown);
 }

@@ -405,7 +405,9 @@ export function PaperBoard() {
               </div>
             </div>
           </Card>
+        </div>
 
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
           <Card title="持仓区" subtitle="当前持仓、盈亏表现、手动卖出" className="xl:col-span-2">
             <TableShell
               columns={positionsColumns}
@@ -475,6 +477,22 @@ export function PaperBoard() {
                 </tr>
               )}
             />
+          </Card>
+
+          <Card title="操作说明" subtitle="模拟盘和实盘已拆分到两个页面">
+            <div className="space-y-4 text-sm text-slate-400">
+              <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 leading-7">
+                <div>模拟盘页只做查询、手动模拟买入、手动卖出和持仓观察。</div>
+                <div>实盘入口已移到顶部导航的“实盘助手”。</div>
+                <div>这样可以避免在模拟盘页面里误触实盘状态和下单动作。</div>
+              </div>
+              <a
+                href="/live"
+                className="inline-flex rounded-xl bg-amber-400 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-amber-300"
+              >
+                打开实盘助手
+              </a>
+            </div>
           </Card>
         </div>
 

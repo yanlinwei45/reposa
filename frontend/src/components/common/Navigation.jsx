@@ -3,6 +3,7 @@ export function Navigation() {
   const links = [
     { href: '/', label: '扫描看板' },
     { href: '/paper', label: '模拟盘' },
+    { href: '/live', label: '实盘助手' },
     { href: '/logs', label: '扫描日志' },
   ]
 

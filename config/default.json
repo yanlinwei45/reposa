@@ -214,6 +214,21 @@
       }
     }
   },
+  "liveTrading": {
+    "enabled": true,
+    "autoStart": true,
+    "provider": "eastmoney-web",
+    "headless": false,
+    "userDataDir": "/tmp/quant-live-eastmoney",
+    "loginUrl": "https://jywg.18.cn/Login",
+    "buyUrl": "https://jywg.18.cn/Trade/Buy",
+    "sellUrl": "https://jywg.18.cn/Trade/Sale",
+    "requireConfirmClick": false,
+    "requirePasswordInput": true,
+    "maxOrderAmount": 200000,
+    "maxOrderQuantity": 20000,
+    "allowedSymbols": []
+  },
   "server": {
     "port": 3088
   }

@@ -35,6 +35,7 @@ export const api = {
   getScan: () => api.get('/api/scan'),
   getStrategy: () => api.get('/api/strategy'),
   getLogs: () => api.get('/api/logs'),
+  getLiveStatus: () => api.get('/api/live/status'),
 
   // 模拟盘相关
   getPortfolio: () => api.get('/api/portfolio'),
@@ -49,4 +50,7 @@ export const api = {
   // 交易操作
   buy: (symbol, name, price, amount, force = false) => api.post('/api/buy', { symbol, name, price, amount, force }),
   sell: (symbol, quantity) => api.post('/api/sell', { symbol, quantity }),
+  startLiveSession: () => api.post('/api/live/start', {}),
+  stopLiveSession: () => api.post('/api/live/stop', {}),
+  placeLiveOrder: (payload) => api.post('/api/live/order', payload),
 };

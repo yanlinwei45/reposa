@@ -16,7 +16,7 @@ function writeJson(res, payload, statusCode = 200) {
 }
 
 function serveFrontend(req, res, frontendDistPath) {
-  const filePath = req.url === '/' || req.url === '/paper' || req.url === '/logs'
+  const filePath = req.url === '/' || req.url === '/paper' || req.url === '/live' || req.url === '/logs'
     ? path.join(frontendDistPath, 'index.html')
     : path.join(frontendDistPath, req.url);
 
@@ -41,7 +41,19 @@ function serveFrontend(req, res, frontendDistPath) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-function createApiRoutes(state, config, paperAccount, scanLogger, fetchRealtimePricesForSymbols) {
+function readRequestJson(req, onDone) {
+  let body = '';
+  req.on('data', chunk => { body += chunk; });
+  req.on('end', () => {
+    try {
+      onDone(null, body ? JSON.parse(body) : {});
+    } catch (err) {
+      onDone(err);
+    }
+  });
+}
+
+function createApiRoutes(state, config, paperAccount, scanLogger, fetchRealtimePricesForSymbols, liveTrader) {
   return {
     '/api/health': (req, res) => {
       writeJson(res, {
@@ -69,6 +81,66 @@ function createApiRoutes(state, config, paperAccount, scanLogger, fetchRealtimeP
 
     '/api/logs': (req, res) => {
       handleLogsApi(scanLogger, res);
+    },
+
+    '/api/live/status': async (req, res) => {
+      if (!liveTrader) {
+        writeJson(res, { enabled: false, connected: false, error: 'live trader not configured' });
+        return;
+      }
+      let loggedIn = false;
+      if (liveTrader.getStatus().connected) {
+        loggedIn = await liveTrader.isLoggedIn().catch(() => false);
+      }
+      writeJson(res, {
+        ...liveTrader.getStatus(),
+        loggedIn,
+      });
+    },
+
+    'POST /api/live/start': async (req, res) => {
+      if (!config.liveTrading?.enabled) {
+        writeJson(res, { success: false, error: '实盘交易未启用，请先在配置中开启 liveTrading.enabled' }, 403);
+        return;
+      }
+      try {
+        const status = await liveTrader.start();
+        writeJson(res, { success: true, status, message: '东方财富交易窗口已打开，请在窗口中完成登录' });
+      } catch (err) {
+        writeJson(res, { success: false, error: err.message }, 500);
+      }
+    },
+
+    'POST /api/live/stop': async (req, res) => {
+      if (!liveTrader) {
+        writeJson(res, { success: true, status: { enabled: false, connected: false } });
+        return;
+      }
+      try {
+        const status = await liveTrader.stop();
+        writeJson(res, { success: true, status });
+      } catch (err) {
+        writeJson(res, { success: false, error: err.message }, 500);
+      }
+    },
+
+    'POST /api/live/order': async (req, res) => {
+      if (!config.liveTrading?.enabled) {
+        writeJson(res, { success: false, error: '实盘交易未启用，请先在配置中开启 liveTrading.enabled' }, 403);
+        return;
+      }
+      readRequestJson(req, async (parseErr, payload) => {
+        if (parseErr) {
+          writeJson(res, { success: false, error: `请求JSON无效: ${parseErr.message}` }, 400);
+          return;
+        }
+        try {
+          const result = await liveTrader.prepareOrder(payload);
+          writeJson(res, { success: result.ok, ...result }, result.ok ? 200 : 400);
+        } catch (err) {
+          writeJson(res, { success: false, error: err.message }, 500);
+        }
+      });
     },
 
     '/api/portfolio': async (req, res) => {
