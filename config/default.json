@@ -130,6 +130,7 @@
         "minAddOnValue": 150000,
         "addOnMinPnlPct": 0.8,
         "addOnMaxPnlPct": 6,
+        "continuationAddOnMaxPnlPct": 12,
         "addOnMinSelectedDayScore": 88,
         "addOnMinCombinedScore": 78,
         "addOnMaxExitUrgency": 28,

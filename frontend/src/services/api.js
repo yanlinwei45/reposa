@@ -9,7 +9,10 @@ export const api = {
         Pragma: 'no-cache',
       },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      throw new Error(payload?.error || `HTTP ${res.status}`);
+    }
     return res.json();
   },
 
@@ -19,7 +22,10 @@ export const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const payload = await res.json().catch(() => null);
+      throw new Error(payload?.error || `HTTP ${res.status}`);
+    }
     return res.json();
   },
 
@@ -38,8 +44,9 @@ export const api = {
   getStatistics: () => api.get('/api/statistics'),
   getEquity: () => api.get('/api/equity'),
   getAlerts: () => api.get('/api/alerts'),
+  lookupStock: (symbol) => api.get(`/scan/${encodeURIComponent(symbol)}`),
 
   // 交易操作
-  buy: (symbol, name, price, amount) => api.post('/api/buy', { symbol, name, price, amount }),
+  buy: (symbol, name, price, amount, force = false) => api.post('/api/buy', { symbol, name, price, amount, force }),
   sell: (symbol, quantity) => api.post('/api/sell', { symbol, quantity }),
 };

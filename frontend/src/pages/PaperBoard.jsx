@@ -53,6 +53,15 @@ export function PaperBoard() {
   const [activeTab, setActiveTab] = useState('equity')
   const [sellingSymbol, setSellingSymbol] = useState(null)
   const [sellQuantities, setSellQuantities] = useState({})
+  const [lookupInput, setLookupInput] = useState('')
+  const [manualAmount, setManualAmount] = useState('')
+  const [lookupResult, setLookupResult] = useState(null)
+  const [lookupLoading, setLookupLoading] = useState(false)
+  const [manualBuying, setManualBuying] = useState(false)
+  const [manualStatus, setManualStatus] = useState({
+    tone: 'neutral',
+    text: '输入股票代码后可查询当前扫描行情，并直接手动买入。',
+  })
 
   useScrollRestore('paper')
 
@@ -107,6 +116,71 @@ export function PaperBoard() {
       alert(`卖出失败: ${err.message}`)
     } finally {
       setSellingSymbol(null)
+    }
+  }
+
+  const handleLookup = async () => {
+    const symbol = lookupInput.trim()
+    if (!symbol) {
+      setLookupResult(null)
+      setManualStatus({ tone: 'fall', text: '请输入股票代码。' })
+      return
+    }
+
+    try {
+      setLookupLoading(true)
+      const result = await api.lookupStock(symbol)
+      setLookupResult(result)
+      setManualStatus({ tone: 'rise', text: `已查询 ${result.symbol} ${result.name}，可直接手动买入。` })
+    } catch (err) {
+      setLookupResult(null)
+      setManualStatus({ tone: 'fall', text: `查询失败: ${err.message}` })
+    } finally {
+      setLookupLoading(false)
+    }
+  }
+
+  const handleManualBuy = async () => {
+    if (!lookupResult) {
+      setManualStatus({ tone: 'fall', text: '请先查询股票。' })
+      return
+    }
+
+    const amountWan = Number(manualAmount)
+    if (!Number.isFinite(amountWan) || amountWan <= 0) {
+      setManualStatus({ tone: 'fall', text: '请输入有效的买入金额（万元）。' })
+      return
+    }
+
+    const price = Number(lookupResult.price || 0)
+    const amount = amountWan * 10000
+    const estimatedQuantity = Math.floor(amount / price / 100) * 100
+
+    if (!(price > 0)) {
+      setManualStatus({ tone: 'fall', text: '当前价格无效，无法下单。' })
+      return
+    }
+
+    if (estimatedQuantity < 100) {
+      setManualStatus({ tone: 'fall', text: '金额不足买入一手。' })
+      return
+    }
+
+    const confirmed = window.confirm(
+      `手动买入 ${lookupResult.symbol} ${lookupResult.name}\n价格: ${price.toFixed(3)}\n金额: ${amountWan.toFixed(2)}万\n预计数量: ${estimatedQuantity}股\n\n确认提交？`
+    )
+    if (!confirmed) return
+
+    try {
+      setManualBuying(true)
+      const result = await api.buy(lookupResult.symbol, lookupResult.name, price, amount, true)
+      setManualStatus({ tone: 'rise', text: result.message || '买入成功。' })
+      setManualAmount('')
+      await fetchData()
+    } catch (err) {
+      setManualStatus({ tone: 'fall', text: `买入失败: ${err.message}` })
+    } finally {
+      setManualBuying(false)
     }
   }
 
@@ -213,6 +287,109 @@ export function PaperBoard() {
               </div>
               <div className="rounded-xl border border-slate-800 bg-slate-950/70 p-4 text-sm text-slate-400">
                 历史数据更新时间：按日缓存。页面侧重看出策略是否真的有效，而不是只看收益曲线。
+              </div>
+            </div>
+          </Card>
+
+          <Card title="手动交易" subtitle="输入股票代码查询当前扫描行情，并直接手动买入" className="xl:col-span-1">
+            <div className="space-y-4">
+              <div className="flex flex-col gap-3">
+                <input
+                  value={lookupInput}
+                  onChange={(event) => setLookupInput(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') handleLookup()
+                  }}
+                  placeholder="输入 603936 或 sh603936"
+                  className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-sky-400"
+                />
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleLookup}
+                    disabled={lookupLoading}
+                    className="rounded-xl bg-sky-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-sky-400 disabled:opacity-50"
+                  >
+                    {lookupLoading ? '查询中...' : '查询'}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setLookupInput('')
+                      setManualAmount('')
+                      setLookupResult(null)
+                      setManualStatus({ tone: 'neutral', text: '输入股票代码后可查询当前扫描行情，并直接手动买入。' })
+                    }}
+                    className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-slate-300 hover:bg-slate-700"
+                  >
+                    清空
+                  </button>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-4">
+                {!lookupResult && <div className="text-sm text-slate-500">暂无查询结果</div>}
+                {lookupResult && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <div className="text-base font-semibold text-slate-100">{lookupResult.symbol} {lookupResult.name}</div>
+                        <div className="mt-1 text-sm text-slate-500">{lookupResult.sector || '未知行业'}</div>
+                      </div>
+                      <Badge tone={bucketTone(lookupResult.strategy?.bucket)}>{lookupResult.strategy?.bucketLabel || lookupResult.strategy?.bucket || '未分类'}</Badge>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 text-sm">
+                      <div className="rounded-xl bg-slate-900/80 p-3">
+                        <div className="text-slate-500">现价</div>
+                        <div className="mt-1 font-medium text-slate-100">{lookupResult.price != null ? Number(lookupResult.price).toFixed(3) : '-'}</div>
+                      </div>
+                      <div className="rounded-xl bg-slate-900/80 p-3">
+                        <div className="text-slate-500">涨跌幅</div>
+                        <div className={`mt-1 font-medium ${Number(lookupResult.changePercent || 0) >= 0 ? 'text-rise' : 'text-fall'}`}>
+                          {formatPct(Number(lookupResult.changePercent || 0))}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-slate-900/80 p-3">
+                        <div className="text-slate-500">综合分</div>
+                        <div className="mt-1 font-medium text-slate-100">
+                          {lookupResult.combinedScore != null ? Number(lookupResult.combinedScore).toFixed(2) : lookupResult.score ?? '-'}
+                        </div>
+                      </div>
+                      <div className="rounded-xl bg-slate-900/80 p-3">
+                        <div className="text-slate-500">建议</div>
+                        <div className="mt-1 font-medium text-slate-100">
+                          {lookupResult.manualSuggestion?.confidence || '-'} / {formatMoney(lookupResult.manualSuggestion?.suggestedAmount || 0)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs leading-6 text-slate-400">{lookupResult.manualSuggestion?.reason || '无策略说明'}</div>
+                    <div className="flex items-center gap-3">
+                      <input
+                        value={manualAmount}
+                        onChange={(event) => setManualAmount(event.target.value)}
+                        placeholder="买入金额（万元）"
+                        className="w-44 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-100 outline-none focus:border-sky-400"
+                      />
+                      <button
+                        onClick={handleManualBuy}
+                        disabled={manualBuying || !(Number(lookupResult.price) > 0)}
+                        className="rounded-xl bg-emerald-500 px-4 py-2 text-sm font-medium text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
+                      >
+                        {manualBuying ? '买入中...' : '手动买入'}
+                      </button>
+                      <a
+                        href={lookupResult.eastmoneyUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-sm text-sky-300 hover:text-sky-200"
+                      >
+                        东财
+                      </a>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className={`text-sm ${manualStatus.tone === 'rise' ? 'text-emerald-300' : manualStatus.tone === 'fall' ? 'text-red-300' : 'text-slate-500'}`}>
+                {manualStatus.text}
               </div>
             </div>
           </Card>

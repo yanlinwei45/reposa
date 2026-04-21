@@ -143,8 +143,9 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         try {
-          const { symbol, name, price, amount } = JSON.parse(body);
+          const { symbol, name, price, amount, force } = JSON.parse(body);
           const normalizedSymbol = normalizeSymbol(symbol);
+          const manualOverride = force === true || force === 'true';
           const marketItem = state.market.find(item => item.symbol === normalizedSymbol);
           if (!marketItem) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -160,7 +161,7 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             return;
           }
           const lastSellTs = paperAccount.sellCooldown.get(normalizedSymbol);
-          if (lastSellTs) {
+          if (lastSellTs && !manualOverride) {
             const minutesSinceSell = (Date.now() - new Date(lastSellTs).getTime()) / (1000 * 60);
             const cooldownMinutes = paperAccount.config.buyCooldownMinutes || 60;
             if (minutesSinceSell < cooldownMinutes) {
@@ -177,7 +178,7 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
           }
 
           const suggestion = paperAccount.getSuggestedPositionValue(marketItem, state.marketRegime?.regime || 'NEUTRAL');
-          if (!suggestion.allowed) {
+          if (!suggestion.allowed && !manualOverride) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: `自适应系统拒绝买入: ${suggestion.reason}` }));
             return;
@@ -204,8 +205,12 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
           }
           const combinedScore = marketItem.combinedScore || marketItem.score || 0;
           const existingPos = paperAccount.positions.get(normalizedSymbol);
-          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动${existingPos ? '加仓' : '买入'}(置信度${suggestion.confidence})`, {
-            confidence: suggestion.confidence,
+          const orderConfidence = suggestion.confidence === 'REJECT' ? 'MANUAL' : suggestion.confidence;
+          const orderReason = manualOverride && !suggestion.allowed
+            ? `手动${existingPos ? '加仓' : '买入'}(覆盖策略:${suggestion.reason})`
+            : `手动${existingPos ? '加仓' : '买入'}(置信度${orderConfidence})`;
+          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, orderReason, {
+            confidence: orderConfidence,
             combinedScore,
             sector: marketItem.sector || 'UNKNOWN',
             marketRegime: state.marketRegime?.regime || 'UNKNOWN',
@@ -218,10 +223,11 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             success: true,
             message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已${existingPos ? '加仓' : '买入'} ${quantity}股 @${orderPrice}`,
             suggestion: {
-              confidence: suggestion.confidence,
+              confidence: orderConfidence,
               suggestedAmount: (suggestion.suggestedAmount / 10000).toFixed(2) + '万',
               actualAmount: (requestedAmount / 10000).toFixed(2) + '万',
-              reason: suggestion.reason
+              reason: suggestion.reason,
+              overridden: manualOverride && !suggestion.allowed
             }
           }));
         } catch (err) {
