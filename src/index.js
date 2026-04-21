@@ -283,6 +283,120 @@ function ensureContinuationExitGuard(pos = {}) {
   return pos;
 }
 
+function clampNumber(value, min, max) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function roundDownLot(quantity, lotSize = 100) {
+  const qty = Number(quantity || 0);
+  const lot = Number(lotSize || 100);
+  if (!Number.isFinite(qty) || !Number.isFinite(lot) || lot <= 0) return 0;
+  return Math.floor(qty / lot) * lot;
+}
+
+function createPositionLot({ ts, price, quantity, fee = 0, side = 'INITIAL', source = 'strategy', orderId = null }) {
+  return {
+    lotId: `LOT_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    orderId,
+    side,
+    entryPrice: Number(price || 0),
+    quantity: Number(quantity || 0),
+    originalQuantity: Number(quantity || 0),
+    fee: Number(fee || 0),
+    entryTs: ts,
+    entryDate: new Date(ts).toISOString().split('T')[0],
+    source,
+  };
+}
+
+function getLotsQuantity(lots = []) {
+  return lots.reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+}
+
+function getWeightedEntryPrice(lots = []) {
+  const quantity = getLotsQuantity(lots);
+  if (quantity <= 0) return 0;
+  const cost = lots.reduce((sum, lot) => sum + Number(lot.entryPrice || 0) * Number(lot.quantity || 0), 0);
+  return cost / quantity;
+}
+
+function getAllocatedLotFee(lot = {}, quantity = lot.quantity) {
+  const originalQuantity = Number(lot.originalQuantity || lot.quantity || 0);
+  const consumedQuantity = Number(quantity || 0);
+  if (originalQuantity <= 0 || consumedQuantity <= 0) return 0;
+  return Number(lot.fee || 0) * (consumedQuantity / originalQuantity);
+}
+
+function ensurePositionLifecycle(pos = {}, now = new Date()) {
+  ensureContinuationExitGuard(pos);
+  const ts = pos.entryTs || new Date(now).toISOString();
+  const quantity = Number(pos.quantity || 0);
+  const entryPrice = Number(pos.entryPrice || pos.currentPrice || 0);
+  if (!Array.isArray(pos.lots) || pos.lots.length === 0) {
+    pos.lots = quantity > 0
+      ? [{
+          lotId: `LEGACY_${pos.symbol || 'UNKNOWN'}_${String(ts).replace(/[^\d]/g, '')}`,
+          orderId: null,
+          side: 'INITIAL',
+          entryPrice,
+          quantity,
+          originalQuantity: quantity,
+          fee: Number(pos.totalBuyFee || 0),
+          entryTs: ts,
+          entryDate: new Date(ts).toISOString().split('T')[0],
+          source: pos.source || 'strategy',
+        }]
+      : [];
+  } else {
+    pos.lots = pos.lots
+      .map(lot => ({
+        lotId: lot.lotId || `LEGACY_${pos.symbol || 'UNKNOWN'}_${Math.random().toString(36).slice(2, 8)}`,
+        orderId: lot.orderId || null,
+        side: lot.side || 'INITIAL',
+        entryPrice: Number(lot.entryPrice || entryPrice || 0),
+        quantity: Number(lot.quantity || 0),
+        originalQuantity: Number(lot.originalQuantity || lot.quantity || 0),
+        fee: Number(lot.fee || 0),
+        entryTs: lot.entryTs || ts,
+        entryDate: lot.entryDate || new Date(lot.entryTs || ts).toISOString().split('T')[0],
+        source: lot.source || pos.source || 'strategy',
+      }))
+      .filter(lot => lot.quantity > 0);
+  }
+
+  pos.quantity = getLotsQuantity(pos.lots);
+  if (pos.quantity > 0) {
+    pos.entryPrice = getWeightedEntryPrice(pos.lots);
+  }
+  pos.currentPrice = Number(pos.currentPrice || pos.entryPrice || 0);
+  pos.value = pos.currentPrice * pos.quantity;
+  pos.pnlPct = pos.entryPrice > 0 ? ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100 : 0;
+  pos.initialQuantity = Number(pos.initialQuantity || pos.lots[0]?.originalQuantity || pos.quantity || 0);
+  pos.initialPositionValue = Number(pos.initialPositionValue || (pos.entryPrice || 0) * (pos.initialQuantity || pos.quantity || 0));
+  pos.totalEntryCost = Number(pos.totalEntryCost || pos.lots.reduce((sum, lot) => sum + Number(lot.entryPrice || 0) * Number(lot.originalQuantity || lot.quantity || 0), 0) || pos.initialPositionValue || 0);
+  pos.totalBuyFee = Number(pos.totalBuyFee || pos.lots.reduce((sum, lot) => sum + Number(lot.fee || 0), 0) || 0);
+  pos.totalBoughtQuantity = Number(pos.totalBoughtQuantity || pos.lots.reduce((sum, lot) => sum + Number(lot.originalQuantity || lot.quantity || 0), 0) || pos.initialQuantity || 0);
+  pos.realizedSellFee = Number(pos.realizedSellFee || 0);
+  pos.realizedSellAmount = Number(pos.realizedSellAmount || 0);
+  pos.realizedEntryCost = Number(pos.realizedEntryCost || 0);
+  pos.realizedBuyFeeAllocated = Number(pos.realizedBuyFeeAllocated || 0);
+  pos.targetPositionValue = Number(pos.targetPositionValue || pos.initialPositionValue || pos.value || 0);
+  pos.addOnCount = Number(pos.addOnCount || 0);
+  pos.trimCount = Number(pos.trimCount || 0);
+  pos.realizedPnl = Number(pos.realizedPnl || 0);
+  pos.realizedQuantity = Number(pos.realizedQuantity || 0);
+  pos.hasManualIntervention = Boolean(pos.hasManualIntervention || pos.source === 'manual');
+  pos.manualActionCount = Number(pos.manualActionCount || 0);
+  pos.positionStage = pos.positionStage || (pos.addOnCount > 0 ? 'added' : 'initial');
+  pos.lastAddOnAt = pos.lastAddOnAt || null;
+  pos.lastTrimAt = pos.lastTrimAt || null;
+  pos.lastManagementAction = pos.lastManagementAction || null;
+  pos.managementSummary = pos.managementSummary || '初始仓位，等待信号确认';
+  return pos;
+}
+
 function parseAmountText(text) {
   const s = String(text || '').replace(/,/g, '').trim();
   if (!s || s === '-' || s === '--') return null;
@@ -455,6 +569,10 @@ function createEmptyTradeDiagnostics(overrides = {}) {
     buyCandidateCount: 0,
     acceptedCount: 0,
     rejectedCount: 0,
+    addOnCandidateCount: 0,
+    addOnAcceptedCount: 0,
+    trimCandidateCount: 0,
+    trimAcceptedCount: 0,
     positionsBefore: 0,
     positionsAfter: 0,
     availablePositions: 0,
@@ -462,6 +580,8 @@ function createEmptyTradeDiagnostics(overrides = {}) {
     rejectSummary: [],
     accepted: [],
     rejected: [],
+    addOns: [],
+    trims: [],
     ...overrides,
   };
 }
@@ -518,10 +638,6 @@ const TRADE_REJECT_LABELS = {
   mediumBandPenalty: '中分段反馈过差',
   highBandPenalty: '高分段反馈过差',
   drawdownPressure: '回撤压力过大',
-  outsidePreferredWindow: '不在首选开仓窗口',
-  afternoonBlocked: '午后开仓禁止',
-  mediumCutoff: '午后中置信度截止',
-  latestCutoff: '最新开仓截止',
   mediumWeak: '中分段确认不足',
   overnightRisk: '隔夜风险过高',
   entryQuality: '早盘承接不足',
@@ -606,10 +722,6 @@ function normalizeTradeRejectReason(reason = '') {
   if (reason.startsWith('近期中分段表现差')) return 'mediumBandPenalty';
   if (reason.startsWith('近期高分段表现差')) return 'highBandPenalty';
   if (reason.startsWith('组合回撤压力')) return 'drawdownPressure';
-  if (reason.startsWith('当前不在首选开仓窗口')) return 'outsidePreferredWindow';
-  if (reason.startsWith('策略仅允许上午窗口开仓')) return 'afternoonBlocked';
-  if (reason.includes('中置信度开仓')) return 'mediumCutoff';
-  if (reason.includes('停止新开仓')) return 'latestCutoff';
   if (reason.startsWith('中分段确认不足(')) return 'mediumWeak';
   if (reason.startsWith('隔夜风险过高(')) return 'overnightRisk';
   if (reason.startsWith('早盘承接不足(')) return 'entryQuality';
@@ -620,6 +732,8 @@ function normalizeTradeRejectReason(reason = '') {
 function buildTradeDecisionDiagnostics(tradeDecisionLog = {}, overrides = {}) {
   const rejected = tradeDecisionLog.rejected || [];
   const accepted = tradeDecisionLog.accepted || [];
+  const addOns = tradeDecisionLog.addOns || [];
+  const trims = tradeDecisionLog.trims || [];
   const rejectStats = {};
 
   for (const item of rejected) {
@@ -631,8 +745,12 @@ function buildTradeDecisionDiagnostics(tradeDecisionLog = {}, overrides = {}) {
     ...overrides,
     acceptedCount: accepted.length,
     rejectedCount: rejected.length,
+    addOnAcceptedCount: overrides.addOnAcceptedCount ?? addOns.length,
+    trimAcceptedCount: overrides.trimAcceptedCount ?? trims.length,
     rejectSummary: summarizeCountMap(rejectStats, TRADE_REJECT_LABELS, 8),
     accepted: accepted.slice(0, 8),
+    addOns: addOns.slice(0, 8),
+    trims: trims.slice(0, 8),
     rejected: rejected.slice(0, 12).map(item => ({
       ...item,
       rejectCategory: TRADE_REJECT_LABELS[normalizeTradeRejectReason(item.reason)] || TRADE_REJECT_LABELS.other,
@@ -2023,7 +2141,7 @@ class PaperAccount {
         this.statistics = data.statistics || this.statistics;
         this.peakEquity = data.peakEquity || this.getTotalEquity();
         for (const [, pos] of this.positions.entries()) {
-          ensureContinuationExitGuard(pos);
+          ensurePositionLifecycle(pos);
           if (!pos.source) {
             pos.source = 'strategy';
           }
@@ -2150,6 +2268,35 @@ class PaperAccount {
         recoveryModeMinPositionValue: adaptive.positionSizing?.recoveryModeMinPositionValue ?? 300000,
         guardedRecoveryMinPositionValue: adaptive.positionSizing?.guardedRecoveryMinPositionValue ?? 300000,
       },
+      positionManagement: {
+        enabled: adaptive.positionManagement?.enabled !== false,
+        initialEntryRatio: clampNumber(adaptive.positionManagement?.initialEntryRatio ?? 0.55, 0.2, 1),
+        highConfidenceInitialEntryRatio: clampNumber(adaptive.positionManagement?.highConfidenceInitialEntryRatio ?? 0.65, 0.2, 1),
+        recoveryInitialEntryRatio: clampNumber(adaptive.positionManagement?.recoveryInitialEntryRatio ?? 0.45, 0.15, 1),
+        maxPositionValueMultiplier: clampNumber(adaptive.positionManagement?.maxPositionValueMultiplier ?? 1.25, 0.5, 2),
+        maxAddOnCount: Math.max(0, adaptive.positionManagement?.maxAddOnCount ?? 2),
+        addOnRatio: clampNumber(adaptive.positionManagement?.addOnRatio ?? 0.35, 0.1, 1),
+        minAddOnValue: adaptive.positionManagement?.minAddOnValue ?? 150000,
+        addOnMinPnlPct: adaptive.positionManagement?.addOnMinPnlPct ?? 0.8,
+        addOnMaxPnlPct: adaptive.positionManagement?.addOnMaxPnlPct ?? 6,
+        addOnMinSelectedDayScore: adaptive.positionManagement?.addOnMinSelectedDayScore ?? 88,
+        addOnMinCombinedScore: adaptive.positionManagement?.addOnMinCombinedScore ?? 78,
+        addOnMaxExitUrgency: adaptive.positionManagement?.addOnMaxExitUrgency ?? 28,
+        addOnMaxVolumeRatio: adaptive.positionManagement?.addOnMaxVolumeRatio ?? 1.6,
+        addOnMaxIntradayReturnPct: adaptive.positionManagement?.addOnMaxIntradayReturnPct ?? 2.8,
+        addOnCooldownMinutes: adaptive.positionManagement?.addOnCooldownMinutes ?? 45,
+        addOnRequiresContinuation: adaptive.positionManagement?.addOnRequiresContinuation !== false,
+        trimRatio: clampNumber(adaptive.positionManagement?.trimRatio ?? 0.35, 0.1, 0.9),
+        maxTrimCount: Math.max(0, adaptive.positionManagement?.maxTrimCount ?? 2),
+        trimProfitPct: adaptive.positionManagement?.trimProfitPct ?? 3,
+        trimStrongProfitPct: adaptive.positionManagement?.trimStrongProfitPct ?? 5,
+        trimDrawdownFromHighPct: adaptive.positionManagement?.trimDrawdownFromHighPct ?? 1.6,
+        trimExitUrgencyMin: adaptive.positionManagement?.trimExitUrgencyMin ?? 55,
+        trimKeepMinPositionRatio: clampNumber(adaptive.positionManagement?.trimKeepMinPositionRatio ?? 0.35, 0.1, 1),
+        trimCooldownMinutes: adaptive.positionManagement?.trimCooldownMinutes ?? 45,
+        fullExitUrgency: adaptive.positionManagement?.fullExitUrgency ?? adaptive.exitUrgencyThreshold ?? 100,
+        fullExitLossPct: adaptive.positionManagement?.fullExitLossPct ?? this.config.stopLossPct ?? -5,
+      },
       mainEntryGuard: {
         enabled: adaptive.mainEntryGuard?.enabled !== false,
         requireNotObservationBias: adaptive.mainEntryGuard?.requireNotObservationBias !== false,
@@ -2243,7 +2390,7 @@ class PaperAccount {
     const closedTrades = Array.isArray(seedTrades)
       ? seedTrades
       : this.orders
-          .filter(order => order.side === 'SELL')
+          .filter(order => order.side === 'SELL' && order.status === 'FILLED' && order.positionAction === 'FULL_EXIT')
           .map(order => {
             const entryKey = order.entryTs ? `${order.symbol}:${order.entryTs}` : null;
             const entryMeta = entryKey ? entryOrderMeta.get(entryKey) : null;
@@ -2562,6 +2709,139 @@ class PaperAccount {
     pos.lastEvaluatedAt = formatBeijingTime(ts);
   }
 
+  getPositionManagementSnapshot(pos, pick = null, currentTime = new Date()) {
+    const adaptive = this.getAdaptiveConfig();
+    const pm = adaptive.positionManagement || {};
+    ensurePositionLifecycle(pos, currentTime);
+    const selectedDayScore = pick ? getSelectedBucketDayScore(pick) : (pos.liveSelectedDayScore || pos.entrySelectedDayScore || pos.entryScore || 0);
+    const combinedScore = pick ? getEffectiveCombinedScore(pick, this.runtimeStrategy) : (pos.liveCombinedScore || pos.combinedScore || pos.entryScore || 0);
+    const liveBucket = pick?.strategy?.bucket || pos.liveBucket || pos.entryBucket || 'main';
+    const volumeRatio = pick?.volumeBurstRatio || pick?.volumeRatio || 0;
+    const intradayReturnPct = pick?.intradayReturnPct ?? pick?.changePercent ?? 0;
+    const drawdownFromHighPct = pos.highPrice ? (((pos.highPrice - pos.currentPrice) / pos.highPrice) * 100) : 0;
+    const sellableQuantity = this.getSellablePositionQuantity(pos, currentTime);
+    const nowMs = new Date(currentTime).getTime();
+    const lastAddMs = pos.lastAddOnAt ? new Date(pos.lastAddOnAt).getTime() : 0;
+    const lastTrimMs = pos.lastTrimAt ? new Date(pos.lastTrimAt).getTime() : 0;
+
+    return {
+      pm,
+      selectedDayScore: Number(selectedDayScore || 0),
+      combinedScore: Number(combinedScore || 0),
+      liveBucket,
+      volumeRatio: Number(volumeRatio || 0),
+      intradayReturnPct: Number(intradayReturnPct || 0),
+      drawdownFromHighPct: Number(drawdownFromHighPct || 0),
+      sellableQuantity,
+      canAddByCooldown: !lastAddMs || ((nowMs - lastAddMs) / 60000) >= (pm.addOnCooldownMinutes ?? 45),
+      canTrimByCooldown: !lastTrimMs || ((nowMs - lastTrimMs) / 60000) >= (pm.trimCooldownMinutes ?? 45),
+    };
+  }
+
+  assessAddOnDecision(pos, pick, context = {}) {
+    const adaptive = context.adaptive || this.getAdaptiveConfig();
+    const pm = adaptive.positionManagement || {};
+    if (pm.enabled === false) return { shouldAdd: false, reason: '仓位管理未启用' };
+    if (!pick) return { shouldAdd: false, reason: '无实时信号' };
+    ensurePositionLifecycle(pos, context.currentTime || new Date());
+    if (pos.addOnCount >= (pm.maxAddOnCount ?? 2)) return { shouldAdd: false, reason: '加仓次数已满' };
+    if ((pos.pnlPct || 0) < (pm.addOnMinPnlPct ?? 0.8)) return { shouldAdd: false, reason: `浮盈不足${pm.addOnMinPnlPct ?? 0.8}%` };
+    if ((pos.pnlPct || 0) > (pm.addOnMaxPnlPct ?? 6)) return { shouldAdd: false, reason: `浮盈过高不追(${(pos.pnlPct || 0).toFixed(2)}%)` };
+    if (context.portfolioDrawdown > 8) return { shouldAdd: false, reason: '组合回撤过深' };
+    if (context.marketRegime === 'BEAR') return { shouldAdd: false, reason: '熊市不加仓' };
+    const snapshot = this.getPositionManagementSnapshot(pos, pick, context.currentTime || new Date());
+    if (!snapshot.canAddByCooldown) return { shouldAdd: false, reason: '加仓冷却中' };
+    if ((pm.addOnRequiresContinuation !== false) && snapshot.liveBucket !== 'continuation') {
+      return { shouldAdd: false, reason: `实时桶不是延续(${snapshot.liveBucket})` };
+    }
+    if (snapshot.selectedDayScore < (pm.addOnMinSelectedDayScore ?? 88)) {
+      return { shouldAdd: false, reason: `日分不足${pm.addOnMinSelectedDayScore ?? 88}` };
+    }
+    if (snapshot.combinedScore < (pm.addOnMinCombinedScore ?? 78)) {
+      return { shouldAdd: false, reason: `综合分不足${pm.addOnMinCombinedScore ?? 78}` };
+    }
+    if ((pos.exitUrgency || 0) > (pm.addOnMaxExitUrgency ?? 28)) {
+      return { shouldAdd: false, reason: `退出紧迫度过高${pos.exitUrgency}` };
+    }
+    if (snapshot.volumeRatio > (pm.addOnMaxVolumeRatio ?? 1.6)) {
+      return { shouldAdd: false, reason: `量比过热${snapshot.volumeRatio.toFixed(2)}` };
+    }
+    if (snapshot.intradayReturnPct > (pm.addOnMaxIntradayReturnPct ?? 2.8)) {
+      return { shouldAdd: false, reason: `盘中涨幅过高${snapshot.intradayReturnPct.toFixed(2)}%` };
+    }
+
+    const targetValue = Math.min(
+      Math.max(pos.targetPositionValue || 0, pos.initialPositionValue || pos.value || 0),
+      this.config.maxPositionValue * (pm.maxPositionValueMultiplier ?? 1.25)
+    );
+    const remainingValue = Math.max(0, targetValue - (pos.value || 0));
+    const addValue = Math.min(remainingValue, targetValue * (pm.addOnRatio ?? 0.35), this.cash - this.config.minCashReserve);
+    if (addValue < (pm.minAddOnValue ?? 150000)) {
+      return { shouldAdd: false, reason: `剩余目标仓位不足${((pm.minAddOnValue ?? 150000) / 10000).toFixed(1)}万` };
+    }
+    const quantity = roundDownLot(addValue / (pick.price || pos.currentPrice || 1), this.config.lotSize);
+    if (quantity < this.config.lotSize) return { shouldAdd: false, reason: '加仓不足一手' };
+
+    return {
+      shouldAdd: true,
+      quantity,
+      value: quantity * (pick.price || pos.currentPrice),
+      targetValue,
+      reason: `浮盈${(pos.pnlPct || 0).toFixed(2)}%，延续日分${snapshot.selectedDayScore.toFixed(1)}，综合${snapshot.combinedScore.toFixed(1)}，紧迫度${pos.exitUrgency || 0}`,
+    };
+  }
+
+  assessReduceDecision(pos, exitDecision = {}, pick = null, context = {}) {
+    const adaptive = context.adaptive || this.getAdaptiveConfig();
+    const pm = adaptive.positionManagement || {};
+    if (pm.enabled === false) return { action: 'HOLD', reason: '仓位管理未启用' };
+    ensurePositionLifecycle(pos, context.currentTime || new Date());
+    const snapshot = this.getPositionManagementSnapshot(pos, pick, context.currentTime || new Date());
+    if (snapshot.sellableQuantity < this.config.lotSize) {
+      return { action: 'HOLD', reason: '无T+1可卖仓位' };
+    }
+
+    const urgency = Number(exitDecision.urgency || 0);
+    const stopLoss = (pos.pnlPct || 0) <= (pm.fullExitLossPct ?? this.config.stopLossPct ?? -5);
+    const hardExit = stopLoss || urgency >= (pm.fullExitUrgency ?? adaptive.exitUrgencyThreshold ?? 100);
+    if (hardExit) {
+      return {
+        action: 'FULL_EXIT',
+        quantity: roundDownLot(snapshot.sellableQuantity, this.config.lotSize),
+        reason: stopLoss ? `止损清仓(${(pos.pnlPct || 0).toFixed(2)}%)` : `紧迫度${urgency}清仓`,
+      };
+    }
+
+    const profitReached = (pos.pnlPct || 0) >= (pm.trimProfitPct ?? 3);
+    const strongProfitReached = (pos.pnlPct || 0) >= (pm.trimStrongProfitPct ?? 5);
+    const drawdownProtect = profitReached && snapshot.drawdownFromHighPct >= (pm.trimDrawdownFromHighPct ?? 1.6);
+    const urgencyProtect = profitReached && urgency >= (pm.trimExitUrgencyMin ?? 55);
+    const trimReason = strongProfitReached
+      ? `强盈利锁定(${(pos.pnlPct || 0).toFixed(2)}%)`
+      : drawdownProtect
+        ? `盈利后回撤保护(距高点-${snapshot.drawdownFromHighPct.toFixed(2)}%)`
+        : urgencyProtect
+          ? `盈利但退出紧迫度${urgency}`
+          : null;
+
+    if (!trimReason) return { action: 'HOLD', reason: '未触发减仓' };
+    if (pos.trimCount >= (pm.maxTrimCount ?? 2)) return { action: 'HOLD', reason: '减仓次数已满' };
+    if (!snapshot.canTrimByCooldown) return { action: 'HOLD', reason: '减仓冷却中' };
+
+    const minKeepQuantity = roundDownLot((pos.initialQuantity || pos.quantity) * (pm.trimKeepMinPositionRatio ?? 0.35), this.config.lotSize);
+    const maxTrimQuantity = Math.max(0, snapshot.sellableQuantity - minKeepQuantity);
+    const desiredTrimQuantity = roundDownLot(pos.quantity * (pm.trimRatio ?? 0.35), this.config.lotSize);
+    const quantity = Math.min(maxTrimQuantity, desiredTrimQuantity);
+    if (quantity < this.config.lotSize) {
+      return { action: 'HOLD', reason: '减仓后低于保留底仓' };
+    }
+    return {
+      action: 'TRIM',
+      quantity,
+      reason: trimReason,
+    };
+  }
+
   assessBuyConfidence(pick, marketRegime, performanceFeedback, options = {}) {
     const adaptive = this.getAdaptiveConfig();
     if (!adaptive.enabled) {
@@ -2787,19 +3067,8 @@ class PaperAccount {
     }
 
     let allowAfternoonContinuationEntry = false;
-    let allowRecoveryLateContinuationEntry = false;
-    let continuationEntryCutoffMinutes = null;
     if (isMarketOpen(currentTime)) {
-      const preferredEndMinutes = pick.strategy?.bucket === 'continuation'
-        ? Math.max(adaptive.tradeWindows.preferredEntryEndMinutes, 11 * 60)
-        : adaptive.tradeWindows.preferredEntryEndMinutes;
-      const outsidePreferredWindow =
-        nowMinutes < adaptive.tradeWindows.preferredEntryStartMinutes ||
-        nowMinutes > preferredEndMinutes;
       const inAfternoonWindow = nowMinutes >= (13 * 60) && nowMinutes <= (15 * 60);
-      const standardContinuationCutoffMinutes = isSecondaryContinuation
-        ? (adaptive.tradeWindows.secondaryContinuationAfternoonCutoffMinutes ?? adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 45))
-        : (adaptive.tradeWindows.continuationAfternoonCutoffMinutes ?? (14 * 60 + 30));
       const standardAfternoonContinuationEntry = (
         inAfternoonWindow &&
         pick.strategy?.bucket === 'continuation' &&
@@ -2814,10 +3083,9 @@ class PaperAccount {
         h.gain5d <= (isSecondaryContinuation ? 4.2 : 3.2) &&
         h.rsi != null &&
         h.rsi >= 48 &&
-        h.rsi <= 60 &&
-        nowMinutes <= standardContinuationCutoffMinutes
+        h.rsi <= 60
       );
-      allowRecoveryLateContinuationEntry = (
+      const allowRecoveryLateContinuationEntry = (
         inAfternoonWindow &&
         (options.recoveryMode || options.allowGuardedRecovery) === true &&
         isRecoveryLateContinuationCandidate(pick, {
@@ -2832,24 +3100,6 @@ class PaperAccount {
         })
       );
       allowAfternoonContinuationEntry = standardAfternoonContinuationEntry || allowRecoveryLateContinuationEntry;
-      if (standardAfternoonContinuationEntry) {
-        continuationEntryCutoffMinutes = standardContinuationCutoffMinutes;
-      } else if (allowRecoveryLateContinuationEntry) {
-        continuationEntryCutoffMinutes = adaptive.tradeWindows.recoveryLateContinuationCutoffMinutes ?? (14 * 60 + 59);
-      }
-
-      if (!adaptive.tradeWindows.allowAfternoonEntries && inAfternoonWindow && !allowAfternoonContinuationEntry) {
-        return {
-          confidence: 'REJECT',
-          reason: `策略仅允许上午窗口开仓(${adaptive.tradeWindows.preferredEntryStartMinutes}-${preferredEndMinutes})`,
-        };
-      }
-      if (outsidePreferredWindow && !inAfternoonWindow) {
-        return {
-          confidence: 'REJECT',
-          reason: `当前不在首选开仓窗口(${adaptive.tradeWindows.preferredEntryStartMinutes}-${preferredEndMinutes})`,
-        };
-      }
     }
 
     if (mainEntryGuard.enabled && pick.strategy?.bucket !== 'continuation') {
@@ -2989,31 +3239,6 @@ class PaperAccount {
       if (failedMediumChecks.length > 1) {
         return { confidence: 'REJECT', reason: `中分段确认不足(${failedMediumChecks.join('/')})` };
       }
-    }
-    if (
-      baseConfidence === 'MEDIUM' &&
-      isMarketOpen(currentTime) &&
-      isLateAfternoonSession(currentTime, adaptive.tradeWindows.mediumConfidenceCutoffMinutes)
-    ) {
-      return {
-        confidence: 'REJECT',
-        reason: `午后${adaptive.tradeWindows.mediumConfidenceCutoffMinutes}分钟后禁止中置信度开仓`,
-      };
-    }
-    if (
-      isMarketOpen(currentTime) &&
-      isLateAfternoonSession(currentTime, adaptive.tradeWindows.latestEntryCutoffMinutes) &&
-      !(
-        pick.strategy?.bucket === 'continuation' &&
-        baseConfidence === 'HIGH' &&
-        allowAfternoonContinuationEntry &&
-        nowMinutes <= (continuationEntryCutoffMinutes ?? adaptive.tradeWindows.latestEntryCutoffMinutes)
-      )
-    ) {
-      return {
-        confidence: 'REJECT',
-        reason: `午后${adaptive.tradeWindows.latestEntryCutoffMinutes}分钟后停止新开仓`,
-      };
     }
     const overnightRiskMinScore = pick.strategy?.bucket === 'continuation'
       ? (adaptive.overnightRisk.minScoreToCheck ?? 80)
@@ -3429,13 +3654,69 @@ class PaperAccount {
     console.log(`[ALERT] ${type} ${symbol} ${name}: ${message}`);
   }
 
+  getSellablePositionQuantity(pos, currentTs = new Date()) {
+    ensurePositionLifecycle(pos, currentTs);
+    return pos.lots
+      .filter(lot => canSellToday(lot.entryTs, currentTs))
+      .reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+  }
+
+  consumePositionLots(pos, targetQuantity, currentTs = new Date()) {
+    ensurePositionLifecycle(pos, currentTs);
+    const remaining = roundDownLot(targetQuantity, this.config.lotSize);
+    if (remaining <= 0) {
+      return { consumedLots: [], consumedQuantity: 0, weightedEntryPrice: 0 };
+    }
+
+    let quantityLeft = remaining;
+    const consumedLots = [];
+    const nextLots = [];
+
+    for (const lot of pos.lots) {
+      const lotQuantity = Number(lot.quantity || 0);
+      const sellable = canSellToday(lot.entryTs, currentTs);
+      if (quantityLeft > 0 && sellable && lotQuantity > 0) {
+        const consumedQuantity = Math.min(lotQuantity, quantityLeft);
+        consumedLots.push({
+          ...lot,
+          quantity: consumedQuantity,
+        });
+        quantityLeft -= consumedQuantity;
+        const leftQuantity = lotQuantity - consumedQuantity;
+        if (leftQuantity > 0) {
+          nextLots.push({
+            ...lot,
+            quantity: leftQuantity,
+          });
+        }
+      } else {
+        nextLots.push(lot);
+      }
+    }
+
+    const consumedQuantity = consumedLots.reduce((sum, lot) => sum + Number(lot.quantity || 0), 0);
+    const entryCost = consumedLots.reduce((sum, lot) => sum + Number(lot.entryPrice || 0) * Number(lot.quantity || 0), 0);
+    pos.lots = nextLots;
+    pos.quantity = getLotsQuantity(nextLots);
+    pos.entryPrice = pos.quantity > 0 ? getWeightedEntryPrice(nextLots) : pos.entryPrice;
+    pos.value = pos.currentPrice * pos.quantity;
+    pos.pnlPct = pos.quantity > 0 && pos.entryPrice > 0 ? ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100 : 0;
+
+    return {
+      consumedLots,
+      consumedQuantity,
+      weightedEntryPrice: consumedQuantity > 0 ? entryCost / consumedQuantity : 0,
+    };
+  }
+
   placeOrder(symbol, name, price, side, quantity, reason = '', metadata = {}) {
+    const normalizedQuantity = roundDownLot(quantity, this.config.lotSize);
+    if (normalizedQuantity <= 0) return null;
     const orderId = `ORD_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
     const ts = new Date().toISOString();
     const bjTime = formatBeijingTime(ts);
     const slippage = side === 'BUY' ? price * (this.config.slippageBp / 10000) : price * (-this.config.slippageBp / 10000);
     const executedPrice = price + slippage;
-    const fee = (executedPrice * quantity) * (this.config.feeBp / 10000);
     const order = {
       orderId,
       symbol,
@@ -3443,90 +3724,250 @@ class PaperAccount {
       side,
       price,
       executedPrice,
-      quantity,
-      amount: executedPrice * quantity,
-      fee,
+      quantity: normalizedQuantity,
+      amount: 0,
+      fee: 0,
       status: 'FILLED',
       reason,
       ts,
       bjTime,
       ...metadata
     };
-    this.orders.push(order);
-    appendJsonLine(this.tradesPath, order);
 
     if (side === 'BUY') {
-      this.cash -= (order.amount + fee);
-      this.positions.set(symbol, {
-        symbol,
-        name,
-        entryPrice: executedPrice,
-        currentPrice: executedPrice,
-        quantity,
-        value: executedPrice * quantity,
-        pnlPct: 0,
-        entryTs: ts,
-        entryDate: new Date(ts).toISOString().split('T')[0],
-        holdRounds: 0,
-        holdDays: 0,
-        highPrice: executedPrice,
-        lowPrice: executedPrice,
-        confidence: metadata.confidence || 'UNKNOWN',
-        entryScore: metadata.entryScore || 0,
-        entrySelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
-        combinedScore: metadata.combinedScore || 0,
-        marketRegime: metadata.marketRegime || 'UNKNOWN',
-        sector: metadata.sector || 'UNKNOWN',
-        entryBucket: metadata.entryBucket || 'main',
-        liveBucket: metadata.entryBucket || 'main',
-        liveBucketLabel: BUCKET_LABELS[metadata.entryBucket || 'main'] || (metadata.entryBucket || 'main'),
-        liveSelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
-        liveCombinedScore: metadata.combinedScore || 0,
-        exitUrgency: 0,
-        exitShouldExit: false,
-        exitReasons: [],
-        exitSummary: '新开仓，等待下一轮评估',
-        lastEvaluatedAt: bjTime,
-        continuationFailureStreak: 0,
-        continuationRecoveryStreak: 0,
-        continuationLastFailureAt: null,
-        continuationLastRecoveryAt: null,
-        source: metadata.source || 'strategy'
+      const existingPos = this.positions.get(symbol);
+      const orderSide = metadata.positionAction || (existingPos ? 'ADD_ON' : 'INITIAL');
+      const amount = executedPrice * normalizedQuantity;
+      const fee = amount * (this.config.feeBp / 10000);
+      order.amount = amount;
+      order.fee = fee;
+      order.positionAction = orderSide;
+      const newLot = createPositionLot({
+        ts,
+        price: executedPrice,
+        quantity: normalizedQuantity,
+        fee,
+        side: orderSide,
+        source: metadata.source || 'strategy',
+        orderId,
       });
-      this.logAlert('BUY', symbol, name, `买入 ${quantity}股 @${executedPrice.toFixed(3)} (${reason})`);
+      this.cash -= (amount + fee);
+
+      if (existingPos) {
+        ensurePositionLifecycle(existingPos, ts);
+        existingPos.lots.push(newLot);
+        existingPos.quantity = getLotsQuantity(existingPos.lots);
+        existingPos.entryPrice = getWeightedEntryPrice(existingPos.lots);
+        existingPos.currentPrice = executedPrice;
+        existingPos.value = existingPos.currentPrice * existingPos.quantity;
+        existingPos.pnlPct = 0;
+        existingPos.highPrice = Math.max(existingPos.highPrice || 0, executedPrice);
+        existingPos.lowPrice = Math.min(existingPos.lowPrice || executedPrice, executedPrice);
+        existingPos.totalEntryCost = Number(existingPos.totalEntryCost || 0) + amount;
+        existingPos.totalBuyFee = Number(existingPos.totalBuyFee || 0) + fee;
+        existingPos.totalBoughtQuantity = Number(existingPos.totalBoughtQuantity || 0) + normalizedQuantity;
+        existingPos.confidence = metadata.confidence || existingPos.confidence || 'UNKNOWN';
+        existingPos.entryScore = Math.max(Number(metadata.entryScore || 0), Number(existingPos.entryScore || 0));
+        existingPos.entrySelectedDayScore = Math.max(Number(metadata.entrySelectedDayScore || metadata.entryScore || 0), Number(existingPos.entrySelectedDayScore || existingPos.entryScore || 0));
+        existingPos.combinedScore = Math.max(Number(metadata.combinedScore || 0), Number(existingPos.combinedScore || 0));
+        existingPos.marketRegime = metadata.marketRegime || existingPos.marketRegime || 'UNKNOWN';
+        existingPos.sector = metadata.sector || existingPos.sector || 'UNKNOWN';
+        existingPos.source = metadata.source || existingPos.source || 'strategy';
+        existingPos.entryBucket = metadata.entryBucket || existingPos.entryBucket || 'main';
+        existingPos.liveBucket = metadata.entryBucket || existingPos.liveBucket || existingPos.entryBucket || 'main';
+        existingPos.liveBucketLabel = BUCKET_LABELS[existingPos.liveBucket] || existingPos.liveBucket;
+        existingPos.liveSelectedDayScore = Number(metadata.entrySelectedDayScore || metadata.entryScore || existingPos.liveSelectedDayScore || existingPos.entrySelectedDayScore || 0);
+        existingPos.liveCombinedScore = Number(metadata.combinedScore || existingPos.liveCombinedScore || existingPos.combinedScore || 0);
+        existingPos.addOnCount += orderSide === 'ADD_ON' ? 1 : 0;
+        existingPos.lastAddOnAt = orderSide === 'ADD_ON' ? ts : existingPos.lastAddOnAt;
+        existingPos.lastManagementAction = orderSide === 'ADD_ON' ? '加仓' : '买入';
+        existingPos.positionStage = existingPos.addOnCount > 0 ? 'added' : existingPos.positionStage;
+        existingPos.hasManualIntervention = existingPos.hasManualIntervention || metadata.source === 'manual';
+        existingPos.manualActionCount = Number(existingPos.manualActionCount || 0) + (metadata.source === 'manual' ? 1 : 0);
+        existingPos.targetPositionValue = Math.max(Number(existingPos.targetPositionValue || 0), Number(metadata.targetPositionValue || 0), existingPos.value);
+        existingPos.managementSummary = orderSide === 'ADD_ON'
+          ? `已加仓${existingPos.addOnCount}次，当前${existingPos.quantity}股，目标仓位${formatWan(existingPos.targetPositionValue || 0)}`
+          : `初始建仓完成，当前${existingPos.quantity}股`;
+        this.positions.set(symbol, existingPos);
+      } else {
+        this.positions.set(symbol, ensurePositionLifecycle({
+          symbol,
+          name,
+          entryPrice: executedPrice,
+          currentPrice: executedPrice,
+          quantity: normalizedQuantity,
+          value: executedPrice * normalizedQuantity,
+          pnlPct: 0,
+          entryTs: ts,
+          entryDate: new Date(ts).toISOString().split('T')[0],
+          holdRounds: 0,
+          holdDays: 0,
+          highPrice: executedPrice,
+          lowPrice: executedPrice,
+          confidence: metadata.confidence || 'UNKNOWN',
+          entryScore: metadata.entryScore || 0,
+          entrySelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
+          combinedScore: metadata.combinedScore || 0,
+          marketRegime: metadata.marketRegime || 'UNKNOWN',
+          sector: metadata.sector || 'UNKNOWN',
+          entryBucket: metadata.entryBucket || 'main',
+          liveBucket: metadata.entryBucket || 'main',
+          liveBucketLabel: BUCKET_LABELS[metadata.entryBucket || 'main'] || (metadata.entryBucket || 'main'),
+          liveSelectedDayScore: metadata.entrySelectedDayScore || metadata.entryScore || 0,
+          liveCombinedScore: metadata.combinedScore || 0,
+          exitUrgency: 0,
+          exitShouldExit: false,
+          exitReasons: [],
+          exitSummary: '新开仓，等待下一轮评估',
+          lastEvaluatedAt: bjTime,
+          continuationFailureStreak: 0,
+          continuationRecoveryStreak: 0,
+          continuationLastFailureAt: null,
+          continuationLastRecoveryAt: null,
+          source: metadata.source || 'strategy',
+          lots: [newLot],
+          initialQuantity: normalizedQuantity,
+          initialPositionValue: executedPrice * normalizedQuantity,
+          totalEntryCost: amount,
+          totalBuyFee: fee,
+          totalBoughtQuantity: normalizedQuantity,
+          realizedSellFee: 0,
+          realizedSellAmount: 0,
+          realizedEntryCost: 0,
+          realizedBuyFeeAllocated: 0,
+          targetPositionValue: metadata.targetPositionValue || executedPrice * normalizedQuantity,
+          addOnCount: 0,
+          trimCount: 0,
+          realizedPnl: 0,
+          realizedQuantity: 0,
+          positionStage: orderSide === 'ADD_ON' ? 'added' : 'initial',
+          lastAddOnAt: orderSide === 'ADD_ON' ? ts : null,
+          lastTrimAt: null,
+          lastManagementAction: orderSide === 'ADD_ON' ? '加仓' : '建仓',
+          hasManualIntervention: metadata.source === 'manual',
+          manualActionCount: metadata.source === 'manual' ? 1 : 0,
+          managementSummary: orderSide === 'ADD_ON' ? '首次建仓即加仓状态' : '初始建仓完成',
+        }, ts));
+      }
+      this.logAlert('BUY', symbol, name, `${orderSide === 'ADD_ON' ? '加仓' : '买入'} ${normalizedQuantity}股 @${executedPrice.toFixed(3)} (${reason})`);
     } else {
       const pos = this.positions.get(symbol);
-      if (pos) {
-        const pnl = (executedPrice - pos.entryPrice) * quantity - fee;
-        const holdDays = getTradingDaysBetween(pos.entryTs, ts);
-        order.pnl = pnl;
-        order.pnlPct = ((executedPrice - pos.entryPrice) / pos.entryPrice) * 100;
-        order.holdDays = holdDays;
-        order.holdRounds = pos.holdRounds;
-        order.entryPrice = pos.entryPrice;
-        order.entryTs = pos.entryTs;
-        order.entryBjTime = formatBeijingTime(pos.entryTs);
-        order.combinedScore = pos.combinedScore || 0;
-        order.confidence = pos.confidence || 'UNKNOWN';
-        order.entryBucket = pos.entryBucket || 'main';
-        order.source = pos.source || metadata.source || 'strategy';
-        this.cash += (order.amount - fee);
+      if (!pos) {
+        order.status = 'REJECTED';
+        order.rejectReason = 'POSITION_NOT_FOUND';
+        this.orders.push(order);
+        appendJsonLine(this.tradesPath, order);
+        this.saveState();
+        return order;
+      }
+      ensurePositionLifecycle(pos, ts);
+      const sellableQuantity = this.getSellablePositionQuantity(pos, ts);
+      const sellQuantity = Math.min(normalizedQuantity, sellableQuantity);
+      const requestedPositionAction = metadata.positionAction || null;
+      if (sellQuantity <= 0) {
+        order.status = 'REJECTED';
+        order.rejectReason = 'NO_SELLABLE_LOTS';
+        this.orders.push(order);
+        appendJsonLine(this.tradesPath, order);
+        this.saveState();
+        return order;
+      }
+      const consumed = this.consumePositionLots(pos, sellQuantity, ts);
+      const consumedQuantity = consumed.consumedQuantity;
+      if (consumedQuantity <= 0) {
+        order.status = 'REJECTED';
+        order.rejectReason = 'LOT_CONSUME_FAILED';
+        this.orders.push(order);
+        appendJsonLine(this.tradesPath, order);
+        this.saveState();
+        return order;
+      }
+      const actualAmount = executedPrice * consumedQuantity;
+      const actualSellFee = actualAmount * (this.config.feeBp / 10000);
+      const consumedEntryPrice = consumed.weightedEntryPrice;
+      const realizedEntryCost = consumedEntryPrice * consumedQuantity;
+      const buyFeeAllocated = consumed.consumedLots.reduce((sum, lot) => sum + getAllocatedLotFee(lot, lot.quantity), 0);
+      const pnl = actualAmount - actualSellFee - realizedEntryCost - buyFeeAllocated;
+      const holdDays = consumed.consumedLots.length > 0
+        ? Math.max(...consumed.consumedLots.map(lot => getTradingDaysBetween(lot.entryTs, ts)))
+        : getTradingDaysBetween(pos.entryTs, ts);
+
+      order.quantity = consumedQuantity;
+      order.amount = actualAmount;
+      order.fee = actualSellFee;
+      order.buyFeeAllocated = Number(buyFeeAllocated.toFixed(6));
+      order.entryCost = Number(realizedEntryCost.toFixed(6));
+      order.pnl = pnl;
+      order.pnlPct = (realizedEntryCost + buyFeeAllocated) > 0
+        ? ((pnl) / (realizedEntryCost + buyFeeAllocated)) * 100
+        : 0;
+      order.holdDays = holdDays;
+      order.holdRounds = pos.holdRounds;
+      order.entryPrice = consumedEntryPrice;
+      order.entryTs = consumed.consumedLots[0]?.entryTs || pos.entryTs;
+      order.entryBjTime = formatBeijingTime(order.entryTs);
+      order.combinedScore = pos.combinedScore || 0;
+      order.confidence = pos.confidence || 'UNKNOWN';
+      order.entryBucket = pos.entryBucket || 'main';
+      order.marketRegime = pos.marketRegime || metadata.marketRegime || 'UNKNOWN';
+      order.source = metadata.source || pos.source || 'strategy';
+      order.entrySource = pos.source || 'strategy';
+      order.requestedPositionAction = requestedPositionAction;
+      order.positionAction = pos.quantity > 0 ? 'TRIM' : 'FULL_EXIT';
+      order.remainingQuantity = pos.quantity;
+      order.entryLots = consumed.consumedLots.map(lot => ({
+        lotId: lot.lotId,
+        side: lot.side,
+        entryTs: lot.entryTs,
+        entryPrice: lot.entryPrice,
+        quantity: lot.quantity,
+        buyFeeAllocated: Number(getAllocatedLotFee(lot, lot.quantity).toFixed(6)),
+      }));
+
+      this.cash += (actualAmount - actualSellFee);
+      pos.realizedPnl = Number(pos.realizedPnl || 0) + pnl;
+      pos.realizedQuantity = Number(pos.realizedQuantity || 0) + consumedQuantity;
+      pos.realizedSellFee = Number(pos.realizedSellFee || 0) + actualSellFee;
+      pos.realizedSellAmount = Number(pos.realizedSellAmount || 0) + actualAmount;
+      pos.realizedEntryCost = Number(pos.realizedEntryCost || 0) + realizedEntryCost;
+      pos.realizedBuyFeeAllocated = Number(pos.realizedBuyFeeAllocated || 0) + buyFeeAllocated;
+      pos.hasManualIntervention = pos.hasManualIntervention || metadata.source === 'manual';
+      pos.manualActionCount = Number(pos.manualActionCount || 0) + (metadata.source === 'manual' ? 1 : 0);
+
+      if (pos.quantity > 0) {
+        pos.trimCount += 1;
+        pos.lastTrimAt = ts;
+        pos.lastManagementAction = '减仓';
+        pos.positionStage = 'trimmed';
+        pos.managementSummary = `已减仓${pos.trimCount}次，剩余${pos.quantity}股，可卖${this.getSellablePositionQuantity(pos, ts)}股`;
+        this.positions.set(symbol, pos);
+      } else {
         this.positions.delete(symbol);
         this.sellCooldown.set(symbol, ts);
 
-        // 写入交割单
+        const totalEntryCost = Number(pos.totalEntryCost || 0);
+        const totalPnl = Number(pos.realizedPnl || 0);
+        const totalSellFee = Number(pos.realizedSellFee || 0);
+        const totalFee = Number(pos.totalBuyFee || 0) + totalSellFee;
         const settlement = {
           symbol,
           name,
           buyDate: formatBeijingTime(pos.entryTs).split(' ')[0],
           sellDate: bjTime.split(' ')[0],
-          buyPrice: Number(pos.entryPrice.toFixed(3)),
-          sellPrice: Number(executedPrice.toFixed(3)),
-          quantity,
-          pnl: Number(pnl.toFixed(2)),
-          pnlPct: Number(order.pnlPct.toFixed(2)),
-          holdDays,
-          fee: Number(fee.toFixed(2)),
+          buyPrice: Number((totalEntryCost > 0 && Number(pos.totalBoughtQuantity || 0) > 0
+            ? totalEntryCost / Number(pos.totalBoughtQuantity || 1)
+            : consumedEntryPrice).toFixed(3)),
+          sellPrice: Number(((Number(pos.realizedSellAmount || 0) > 0 && Number(pos.realizedQuantity || 0) > 0)
+            ? Number(pos.realizedSellAmount || 0) / Number(pos.realizedQuantity || 1)
+            : executedPrice).toFixed(3)),
+          quantity: Number(pos.totalBoughtQuantity || pos.initialQuantity || consumedQuantity),
+          soldQuantity: Number(pos.realizedQuantity || consumedQuantity),
+          pnl: Number(totalPnl.toFixed(2)),
+          pnlPct: Number((totalEntryCost > 0 ? (totalPnl / totalEntryCost) * 100 : 0).toFixed(2)),
+          holdDays: getTradingDaysBetween(pos.entryTs, ts),
+          fee: Number(totalFee.toFixed(2)),
+          buyFee: Number((pos.totalBuyFee || 0).toFixed(2)),
+          sellFee: Number(totalSellFee.toFixed(2)),
           reason,
           confidence: pos.confidence || 'UNKNOWN',
           entryScore: Number(pos.entryScore || 0),
@@ -3534,41 +3975,47 @@ class PaperAccount {
           combinedScore: Number(pos.combinedScore || pos.entryScore || 0),
           entryBucket: pos.entryBucket || 'main',
           entryMarketRegime: pos.marketRegime || 'UNKNOWN',
-          source: pos.source || 'strategy',
+          source: pos.hasManualIntervention ? 'manual' : (pos.source || 'strategy'),
+          hasManualIntervention: Boolean(pos.hasManualIntervention),
+          manualActionCount: Number(pos.manualActionCount || 0),
+          addOnCount: Number(pos.addOnCount || 0),
+          trimCount: Number(pos.trimCount || 0),
           bjTime
         };
         appendJsonLine(this.settlementPath, settlement);
 
-        // 更新统计
         this.statistics.totalTrades += 1;
-        this.statistics.totalPnl += pnl;
-        this.statistics.totalHoldDays += holdDays;
-        if (pnl > 0) {
+        this.statistics.totalPnl += settlement.pnl;
+        this.statistics.totalHoldDays += settlement.holdDays;
+        if (settlement.pnl > 0) {
           this.statistics.winTrades += 1;
-          this.statistics.totalWinPnl = (this.statistics.totalWinPnl || 0) + pnl;
-          if (order.pnlPct > this.statistics.maxGain) this.statistics.maxGain = order.pnlPct;
+          this.statistics.totalWinPnl = (this.statistics.totalWinPnl || 0) + settlement.pnl;
+          if (settlement.pnlPct > this.statistics.maxGain) this.statistics.maxGain = settlement.pnlPct;
         } else {
           this.statistics.lossTrades += 1;
-          this.statistics.totalLossPnl = (this.statistics.totalLossPnl || 0) + Math.abs(pnl);
-          if (order.pnlPct < this.statistics.maxLoss) this.statistics.maxLoss = order.pnlPct;
+          this.statistics.totalLossPnl = (this.statistics.totalLossPnl || 0) + Math.abs(settlement.pnl);
+          if (settlement.pnlPct < this.statistics.maxLoss) this.statistics.maxLoss = settlement.pnlPct;
         }
 
-        // 记录近期表现
         this.recordClosedTradePerformance({
           symbol,
-          pnlPct: order.pnlPct,
-          holdDays,
+          pnlPct: settlement.pnlPct,
+          holdDays: settlement.holdDays,
           combinedScore: pos.combinedScore,
           confidence: pos.confidence,
-          source: pos.source || 'strategy',
-          ts
+          source: pos.hasManualIntervention ? 'manual' : (pos.source || 'strategy'),
+          ts,
+          entryMarketRegime: pos.marketRegime || 'UNKNOWN',
         });
-
-        const alertType = order.pnlPct >= 0 ? 'SELL_PROFIT' : 'SELL_LOSS';
-        this.logAlert(alertType, symbol, name, `卖出 ${quantity}股 @${executedPrice.toFixed(3)} 盈亏${order.pnlPct.toFixed(2)}% (${reason})`);
         fs.writeFileSync(this.statisticsPath, JSON.stringify(this.statistics, null, 2));
       }
+
+      const actionLabel = order.positionAction === 'TRIM' ? '减仓' : '卖出';
+      const alertType = order.pnlPct >= 0 ? 'SELL_PROFIT' : 'SELL_LOSS';
+      this.logAlert(alertType, symbol, name, `${actionLabel} ${consumedQuantity}股 @${executedPrice.toFixed(3)} 盈亏${order.pnlPct.toFixed(2)}% (${reason})`);
     }
+    this.orders.push(order);
+    appendJsonLine(this.tradesPath, order);
     this.saveState();
     return order;
   }
@@ -3586,6 +4033,7 @@ class PaperAccount {
     const positionSignalMap = this.buildPositionSignalMap(allMarketData);
 
     for (const [symbol, pos] of this.positions.entries()) {
+      ensurePositionLifecycle(pos, currentTime);
       const marketData = symbolToMarket.get(symbol);
       const pick = symbolToPick.get(symbol) || positionSignalMap.get(symbol) || this.buildTrackedPositionSignal(marketData);
 
@@ -3658,7 +4106,9 @@ class PaperAccount {
     }
     const holdObservations = [];
     const sellDecisions = [];
-    const buyDecisionLog = { rejected: [], accepted: [] };
+    const trimDecisions = [];
+    const addOnDecisionLog = { accepted: [], rejected: [] };
+    const buyDecisionLog = { rejected: [], accepted: [], addOns: [], trims: [] };
     if (currentEquity > this.peakEquity) {
       this.peakEquity = currentEquity;
     }
@@ -3717,20 +4167,21 @@ class PaperAccount {
       this.lastAlertDrawdown = 0;
     }
 
-    const toSell = [];
+    const sellActions = [];
     for (const [symbol, pos] of this.positions.entries()) {
       const pick = symbolToPick.get(symbol) || positionSignalMap.get(symbol);
+      ensurePositionLifecycle(pos, currentTime);
       pos.holdRounds += 1;
       pos.holdDays = getTradingDaysBetween(pos.entryTs, currentTime);
 
-      const canSell = canSellToday(pos.entryTs, currentTime);
-      if (!canSell) {
+      const sellableQuantity = this.getSellablePositionQuantity(pos, currentTime);
+      if (sellableQuantity < this.config.lotSize) {
         this.updatePositionExitSnapshot(pos, {
           urgency: 0,
           shouldExit: false,
-          reasons: [{ type: 'T+1限制', weight: 0, detail: '当日买入不可卖出' }],
+          reasons: [{ type: 'T+1限制', weight: 0, detail: '当前无可卖批次' }],
         }, pick, currentTime);
-        console.log(`[PAPER] T+1限制: ${symbol} 当天买入不能卖出`);
+        console.log(`[PAPER] T+1限制: ${symbol} 当前无可卖批次`);
         continue;
       }
 
@@ -3746,12 +4197,44 @@ class PaperAccount {
 
       const exitDecision = this.calculateExitUrgency(pos, pick, marketRegime);
       this.updatePositionExitSnapshot(pos, exitDecision, pick, currentTime);
-      if (exitDecision.shouldExit) {
+      const reduceDecision = this.assessReduceDecision(pos, exitDecision, pick, {
+        adaptive,
+        currentTime,
+      });
+      if (reduceDecision.action === 'FULL_EXIT') {
         const reasonText = exitDecision.reasons.map(r => `${r.type}${r.detail ? `(${r.detail})` : ''}`).join(',');
-        const sellItem = { ...pos, reason: `卖出紧迫度${exitDecision.urgency}: ${reasonText}`, urgency: exitDecision.urgency, reasons: exitDecision.reasons };
-        toSell.push(sellItem);
+        sellActions.push({
+          symbol,
+          name: pos.name,
+          price: pos.currentPrice,
+          quantity: roundDownLot(Math.min(pos.quantity, sellableQuantity), this.config.lotSize),
+          positionAction: 'FULL_EXIT',
+          reason: `${reduceDecision.reason}: ${reasonText}`,
+          urgency: exitDecision.urgency,
+          reasons: exitDecision.reasons,
+        });
         sellDecisions.push({ symbol, name: pos.name, urgency: exitDecision.urgency, reasons: exitDecision.reasons, pnlPct: Number((pos.pnlPct || 0).toFixed(2)) });
-        console.log(`[PAPER] 卖出决策: ${symbol} ${pos.name} 紧迫度${exitDecision.urgency}/${adaptive.exitUrgencyThreshold} ${reasonText}`);
+        console.log(`[PAPER] 清仓决策: ${symbol} ${pos.name} 紧迫度${exitDecision.urgency}/${adaptive.exitUrgencyThreshold} ${reduceDecision.reason}`);
+      } else if (reduceDecision.action === 'TRIM') {
+        sellActions.push({
+          symbol,
+          name: pos.name,
+          price: pos.currentPrice,
+          quantity: reduceDecision.quantity,
+          positionAction: 'TRIM',
+          reason: reduceDecision.reason,
+          urgency: exitDecision.urgency,
+          reasons: exitDecision.reasons,
+        });
+        trimDecisions.push({
+          symbol,
+          name: pos.name,
+          quantity: reduceDecision.quantity,
+          urgency: exitDecision.urgency,
+          pnlPct: Number((pos.pnlPct || 0).toFixed(2)),
+          reason: reduceDecision.reason,
+        });
+        console.log(`[PAPER] 减仓决策: ${symbol} ${pos.name} ${reduceDecision.reason} 数量${reduceDecision.quantity}`);
       } else if (exitDecision.reasons.length > 0) {
         const holdText = exitDecision.reasons.map(r => `${r.type}(${r.detail})`).join(',');
         holdObservations.push({ symbol, name: pos.name, holdDays: pos.holdDays, pnlPct: Number((pos.pnlPct || 0).toFixed(2)), urgency: exitDecision.urgency, reasons: exitDecision.reasons });
@@ -3759,14 +4242,19 @@ class PaperAccount {
       }
     }
 
-    for (const pos of toSell) {
-      this.placeOrder(pos.symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, pos.reason);
+    for (const action of sellActions) {
+      this.placeOrder(action.symbol, action.name, action.price, 'SELL', action.quantity, action.reason, {
+        positionAction: action.positionAction,
+      });
     }
     if (holdObservations.length > 0 && global.scanLoggerRef) {
       global.scanLoggerRef.log('持有观察', { positions: holdObservations });
     }
     if (sellDecisions.length > 0 && global.scanLoggerRef) {
       global.scanLoggerRef.log('卖出决策', { sold: sellDecisions });
+    }
+    if (trimDecisions.length > 0 && global.scanLoggerRef) {
+      global.scanLoggerRef.log('减仓决策', { trimmed: trimDecisions });
     }
 
     const cooldownMinutes = this.config.buyCooldownMinutes || 60;
@@ -3779,8 +4267,10 @@ class PaperAccount {
     }
 
     let buyCandidates = [];
-    if (availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode || allowGuardedRecovery)) {
-      buyCandidates = strategyPicks
+    let addOnCandidates = [];
+    const canOpenNewPosition = availablePositions > 0 && this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode || allowGuardedRecovery);
+    if (this.cash > this.config.minCashReserve && (portfolioDrawdown <= 5 || recoveryMode || allowGuardedRecovery)) {
+      const tradeReadyCandidates = strategyPicks
         .filter(p => {
           const selectedDayScore = p.selectedDayScore || getSelectedBucketDayScore(p);
           const allowedBuckets = new Set(['main', 'continuation']);
@@ -3797,11 +4287,6 @@ class PaperAccount {
 
           if (marketRegime === 'UNKNOWN') {
             buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '市场状态未知，禁止开仓', dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
-            return false;
-          }
-
-          if (this.positions.has(p.symbol)) {
-            buyDecisionLog.rejected.push({ symbol: p.symbol, name: p.name, reason: '已持仓', dayScore: selectedDayScore, historyScore: p.historyScore || 0 });
             return false;
           }
 
@@ -3903,17 +4388,21 @@ class PaperAccount {
           const bRank = confidenceRank[b.tradeDecision?.confidence] || 0;
           if (bRank !== aRank) return bRank - aRank;
           return (b.combinedScore || b.score || 0) - (a.combinedScore || a.score || 0);
-        })
-        .slice(0, availablePositions);
+        });
+
+      buyCandidates = canOpenNewPosition
+        ? tradeReadyCandidates
+            .filter(p => !this.positions.has(p.symbol))
+            .slice(0, availablePositions)
+        : [];
+
+      addOnCandidates = tradeReadyCandidates
+        .filter(p => this.positions.has(p.symbol));
 
       for (const pick of buyCandidates) {
         const confidence = pick.tradeDecision?.confidence || 'LOW';
-        const confidenceBand = adaptive.confidenceBands[confidence.toLowerCase()] || adaptive.confidenceBands.low;
-        const positionSizing = adaptive.positionSizing || {};
         const combinedScore = pick.combinedScore || pick.score || 70;
-        const maxDrawdown = pick.history?.maxDrawdown || 20;
-
-        let basePositionValue = this.calculateTargetPositionValue(pick, {
+        const baseTargetPositionValue = this.calculateTargetPositionValue(pick, {
           adaptive,
           performanceFeedback,
           marketRegime,
@@ -3922,11 +4411,14 @@ class PaperAccount {
           recoveryMode,
           allowGuardedRecovery,
         });
-
-        const maxBuyValue = Math.min(basePositionValue, this.cash - this.config.minCashReserve);
+        const pm = adaptive.positionManagement || {};
+        const initialRatio = allowGuardedRecovery
+          ? (pm.recoveryInitialEntryRatio ?? 0.45)
+          : (confidence === 'HIGH' ? (pm.highConfidenceInitialEntryRatio ?? 0.65) : (pm.initialEntryRatio ?? 0.55));
+        const maxBuyValue = Math.min(baseTargetPositionValue * initialRatio, this.cash - this.config.minCashReserve);
         if (maxBuyValue <= 0) break;
         const selectedDayScore = pick.selectedDayScore || getSelectedBucketDayScore(pick);
-        const quantity = Math.floor(maxBuyValue / (pick.price * this.config.lotSize)) * this.config.lotSize;
+        const quantity = roundDownLot(maxBuyValue / pick.price, this.config.lotSize);
         if (quantity < this.config.lotSize) {
           buyDecisionLog.rejected.push({
             symbol: pick.symbol,
@@ -3939,7 +4431,7 @@ class PaperAccount {
         }
 
         const positionPct = (maxBuyValue / currentEquity * 100).toFixed(1);
-        const buyReason = `置信度${confidence}(综合${combinedScore.toFixed(1)}分,${pick.tradeDecision.reason})`;
+        const buyReason = `置信度${confidence}(综合${combinedScore.toFixed(1)}分,${pick.tradeDecision.reason},初始仓${Math.round(initialRatio * 100)}%)`;
         console.log(`[PAPER] 买入: ${pick.symbol} ${pick.name} ${buyReason} 仓位${positionPct}% 市场${marketRegime}`);
         buyDecisionLog.accepted.push({ symbol: pick.symbol, name: pick.name, confidence, reason: pick.tradeDecision.reason, positionValue: maxBuyValue, dayScore: selectedDayScore, historyScore: pick.historyScore || 0 });
         this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', quantity, buyReason, {
@@ -3950,20 +4442,79 @@ class PaperAccount {
           marketRegime,
           sector: pick.sector || 'UNKNOWN',
           entryBucket: pick.strategy?.bucket || 'main',
-          source: 'strategy'
+          source: 'strategy',
+          positionAction: 'INITIAL',
+          targetPositionValue: baseTargetPositionValue,
         });
 
         const sector = pick.sector || 'UNKNOWN';
         sectorCount.set(sector, (sectorCount.get(sector) || 0) + 1);
       }
+
+      for (const pick of addOnCandidates) {
+        const pos = this.positions.get(pick.symbol);
+        if (!pos) continue;
+        const addOnDecision = this.assessAddOnDecision(pos, pick, {
+          adaptive,
+          currentTime,
+          marketRegime,
+          portfolioDrawdown,
+        });
+        if (!addOnDecision.shouldAdd) {
+          addOnDecisionLog.rejected.push({
+            symbol: pick.symbol,
+            name: pick.name,
+            reason: addOnDecision.reason,
+            quantity: pos.quantity,
+            pnlPct: Number((pos.pnlPct || 0).toFixed(2)),
+          });
+          continue;
+        }
+        const confidence = pick.tradeDecision?.confidence || pos.confidence || 'LOW';
+        const selectedDayScore = pick.selectedDayScore || getSelectedBucketDayScore(pick);
+        const combinedScore = pick.combinedScore || pick.score || pos.combinedScore || 70;
+        const addReason = `加仓信号(${addOnDecision.reason})`;
+        console.log(`[PAPER] 加仓: ${pick.symbol} ${pick.name} ${addReason} 数量${addOnDecision.quantity}`);
+        addOnDecisionLog.accepted.push({
+          symbol: pick.symbol,
+          name: pick.name,
+          reason: addOnDecision.reason,
+          quantity: addOnDecision.quantity,
+          positionValue: addOnDecision.value,
+          pnlPct: Number((pos.pnlPct || 0).toFixed(2)),
+        });
+        buyDecisionLog.addOns.push({
+          symbol: pick.symbol,
+          name: pick.name,
+          reason: addOnDecision.reason,
+          quantity: addOnDecision.quantity,
+          positionValue: addOnDecision.value,
+        });
+        this.placeOrder(pick.symbol, pick.name, pick.price, 'BUY', addOnDecision.quantity, addReason, {
+          confidence,
+          entryScore: pick.score || pos.entryScore || 0,
+          entrySelectedDayScore: selectedDayScore,
+          combinedScore,
+          marketRegime,
+          sector: pick.sector || pos.sector || 'UNKNOWN',
+          entryBucket: pick.strategy?.bucket || pos.entryBucket || 'main',
+          source: pos.source || 'strategy',
+          positionAction: 'ADD_ON',
+          targetPositionValue: addOnDecision.targetValue,
+        });
+      }
     }
 
-    if ((buyDecisionLog.rejected.length > 0 || buyDecisionLog.accepted.length > 0) && global.scanLoggerRef) {
+    buyDecisionLog.trims = trimDecisions;
+    if ((buyDecisionLog.rejected.length > 0 || buyDecisionLog.accepted.length > 0 || buyDecisionLog.addOns.length > 0 || trimDecisions.length > 0) && global.scanLoggerRef) {
       global.scanLoggerRef.log('买入决策', buyDecisionLog);
+    }
+    if ((addOnDecisionLog.rejected.length > 0 || addOnDecisionLog.accepted.length > 0) && global.scanLoggerRef) {
+      global.scanLoggerRef.log('加仓决策', addOnDecisionLog);
     }
 
     let skippedReason = null;
-    if (availablePositions <= 0) {
+    if (availablePositions <= 0 && addOnCandidates.length === 0) {
       skippedReason = '持仓已满';
     } else if (this.cash <= this.config.minCashReserve) {
       skippedReason = '可用现金低于保留阈值';
@@ -3973,11 +4524,11 @@ class PaperAccount {
         : '组合回撤超过5%，暂停开仓';
     } else if (strategyPicks.length === 0) {
       skippedReason = '无主候选';
-    } else if (buyCandidates.length === 0 && buyDecisionLog.rejected.length === 0) {
+    } else if (buyCandidates.length === 0 && addOnCandidates.length === 0 && buyDecisionLog.rejected.length === 0) {
       skippedReason = '主候选在排序前已被仓位约束过滤';
-    } else if (buyCandidates.length === 0) {
+    } else if (buyCandidates.length === 0 && addOnCandidates.length === 0) {
       skippedReason = '候选均未通过交易层';
-    } else if (buyDecisionLog.accepted.length === 0) {
+    } else if (buyDecisionLog.accepted.length === 0 && buyDecisionLog.addOns.length === 0) {
       skippedReason = '通过过滤但仓位不足或被交易约束拒绝';
     }
 
@@ -3995,6 +4546,10 @@ class PaperAccount {
       recoveryAddOnLimit,
       strategyCandidateCount: strategyPicks.length,
       buyCandidateCount: buyCandidates.length,
+      addOnCandidateCount: addOnCandidates.length,
+      addOnAcceptedCount: addOnDecisionLog.accepted.length,
+      trimCandidateCount: trimDecisions.length,
+      trimAcceptedCount: trimDecisions.length,
       positionsBefore,
       positionsAfter: this.positions.size,
       availablePositions,
@@ -4046,11 +4601,24 @@ class PaperAccount {
     const adaptive = this.getAdaptiveConfig();
     const regimeConfig = adaptive.regimeMultipliers[regime] || adaptive.regimeMultipliers.NEUTRAL;
     const dynamicMaxPositions = Math.min(this.config.maxPositions, regimeConfig.maxPositions || this.config.maxPositions);
+    const now = new Date();
+    const positions = Array.from(this.positions.values()).map(pos => {
+      ensurePositionLifecycle(pos, now);
+      return {
+        ...pos,
+        sellableQuantity: this.getSellablePositionQuantity(pos, now),
+        lotCount: Array.isArray(pos.lots) ? pos.lots.length : 0,
+        lots: (pos.lots || []).map(lot => ({
+          ...lot,
+          sellable: canSellToday(lot.entryTs, now),
+        })),
+      };
+    }).sort((a, b) => b.value - a.value);
     return {
       cash: this.cash,
       totalEquity: this.getTotalEquity(),
       pnlPct: ((this.getTotalEquity() / this.config.initialCash) - 1) * 100,
-      positions: Array.from(this.positions.values()).sort((a, b) => b.value - a.value),
+      positions,
       positionCount: this.positions.size,
       maxPositions: dynamicMaxPositions,
       marketRegime: regime,

@@ -41,13 +41,6 @@ function bucketTone(bucket) {
   return 'neutral'
 }
 
-function formatCutoff(minutes) {
-  if (minutes == null) return '-'
-  const h = String(Math.floor(minutes / 60)).padStart(2, '0')
-  const m = String(minutes % 60).padStart(2, '0')
-  return `${h}:${m}`
-}
-
 export function PaperBoard() {
   const [portfolio, setPortfolio] = useState(null)
   const [state, setState] = useState(null)
@@ -59,6 +52,7 @@ export function PaperBoard() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('equity')
   const [sellingSymbol, setSellingSymbol] = useState(null)
+  const [sellQuantities, setSellQuantities] = useState({})
 
   useScrollRestore('paper')
 
@@ -93,11 +87,21 @@ export function PaperBoard() {
 
   useAutoRefresh(fetchData, 15000)
 
-  const handleSell = async (symbol) => {
+  const handleSell = async (position) => {
+    const symbol = position.symbol
+    const rawQuantity = sellQuantities[symbol]
+    const quantity = rawQuantity ? Number(rawQuantity) : undefined
+
+    if (rawQuantity && (!Number.isFinite(quantity) || quantity <= 0)) {
+      alert('减仓数量无效')
+      return
+    }
+
     try {
       setSellingSymbol(symbol)
-      const result = await api.sell(symbol)
+      const result = await api.sell(symbol, quantity)
       alert(result.message || '卖出成功')
+      setSellQuantities(prev => ({ ...prev, [symbol]: '' }))
       await fetchData()
     } catch (err) {
       alert(`卖出失败: ${err.message}`)
@@ -120,20 +124,16 @@ export function PaperBoard() {
   const regimeColor = state?.marketRegime?.regime === 'BULL' ? 'rise' : state?.marketRegime?.regime === 'BEAR' ? 'fall' : 'neutral'
   const regimeText = state?.marketRegime?.regime === 'BULL' ? '牛市' : state?.marketRegime?.regime === 'BEAR' ? '熊市' : state?.marketRegime?.regime === 'NEUTRAL' ? '震荡' : '未知'
   const tradeDecision = portfolio.latestTradeDiagnostics || state?.diagnostics?.tradeDecision || {}
-  const adaptiveTradeWindows = portfolio.adaptive?.tradeWindows || {}
-  const continuationCutoff = adaptiveTradeWindows.continuationAfternoonCutoffMinutes
-  const recoveryLateCutoff = adaptiveTradeWindows.recoveryLateContinuationCutoffMinutes
-
   const positionsColumns = [
     { key: 'symbol', title: '代码' },
     { key: 'name', title: '名称' },
-    { key: 'bucket', title: '建仓/实时桶' },
+    { key: 'bucket', title: '建仓/实时桶/阶段' },
     { key: 'currentPrice', title: '现价' },
     { key: 'entryPrice', title: '成本' },
     { key: 'value', title: '市值' },
     { key: 'pnlPct', title: '盈亏' },
-    { key: 'holdDays', title: '持有' },
-    { key: 'exit', title: '退出诊断' },
+    { key: 'holdDays', title: '持有/可卖' },
+    { key: 'exit', title: '管理诊断' },
     { key: 'confidence', title: '置信度' },
     { key: 'action', title: '操作' },
   ]
@@ -232,13 +232,19 @@ export function PaperBoard() {
                       <div className="text-xs text-slate-500">
                         实时 {pos.liveBucketLabel || pos.liveBucket || '-'} / 日 {Number(pos.liveSelectedDayScore || pos.entrySelectedDayScore || 0).toFixed(1)}
                       </div>
+                      <div className="text-xs text-slate-500">
+                        阶段 {pos.positionStage || 'initial'} / 加{pos.addOnCount || 0} / 减{pos.trimCount || 0}
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-200">{pos.currentPrice?.toFixed(3)}</td>
                   <td className="px-4 py-3 text-slate-400">{pos.entryPrice?.toFixed(3)}</td>
                   <td className="px-4 py-3 text-slate-200">{formatMoney(pos.value)}</td>
                   <td className={`px-4 py-3 font-medium ${pos.pnlPct >= 0 ? 'text-rise' : 'text-fall'}`}>{formatPct(pos.pnlPct)}</td>
-                  <td className="px-4 py-3 text-slate-400">{pos.holdDays || 0}天</td>
+                  <td className="px-4 py-3 text-slate-400">
+                    <div>{pos.holdDays || 0}天</div>
+                    <div className="text-xs text-slate-500">可卖 {pos.sellableQuantity ?? pos.quantity ?? 0} 股</div>
+                  </td>
                   <td className="px-4 py-3">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
@@ -248,17 +254,29 @@ export function PaperBoard() {
                         {pos.lastEvaluatedAt ? <span className="text-xs text-slate-500">{pos.lastEvaluatedAt}</span> : null}
                       </div>
                       <div className="max-w-[240px] text-xs leading-5 text-slate-400">{pos.exitSummary || '暂无诊断'}</div>
+                      <div className="max-w-[240px] text-xs leading-5 text-slate-500">{pos.managementSummary || '暂无仓位管理动作'}</div>
                     </div>
                   </td>
                   <td className="px-4 py-3"><Badge tone={pos.confidence === 'HIGH' ? 'rise' : pos.confidence === 'LOW' ? 'warn' : 'neutral'}>{pos.confidence || 'UNKNOWN'}</Badge></td>
                   <td className="px-4 py-3">
-                    <button
-                      onClick={() => handleSell(pos.symbol)}
-                      disabled={sellingSymbol === pos.symbol}
-                      className="rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/25 disabled:opacity-50"
-                    >
-                      {sellingSymbol === pos.symbol ? '卖出中...' : '卖出'}
-                    </button>
+                    <div className="flex min-w-[150px] flex-col gap-2">
+                      <input
+                        type="number"
+                        min="100"
+                        step="100"
+                        value={sellQuantities[pos.symbol] || ''}
+                        onChange={event => setSellQuantities(prev => ({ ...prev, [pos.symbol]: event.target.value }))}
+                        placeholder={`默认卖${pos.sellableQuantity ?? pos.quantity ?? 0}`}
+                        className="w-32 rounded-lg border border-slate-700 bg-slate-950 px-3 py-1.5 text-xs text-slate-200 outline-none focus:border-red-400"
+                      />
+                      <button
+                        onClick={() => handleSell(pos)}
+                        disabled={sellingSymbol === pos.symbol || Number(pos.sellableQuantity || 0) <= 0}
+                        className="w-32 rounded-lg bg-red-500/15 px-3 py-1.5 text-xs font-medium text-red-300 hover:bg-red-500/25 disabled:opacity-50"
+                      >
+                        {sellingSymbol === pos.symbol ? '卖出中...' : '卖出/减仓'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )}
@@ -274,11 +292,10 @@ export function PaperBoard() {
                 <Badge tone={Number(tradeDecision.portfolioDrawdown || 0) > 5 ? 'warn' : 'neutral'}>
                   组合回撤 {Number(tradeDecision.portfolioDrawdown || 0).toFixed(2)}%
                 </Badge>
-                <Badge tone="neutral">普通最晚开仓 {formatCutoff(adaptiveTradeWindows.latestEntryCutoffMinutes)}</Badge>
-                <Badge tone="rise">延续池最晚 {formatCutoff(continuationCutoff)}</Badge>
-                <Badge tone="sky">恢复例外最晚 {formatCutoff(recoveryLateCutoff)}</Badge>
+                <Badge tone="neutral">交易时段内均可开仓</Badge>
+                <Badge tone="rise">交易所开市是唯一时间边界</Badge>
               </div>
-              <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <div className="rounded-xl bg-slate-800/60 p-4">
                   <div className="text-sm text-slate-400">主候选</div>
                   <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.strategyCandidateCount || 0}</div>
@@ -295,16 +312,41 @@ export function PaperBoard() {
                   <div className="text-sm text-slate-400">拒绝</div>
                   <div className="mt-2 text-2xl font-semibold text-slate-100">{tradeDecision.rejectedCount || 0}</div>
                 </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {(tradeDecision.rejectSummary || []).map(item => (
-                  <Badge key={`${item.key}-${item.count}`} tone="warn">{item.label} {item.count}只</Badge>
-                ))}
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Badge tone="rise">加仓候选 {tradeDecision.addOnCandidateCount || 0}</Badge>
+                  <Badge tone="rise">已加仓 {tradeDecision.addOnAcceptedCount || 0}</Badge>
+                  <Badge tone="warn">已减仓 {tradeDecision.trimAcceptedCount || 0}</Badge>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {(tradeDecision.rejectSummary || []).map(item => (
+                    <Badge key={`${item.key}-${item.count}`} tone="warn">{item.label} {item.count}只</Badge>
+                  ))}
                 {(!tradeDecision.rejectSummary || tradeDecision.rejectSummary.length === 0) ? <span className="text-sm text-slate-400">最近没有明显拒绝项</span> : null}
               </div>
-              <div className="space-y-2">
-                {(tradeDecision.rejected || []).slice(0, 6).map(item => (
-                  <div key={`${item.symbol}-${item.reason}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                <div className="space-y-2">
+                  {(tradeDecision.addOns || []).slice(0, 4).map(item => (
+                    <div key={`addon-${item.symbol}-${item.reason}`} className="rounded-xl border border-emerald-900/50 bg-emerald-950/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                        <Badge tone="rise">加仓</Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">数量 {item.quantity || 0} / 金额 {formatMoney(item.positionValue || 0)}</div>
+                      <div className="mt-2 text-sm text-slate-300">{item.reason}</div>
+                    </div>
+                  ))}
+                  {(tradeDecision.trims || []).slice(0, 4).map(item => (
+                    <div key={`trim-${item.symbol}-${item.reason}`} className="rounded-xl border border-amber-900/50 bg-amber-950/20 p-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
+                        <Badge tone="warn">减仓</Badge>
+                      </div>
+                      <div className="mt-1 text-xs text-slate-500">数量 {item.quantity || 0} / 浮盈 {item.pnlPct ?? 0}%</div>
+                      <div className="mt-2 text-sm text-slate-300">{item.reason}</div>
+                    </div>
+                  ))}
+                  {(tradeDecision.rejected || []).slice(0, 6).map(item => (
+                    <div key={`${item.symbol}-${item.reason}`} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
                     <div className="flex items-center justify-between gap-3">
                       <div className="text-sm font-medium text-slate-100">{item.symbol} {item.name}</div>
                       <Badge tone="warn">{item.rejectCategory || '被拒'}</Badge>

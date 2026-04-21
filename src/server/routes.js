@@ -151,15 +151,10 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             res.end(JSON.stringify({ success: false, error: `扫描池中没有 ${normalizedSymbol}` }));
             return;
           }
-          if (paperAccount.positions.has(normalizedSymbol)) {
-            res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `${normalizedSymbol} 已在持仓中` }));
-            return;
-          }
           const adaptive = paperAccount.getAdaptiveConfig();
           const regimeConfig = adaptive.regimeMultipliers[state.marketRegime?.regime || 'NEUTRAL'] || adaptive.regimeMultipliers.NEUTRAL;
           const dynamicMaxPositions = Math.min(paperAccount.config.maxPositions, regimeConfig.maxPositions || paperAccount.config.maxPositions);
-          if (paperAccount.positions.size >= dynamicMaxPositions) {
+          if (!paperAccount.positions.has(normalizedSymbol) && paperAccount.positions.size >= dynamicMaxPositions) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: `持仓数量已达上限 ${dynamicMaxPositions}` }));
             return;
@@ -208,17 +203,20 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             return;
           }
           const combinedScore = marketItem.combinedScore || marketItem.score || 0;
-          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动买入(置信度${suggestion.confidence})`, {
+          const existingPos = paperAccount.positions.get(normalizedSymbol);
+          paperAccount.placeOrder(normalizedSymbol, marketItem.name || name || normalizedSymbol, orderPrice, 'BUY', quantity, `手动${existingPos ? '加仓' : '买入'}(置信度${suggestion.confidence})`, {
             confidence: suggestion.confidence,
             combinedScore,
             sector: marketItem.sector || 'UNKNOWN',
             marketRegime: state.marketRegime?.regime || 'UNKNOWN',
-            source: 'manual'
+            source: 'manual',
+            positionAction: existingPos ? 'ADD_ON' : 'INITIAL',
+            targetPositionValue: requestedAmount,
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({
             success: true,
-            message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已买入 ${quantity}股 @${orderPrice}`,
+            message: `${normalizedSymbol} ${(marketItem.name || name || normalizedSymbol)} 已${existingPos ? '加仓' : '买入'} ${quantity}股 @${orderPrice}`,
             suggestion: {
               confidence: suggestion.confidence,
               suggestedAmount: (suggestion.suggestedAmount / 10000).toFixed(2) + '万',
@@ -244,7 +242,7 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
       req.on('data', chunk => { body += chunk; });
       req.on('end', () => {
         try {
-          const { symbol } = JSON.parse(body);
+          const { symbol, quantity } = JSON.parse(body);
           const pos = paperAccount.positions.get(symbol);
           if (!pos) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -252,17 +250,27 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
             return;
           }
           const currentTime = new Date();
-          const canSell = canSellToday(pos.entryTs, currentTime);
-          if (!canSell) {
+          const sellableQuantity = paperAccount.getSellablePositionQuantity(pos, currentTime);
+          if (sellableQuantity < (paperAccount.config.lotSize || 100)) {
             res.writeHead(400, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: `T+1限制：${symbol} ${pos.name} 今天买入，下个交易日才能卖出` }));
+            res.end(JSON.stringify({ success: false, error: `T+1限制：${symbol} ${pos.name} 当前无可卖仓位` }));
             return;
           }
-          paperAccount.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, '手动卖出', {
-            source: 'manual'
+          const lotSize = paperAccount.config.lotSize || 100;
+          const requestedQuantity = quantity ? Math.floor(Number(quantity) / lotSize) * lotSize : sellableQuantity;
+          const finalQuantity = Math.min(sellableQuantity, requestedQuantity || sellableQuantity);
+          if (finalQuantity < lotSize) {
+            res.writeHead(400, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: `卖出数量不足一手` }));
+            return;
+          }
+          const positionAction = finalQuantity < pos.quantity ? 'TRIM' : 'FULL_EXIT';
+          paperAccount.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', finalQuantity, `手动${positionAction === 'TRIM' ? '减仓' : '卖出'}`, {
+            source: 'manual',
+            positionAction,
           });
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify({ success: true, message: `${symbol} ${pos.name} 已卖出 ${pos.quantity}股 @${pos.currentPrice}` }));
+          res.end(JSON.stringify({ success: true, message: `${symbol} ${pos.name} 已${positionAction === 'TRIM' ? '减仓' : '卖出'} ${finalQuantity}股 @${pos.currentPrice}` }));
         } catch (err) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ success: false, error: err.message }));

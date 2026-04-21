@@ -41,5 +41,5 @@ export const api = {
 
   // 交易操作
   buy: (symbol, name, price, amount) => api.post('/api/buy', { symbol, name, price, amount }),
-  sell: (symbol) => api.post('/api/sell', { symbol }),
+  sell: (symbol, quantity) => api.post('/api/sell', { symbol, quantity }),
 };
