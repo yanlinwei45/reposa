@@ -41,7 +41,7 @@ function serveFrontend(req, res, frontendDistPath) {
   fs.createReadStream(filePath).pipe(res);
 }
 
-function createApiRoutes(state, config, paperAccount, scanLogger) {
+function createApiRoutes(state, config, paperAccount, scanLogger, fetchRealtimePricesForSymbols) {
   return {
     '/api/health': (req, res) => {
       writeJson(res, {
@@ -71,10 +71,18 @@ function createApiRoutes(state, config, paperAccount, scanLogger) {
       handleLogsApi(scanLogger, res);
     },
 
-    '/api/portfolio': (req, res) => {
+    '/api/portfolio': async (req, res) => {
       if (!paperAccount) {
         writeJson(res, { error: 'paper trading not enabled' }, 404);
         return;
+      }
+      try {
+        if (paperAccount.positions.size > 0 && typeof fetchRealtimePricesForSymbols === 'function') {
+          const quotes = await fetchRealtimePricesForSymbols([...paperAccount.positions.keys()]);
+          paperAccount.applyRealtimePositionQuotes(quotes);
+        }
+      } catch (err) {
+        console.error('[API] 刷新持仓实时价格失败:', err.message);
       }
       writeJson(res, paperAccount.getPortfolio());
     },

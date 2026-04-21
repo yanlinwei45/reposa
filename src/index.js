@@ -389,6 +389,7 @@ function ensurePositionLifecycle(pos = {}, now = new Date()) {
   pos.realizedQuantity = Number(pos.realizedQuantity || 0);
   pos.hasManualIntervention = Boolean(pos.hasManualIntervention || pos.source === 'manual');
   pos.manualActionCount = Number(pos.manualActionCount || 0);
+  pos.manualOnlyExit = Boolean(pos.manualOnlyExit || pos.source === 'manual');
   pos.positionStage = pos.positionStage || (pos.addOnCount > 0 ? 'added' : 'initial');
   pos.lastAddOnAt = pos.lastAddOnAt || null;
   pos.lastTrimAt = pos.lastTrimAt || null;
@@ -2561,6 +2562,39 @@ class PaperAccount {
     return this.cash + positionValue;
   }
 
+  applyRealtimePositionQuotes(quotes = []) {
+    const now = new Date();
+    let updated = 0;
+    for (const quote of quotes) {
+      const pos = this.positions.get(quote.symbol);
+      if (!pos || !(Number(quote.price) > 0)) continue;
+      ensurePositionLifecycle(pos, now);
+      pos.currentPrice = Number(quote.price);
+      if (quote.changePercent != null) {
+        pos.changePercent = Number(quote.changePercent);
+      }
+      if (pos.currentPrice > (pos.highPrice || 0)) {
+        pos.highPrice = pos.currentPrice;
+      }
+      if (!pos.lowPrice || pos.currentPrice < pos.lowPrice) {
+        pos.lowPrice = pos.currentPrice;
+      }
+      pos.value = pos.currentPrice * pos.quantity;
+      pos.pnlPct = pos.entryPrice > 0 ? ((pos.currentPrice - pos.entryPrice) / pos.entryPrice) * 100 : 0;
+      pos.realtimePriceUpdatedAt = formatBeijingTime(now);
+      this.positions.set(quote.symbol, pos);
+      updated += 1;
+    }
+    return updated;
+  }
+
+  async refreshPositionQuotes() {
+    const symbols = [...this.positions.keys()];
+    if (!symbols.length) return 0;
+    const quotes = await fetchRealtimePricesForSymbols(symbols);
+    return this.applyRealtimePositionQuotes(quotes);
+  }
+
   getPositionSizingContext(marketRegime = 'NEUTRAL') {
     const adaptive = this.getAdaptiveConfig();
     const regimeConfig = adaptive.regimeMultipliers[marketRegime] || adaptive.regimeMultipliers.NEUTRAL;
@@ -3810,10 +3844,15 @@ class PaperAccount {
         existingPos.positionStage = existingPos.addOnCount > 0 ? 'added' : existingPos.positionStage;
         existingPos.hasManualIntervention = existingPos.hasManualIntervention || metadata.source === 'manual';
         existingPos.manualActionCount = Number(existingPos.manualActionCount || 0) + (metadata.source === 'manual' ? 1 : 0);
+        existingPos.manualOnlyExit = existingPos.manualOnlyExit || metadata.source === 'manual';
         existingPos.targetPositionValue = Math.max(Number(existingPos.targetPositionValue || 0), Number(metadata.targetPositionValue || 0), existingPos.value);
         existingPos.managementSummary = orderSide === 'ADD_ON'
-          ? `已加仓${existingPos.addOnCount}次，当前${existingPos.quantity}股，目标仓位${formatWan(existingPos.targetPositionValue || 0)}`
-          : `初始建仓完成，当前${existingPos.quantity}股`;
+          ? (existingPos.manualOnlyExit
+            ? `手动仓位，已加仓${existingPos.addOnCount}次，当前${existingPos.quantity}股，仅允许手动卖出`
+            : `已加仓${existingPos.addOnCount}次，当前${existingPos.quantity}股，目标仓位${formatWan(existingPos.targetPositionValue || 0)}`)
+          : (existingPos.manualOnlyExit
+            ? `手动建仓完成，当前${existingPos.quantity}股，仅允许手动卖出`
+            : `初始建仓完成，当前${existingPos.quantity}股`);
         this.positions.set(symbol, existingPos);
       } else {
         this.positions.set(symbol, ensurePositionLifecycle({
@@ -3872,7 +3911,10 @@ class PaperAccount {
           lastManagementAction: orderSide === 'ADD_ON' ? '加仓' : '建仓',
           hasManualIntervention: metadata.source === 'manual',
           manualActionCount: metadata.source === 'manual' ? 1 : 0,
-          managementSummary: orderSide === 'ADD_ON' ? '首次建仓即加仓状态' : '初始建仓完成',
+          manualOnlyExit: metadata.source === 'manual',
+          managementSummary: metadata.source === 'manual'
+            ? `手动${orderSide === 'ADD_ON' ? '加仓建仓' : '建仓'}完成，仅允许手动卖出`
+            : (orderSide === 'ADD_ON' ? '首次建仓即加仓状态' : '初始建仓完成'),
         }, ts));
       }
       this.logAlert('BUY', symbol, name, `${orderSide === 'ADD_ON' ? '加仓' : '买入'} ${normalizedQuantity}股 @${executedPrice.toFixed(3)} (${reason})`);
@@ -4151,6 +4193,16 @@ class PaperAccount {
       }
       console.log(`[RISK] 组合回撤${portfolioDrawdown.toFixed(2)}%超过8%，清仓所有持仓`);
       for (const [symbol, pos] of this.positions.entries()) {
+        if (pos.manualOnlyExit) {
+          const pick = symbolToPick.get(symbol) || positionSignalMap.get(symbol);
+          this.updatePositionExitSnapshot(pos, {
+            urgency: 0,
+            shouldExit: false,
+            reasons: [{ type: '手动持仓', weight: 0, detail: `组合回撤${portfolioDrawdown.toFixed(2)}%，仍仅允许手动卖出` }],
+          }, pick, currentTime);
+          pos.managementSummary = `组合回撤${portfolioDrawdown.toFixed(2)}%，手动持仓不自动卖出`;
+          continue;
+        }
         this.placeOrder(symbol, pos.name, pos.currentPrice, 'SELL', pos.quantity, `组合风险控制(回撤${portfolioDrawdown.toFixed(2)}%)`);
       }
       this.latestTradeDiagnostics = buildTradeDecisionDiagnostics({}, {
@@ -4199,6 +4251,24 @@ class PaperAccount {
       ensurePositionLifecycle(pos, currentTime);
       pos.holdRounds += 1;
       pos.holdDays = getTradingDaysBetween(pos.entryTs, currentTime);
+
+      if (pos.manualOnlyExit) {
+        this.updatePositionExitSnapshot(pos, {
+          urgency: 0,
+          shouldExit: false,
+          reasons: [{ type: '手动持仓', weight: 0, detail: '仅允许手动卖出' }],
+        }, pick, currentTime);
+        pos.managementSummary = '手动持仓，仅允许手动卖出';
+        holdObservations.push({
+          symbol,
+          name: pos.name,
+          holdDays: pos.holdDays,
+          pnlPct: Number((pos.pnlPct || 0).toFixed(2)),
+          urgency: 0,
+          reasons: [{ type: '手动持仓', detail: '仅允许手动卖出' }],
+        });
+        continue;
+      }
 
       const sellableQuantity = this.getSellablePositionQuantity(pos, currentTime);
       if (sellableQuantity < this.config.lotSize) {
@@ -4423,7 +4493,10 @@ class PaperAccount {
         : [];
 
       addOnCandidates = tradeReadyCandidates
-        .filter(p => this.positions.has(p.symbol));
+        .filter(p => {
+          const pos = this.positions.get(p.symbol);
+          return pos && !pos.manualOnlyExit;
+        });
 
       for (const pick of buyCandidates) {
         const confidence = pick.tradeDecision?.confidence || 'LOW';
@@ -4747,7 +4820,7 @@ async function main() {
   global.__legacyRenderLogsHtml = renderLogsHtmlLegacy;
 
   // 创建统一 API 路由
-  const apiRoutes = createApiRoutes(state, config, paperAccount, scanner.scanLogger);
+  const apiRoutes = createApiRoutes(state, config, paperAccount, scanner.scanLogger, fetchRealtimePricesForSymbols);
   const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
   const useFrontend = fs.existsSync(frontendDistPath);
 

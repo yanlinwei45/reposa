@@ -7,15 +7,15 @@
         "symbol": "sz000422",
         "name": "湖北宜化",
         "entryPrice": 15.89588,
-        "currentPrice": 15.88,
+        "currentPrice": 16.23,
         "quantity": 62900,
-        "value": 998852,
-        "pnlPct": -0.09990009990009505,
+        "value": 1020867,
+        "pnlPct": 2.1019282984018526,
         "entryTs": "2026-04-21T03:24:17.713Z",
         "entryDate": "2026-04-21",
-        "holdRounds": 2,
+        "holdRounds": 5,
         "holdDays": 1,
-        "highPrice": 15.89588,
+        "highPrice": 16.27,
         "lowPrice": 15.84,
         "confidence": "MANUAL",
         "entryScore": 0,
@@ -26,19 +26,19 @@
         "entryBucket": "main",
         "liveBucket": "rejected",
         "liveBucketLabel": "未达标",
-        "liveSelectedDayScore": 90,
-        "liveCombinedScore": 64.76,
+        "liveSelectedDayScore": 48,
+        "liveCombinedScore": 49.94,
         "exitUrgency": 0,
         "exitShouldExit": false,
         "exitReasons": [
           {
-            "type": "非交易时间",
+            "type": "手动持仓",
             "weight": 0,
-            "detail": "仅更新信号快照"
+            "detail": "仅允许手动卖出"
           }
         ],
-        "exitSummary": "非交易时间(仅更新信号快照)",
-        "lastEvaluatedAt": "2026-04-21 12:44:09",
+        "exitSummary": "手动持仓(仅允许手动卖出)",
+        "lastEvaluatedAt": "2026-04-21 14:20:50",
         "continuationFailureStreak": 0,
         "continuationRecoveryStreak": 0,
         "continuationLastFailureAt": null,
@@ -78,7 +78,10 @@
         "lastManagementAction": "建仓",
         "hasManualIntervention": true,
         "manualActionCount": 1,
-        "managementSummary": "初始建仓完成"
+        "managementSummary": "手动持仓，仅允许手动卖出",
+        "manualOnlyExit": true,
+        "changePercent": 2.59,
+        "realtimePriceUpdatedAt": "2026-04-21 14:25:34"
       }
     ]
   ],
@@ -1747,10 +1750,10 @@
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-21 12:44:09",
+    "ts": "2026-04-21 14:20:50",
     "marketRegime": "BULL",
-    "marketOpen": false,
-    "portfolioDrawdown": 6.93,
+    "marketOpen": true,
+    "portfolioDrawdown": 6.72,
     "recoveryMode": false,
     "guardedRecoveryMode": false,
     "allowGuardedRecovery": true,
@@ -1769,12 +1772,12 @@
     "positionsBefore": 1,
     "positionsAfter": 1,
     "availablePositions": 4,
-    "skippedReason": "非交易时间",
+    "skippedReason": "无主候选",
     "rejectSummary": [],
     "accepted": [],
     "rejected": [],
     "addOns": [],
     "trims": []
   },
-  "savedAt": "2026-04-21T04:49:11.630Z"
+  "savedAt": "2026-04-21T06:25:37.392Z"
 }

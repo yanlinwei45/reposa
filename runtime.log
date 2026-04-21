@@ -168,3 +168,17 @@
     at eval (eval at evaluate (:290:30), <anonymous>:2:32)
     at UtilityScript.evaluate (<anonymous>:292:16)
     at UtilityScript.<anonymous> (<anonymous>:1:44)
+[KLINE] 获取sz001267历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sh603119历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sh600699历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sh605598历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sh603002历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sh603171历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)
+[KLINE] 获取sz000962历史数据失败: page.evaluate: Error: Network error
+    at xhr.onerror (eval at evaluate (:290:30), <anonymous>:19:22)

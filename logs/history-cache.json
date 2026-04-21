@@ -428,7 +428,7 @@
     "historyScore": 51,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776740732857,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh605178": {
@@ -536,7 +536,7 @@
     "historyScore": 61,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776740732857,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000766": {
@@ -1453,7 +1453,7 @@
     "historyScore": 59,
     "fetchedAt": 1776651365159,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600602": {
@@ -1828,7 +1828,7 @@
     "historyScore": 38,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600272": {
@@ -2534,7 +2534,9 @@
     },
     "historyScore": 64,
     "fetchedAt": 1776389573323,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600367": {
     "indicators": {
@@ -2588,7 +2590,7 @@
     "historyScore": 63,
     "fetchedAt": 1776392384830,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776740732857,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600096": {
@@ -2643,7 +2645,7 @@
     "historyScore": 69,
     "fetchedAt": 1776306576970,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603008": {
@@ -2916,7 +2918,7 @@
     "historyScore": 37,
     "fetchedAt": 1776320353511,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000950": {
@@ -3239,7 +3241,9 @@
     },
     "historyScore": 46,
     "fetchedAt": 1776404141838,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603729": {
     "indicators": {
@@ -4636,7 +4640,7 @@
     "historyScore": 56,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000533": {
@@ -4797,8 +4801,8 @@
     "historyScore": 56,
     "fetchedAt": 1776390634437,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776655398501,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603120": {
     "indicators": {
@@ -4958,7 +4962,7 @@
     "historyScore": 48,
     "fetchedAt": 1776405047375,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh605056": {
@@ -5763,8 +5767,8 @@
     "historyScore": 70,
     "fetchedAt": 1776404141838,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776664273445,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600189": {
     "indicators": {
@@ -5926,7 +5930,7 @@
     "historyScore": 33,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600789": {
@@ -6140,7 +6144,7 @@
     "historyScore": 70,
     "fetchedAt": 1776392084649,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601096": {
@@ -6994,7 +6998,7 @@
     "historyScore": 61,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600250": {
@@ -7583,7 +7587,7 @@
     "historyScore": 71,
     "fetchedAt": 1776392684228,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000670": {
@@ -7958,8 +7962,8 @@
     "historyScore": 42,
     "fetchedAt": 1776393165258,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776659315184,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603798": {
     "indicators": {
@@ -8229,7 +8233,7 @@
     "historyScore": 63,
     "fetchedAt": 1776305585553,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603262": {
@@ -8610,7 +8614,7 @@
     "historyScore": 56,
     "fetchedAt": 1776222677222,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600685": {
@@ -8665,8 +8669,8 @@
     "historyScore": 77,
     "fetchedAt": 1776221998619,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776698344453,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603002": {
     "indicators": {
@@ -8720,7 +8724,7 @@
     "historyScore": 36,
     "fetchedAt": 1776666305945,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001287": {
@@ -9156,7 +9160,7 @@
     "historyScore": 40,
     "fetchedAt": 1776404541573,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000931": {
@@ -9747,7 +9751,7 @@
     "historyScore": 61,
     "fetchedAt": 1776305298058,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600080": {
@@ -11143,7 +11147,7 @@
     "historyScore": 41,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001218": {
@@ -11304,7 +11308,7 @@
     "historyScore": 83,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600376": {
@@ -11630,7 +11634,7 @@
     "historyScore": 36,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600094": {
@@ -12282,7 +12286,7 @@
     "historyScore": 58,
     "fetchedAt": 1776395847558,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603667": {
@@ -12337,7 +12341,7 @@
     "historyScore": 52,
     "fetchedAt": 1776305298058,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001896": {
@@ -12610,7 +12614,7 @@
     "historyScore": 34,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000021": {
@@ -12719,7 +12723,9 @@
     },
     "historyScore": 33,
     "fetchedAt": 1776306516689,
-    "dateKey": "2026-04-16"
+    "dateKey": "2026-04-16",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600550": {
     "indicators": {
@@ -12934,7 +12940,7 @@
     "historyScore": 54,
     "fetchedAt": 1776651365159,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600641": {
@@ -13042,7 +13048,7 @@
     "historyScore": 59,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776742109750,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603220": {
@@ -13150,7 +13156,7 @@
     "historyScore": 33,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741071741,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603017": {
@@ -13368,7 +13374,7 @@
     "historyScore": 36,
     "fetchedAt": 1776404729665,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776738389962,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603601": {
@@ -14016,7 +14022,7 @@
     "historyScore": 59,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776740732857,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603533": {
@@ -14287,8 +14293,8 @@
     "historyScore": 4,
     "fetchedAt": 1776394617836,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776662913452,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz001208": {
     "indicators": {
@@ -15047,7 +15053,7 @@
     "historyScore": 68,
     "fetchedAt": 1776309284495,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603110": {
@@ -15210,7 +15216,7 @@
     "historyScore": 53,
     "fetchedAt": 1776651767811,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600489": {
@@ -15699,7 +15705,7 @@
     "historyScore": 48,
     "fetchedAt": 1776392564120,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000063": {
@@ -16133,7 +16139,7 @@
     "historyScore": 85,
     "fetchedAt": 1776395785670,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600955": {
@@ -16296,7 +16302,7 @@
     "historyScore": 41,
     "fetchedAt": 1776404658440,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000962": {
@@ -16351,7 +16357,7 @@
     "historyScore": 59,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603327": {
@@ -17215,7 +17221,7 @@
     "historyScore": 59,
     "fetchedAt": 1776392025045,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603679": {
@@ -17759,7 +17765,7 @@
     "historyScore": 61,
     "fetchedAt": 1776409013887,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776742109750,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603232": {
@@ -18030,7 +18036,7 @@
     "historyScore": 38,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600176": {
@@ -18192,7 +18198,9 @@
     },
     "historyScore": 66,
     "fetchedAt": 1776395445643,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603887": {
     "indicators": {
@@ -18517,7 +18525,7 @@
     "historyScore": 50,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741071741,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601012": {
@@ -18841,7 +18849,7 @@
     "historyScore": 66,
     "fetchedAt": 1776404658440,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000559": {
@@ -19771,58 +19779,56 @@
   },
   "sh601233": {
     "indicators": {
-      "gain60d": 34.79,
-      "gain30d": 88.53,
-      "gain10d": 21.89,
-      "gain5d": -6.13,
-      "high60d": 24,
-      "low60d": 9.94,
-      "avg60d": 13.87,
-      "ma5": 19.82,
-      "ma10": 19.71,
-      "ma20": 17.19,
-      "ma30": 15.27,
-      "ma60": 13.87,
-      "priceVsAvg": 46.91,
-      "distanceToHigh60d": -15.08,
-      "deviationFromMA20": 18.54,
-      "deviationFromMA30": 33.48,
-      "deviationFromMA60": 46.91,
-      "avgVolume60d": 300392,
-      "avgAmount60d": 436340883,
-      "avgTurnover60d": 1.27,
-      "avgVolume5d": 552921,
-      "avgAmount5d": 1074552952,
-      "avgTurnover5d": 2.33,
-      "volumeRatio5d": 1.84,
-      "amountRatio5d": 2.46,
-      "maxDrawdown": 22.53,
-      "volatility": 22.49,
-      "upDays": 30,
-      "upDaysRatio": 50,
-      "consecutiveUpDays": 2,
+      "gain60d": 29.82,
+      "gain30d": 82.5,
+      "gain10d": 20.58,
+      "gain5d": -0.64,
+      "high60d": 24.24,
+      "low60d": 9.9,
+      "avg60d": 13.88,
+      "ma5": 19.08,
+      "ma10": 19.67,
+      "ma20": 17.21,
+      "ma30": 15.35,
+      "ma60": 13.88,
+      "priceVsAvg": 46.48,
+      "distanceToHigh60d": -16.13,
+      "deviationFromMA20": 18.1,
+      "deviationFromMA30": 32.48,
+      "deviationFromMA60": 46.48,
+      "avgVolume60d": 316141,
+      "avgAmount60d": 452239787,
+      "avgTurnover60d": 1.34,
+      "avgVolume5d": 542522,
+      "avgAmount5d": 995520755,
+      "avgTurnover5d": 2.28,
+      "volumeRatio5d": 1.72,
+      "amountRatio5d": 2.2,
+      "maxDrawdown": 21.48,
+      "volatility": 22.53,
+      "upDays": 28,
+      "upDaysRatio": 46.67,
+      "consecutiveUpDays": 1,
       "consecutiveDownDays": 0,
       "isBreakoutHigh": false,
-      "macd": 1.9667,
-      "macdSignal": 1.793,
-      "macdHistogram": 0.1738,
+      "macd": 1.8441,
+      "macdSignal": 1.7381,
+      "macdHistogram": 0.106,
       "macdBullish": true,
-      "macdHistogramTrend": -0.0422,
+      "macdHistogramTrend": -0.0052,
       "macdHistogramImproving": false,
-      "rsi": 63.96,
+      "rsi": 62.9,
       "rsiOverbought": false,
       "rsiOversold": false,
       "limitUpCount": 0,
       "lowVolumeLimitUpCount": 0,
       "recent10LimitUps": 0,
       "dataPoints": 60,
-      "latestDate": "2026-04-16"
+      "latestDate": "2026-04-21"
     },
     "historyScore": 68,
-    "fetchedAt": 1776317506590,
-    "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
-    "lastAttemptDateKey": "2026-04-21"
+    "fetchedAt": 1776750262554,
+    "dateKey": "2026-04-21"
   },
   "sh600301": {
     "indicators": {
@@ -19931,7 +19937,7 @@
     "historyScore": 40,
     "fetchedAt": 1776231166336,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601336": {
@@ -20092,7 +20098,7 @@
     "historyScore": 46,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603063": {
@@ -20255,7 +20261,7 @@
     "historyScore": 35,
     "fetchedAt": 1776305922066,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776740004750,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600186": {
@@ -20310,7 +20316,7 @@
     "historyScore": 34,
     "fetchedAt": 1776305504511,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603698": {
@@ -20365,7 +20371,7 @@
     "historyScore": 36,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600391": {
@@ -20744,7 +20750,7 @@
     "historyScore": 33,
     "fetchedAt": 1776392803940,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603163": {
@@ -21883,7 +21889,7 @@
     "historyScore": 61,
     "fetchedAt": 1776651365159,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600864": {
@@ -22205,7 +22211,7 @@
     "historyScore": 33,
     "fetchedAt": 1776390634437,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001335": {
@@ -22525,8 +22531,8 @@
     "historyScore": 30,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776668197006,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600170": {
     "indicators": {
@@ -23391,7 +23397,7 @@
     "historyScore": 36,
     "fetchedAt": 1776305298058,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603929": {
@@ -23446,7 +23452,7 @@
     "historyScore": 69,
     "fetchedAt": 1776322019350,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000066": {
@@ -23556,7 +23562,7 @@
     "historyScore": 42,
     "fetchedAt": 1776405943579,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000733": {
@@ -24261,7 +24267,7 @@
     "historyScore": 59,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600184": {
@@ -24744,7 +24750,7 @@
     "historyScore": 56,
     "fetchedAt": 1776391844034,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000890": {
@@ -24799,7 +24805,7 @@
     "historyScore": 56,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776737086663,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh605589": {
@@ -25290,7 +25296,7 @@
     "historyScore": 36,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600111": {
@@ -25345,7 +25351,7 @@
     "historyScore": 69,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741071741,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603778": {
@@ -25453,7 +25459,7 @@
     "historyScore": 60,
     "fetchedAt": 1776318530874,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776738811570,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603275": {
@@ -25944,7 +25950,7 @@
     "historyScore": 74,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603458": {
@@ -26694,7 +26700,7 @@
     "historyScore": 66,
     "fetchedAt": 1776219172418,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000995": {
@@ -26801,7 +26807,9 @@
     },
     "historyScore": 47,
     "fetchedAt": 1776478917113,
-    "dateKey": "2026-04-18"
+    "dateKey": "2026-04-18",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600714": {
     "indicators": {
@@ -27613,7 +27621,7 @@
     "historyScore": 70,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600664": {
@@ -28097,7 +28105,9 @@
     },
     "historyScore": 56,
     "fetchedAt": 1776478917113,
-    "dateKey": "2026-04-18"
+    "dateKey": "2026-04-18",
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600894": {
     "indicators": {
@@ -28367,7 +28377,7 @@
     "historyScore": 32,
     "fetchedAt": 1776390634437,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601898": {
@@ -28422,7 +28432,7 @@
     "historyScore": 54,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776738811570,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600150": {
@@ -28640,7 +28650,7 @@
     "historyScore": 36,
     "fetchedAt": 1776396665338,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603568": {
@@ -28748,8 +28758,8 @@
     "historyScore": 75,
     "fetchedAt": 1776392269215,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776698344453,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600299": {
     "indicators": {
@@ -28858,7 +28868,7 @@
     "historyScore": 51,
     "fetchedAt": 1776307534062,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603683": {
@@ -29019,7 +29029,7 @@
     "historyScore": 54,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600519": {
@@ -29344,7 +29354,9 @@
     },
     "historyScore": 66,
     "fetchedAt": 1776391844034,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600036": {
     "indicators": {
@@ -29558,7 +29570,9 @@
     },
     "historyScore": 56,
     "fetchedAt": 1776310104248,
-    "dateKey": "2026-04-16"
+    "dateKey": "2026-04-16",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603012": {
     "indicators": {
@@ -29611,7 +29625,9 @@
     },
     "historyScore": 33,
     "fetchedAt": 1776407127324,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh605319": {
     "indicators": {
@@ -29991,7 +30007,7 @@
     "historyScore": 75,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001301": {
@@ -30046,7 +30062,7 @@
     "historyScore": 49,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000049": {
@@ -30154,8 +30170,8 @@
     "historyScore": 46,
     "fetchedAt": 1776182597206,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776406052531,
-    "lastAttemptDateKey": "2026-04-17"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603062": {
     "indicators": {
@@ -30208,7 +30224,9 @@
     },
     "historyScore": 83,
     "fetchedAt": 1776305298058,
-    "dateKey": "2026-04-16"
+    "dateKey": "2026-04-16",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603160": {
     "indicators": {
@@ -30476,7 +30494,7 @@
     "historyScore": 34,
     "fetchedAt": 1776307534062,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh605588": {
@@ -30906,7 +30924,7 @@
     "historyScore": 59,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001367": {
@@ -32455,7 +32473,7 @@
     "historyScore": 67,
     "fetchedAt": 1776306516689,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000955": {
@@ -33313,7 +33331,7 @@
     "historyScore": 64,
     "fetchedAt": 1776308384225,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603997": {
@@ -33530,7 +33548,9 @@
     },
     "historyScore": 76,
     "fetchedAt": 1776478917113,
-    "dateKey": "2026-04-18"
+    "dateKey": "2026-04-18",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh601360": {
     "indicators": {
@@ -34920,7 +34940,9 @@
     },
     "historyScore": 76,
     "fetchedAt": 1776307847256,
-    "dateKey": "2026-04-16"
+    "dateKey": "2026-04-16",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603636": {
     "indicators": {
@@ -35772,7 +35794,9 @@
     },
     "historyScore": 56,
     "fetchedAt": 1776394187737,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603879": {
     "indicators": {
@@ -36521,7 +36545,7 @@
     "historyScore": 58,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601579": {
@@ -37479,7 +37503,7 @@
     "historyScore": 24,
     "fetchedAt": 1776305648904,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600351": {
@@ -37750,7 +37774,7 @@
     "historyScore": 50,
     "fetchedAt": 1776320077519,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603566": {
@@ -38182,7 +38206,7 @@
     "historyScore": 78,
     "fetchedAt": 1776320077519,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776737086663,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603599": {
@@ -40098,7 +40122,7 @@
     "historyScore": 66,
     "fetchedAt": 1776239933509,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776739156650,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603165": {
@@ -40585,7 +40609,7 @@
     "historyScore": 32,
     "fetchedAt": 1776666971721,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600745": {
@@ -42146,7 +42170,7 @@
     "historyScore": 57,
     "fetchedAt": 1776396665338,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600570": {
@@ -42470,7 +42494,7 @@
     "historyScore": 63,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776742109750,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600540": {
@@ -42897,7 +42921,9 @@
     },
     "historyScore": 59,
     "fetchedAt": 1776307534062,
-    "dateKey": "2026-04-16"
+    "dateKey": "2026-04-16",
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz000151": {
     "indicators": {
@@ -43540,7 +43566,7 @@
     "historyScore": 78,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600513": {
@@ -44292,7 +44318,7 @@
     "historyScore": 57,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603071": {
@@ -44400,7 +44426,7 @@
     "historyScore": 44,
     "fetchedAt": 1776389573323,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh601699": {
@@ -44775,7 +44801,7 @@
     "historyScore": 65,
     "fetchedAt": 1776394617836,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603093": {
@@ -45256,7 +45282,7 @@
     "historyScore": 51,
     "fetchedAt": 1776392025045,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000767": {
@@ -45365,7 +45391,9 @@
     },
     "historyScore": 28,
     "fetchedAt": 1776389426986,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh605318": {
     "indicators": {
@@ -47626,7 +47654,7 @@
     "historyScore": 38,
     "fetchedAt": 1776391844034,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603817": {
@@ -48109,7 +48137,7 @@
     "historyScore": 38,
     "fetchedAt": 1776307534062,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600848": {
@@ -49282,7 +49310,9 @@
     },
     "historyScore": 42,
     "fetchedAt": 1776220449783,
-    "dateKey": "2026-04-15"
+    "dateKey": "2026-04-15",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603049": {
     "indicators": {
@@ -49336,7 +49366,7 @@
     "historyScore": 46,
     "fetchedAt": 1776223100073,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600456": {
@@ -49446,7 +49476,7 @@
     "historyScore": 73,
     "fetchedAt": 1776220210258,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600160": {
@@ -49935,7 +49965,7 @@
     "historyScore": 28,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603075": {
@@ -49989,7 +50019,9 @@
     },
     "historyScore": 68,
     "fetchedAt": 1776405404220,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600212": {
     "indicators": {
@@ -50095,7 +50127,9 @@
     },
     "historyScore": 67,
     "fetchedAt": 1776389573323,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600337": {
     "indicators": {
@@ -50363,8 +50397,8 @@
     "historyScore": 56,
     "fetchedAt": 1776391904105,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776698344453,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600660": {
     "indicators": {
@@ -50418,7 +50452,7 @@
     "historyScore": 68,
     "fetchedAt": 1776223170313,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776741071741,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603567": {
@@ -50579,7 +50613,7 @@
     "historyScore": 63,
     "fetchedAt": 1776390634437,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776738389962,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600671": {
@@ -50741,7 +50775,9 @@
     },
     "historyScore": 48,
     "fetchedAt": 1776389426986,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz000965": {
     "indicators": {
@@ -52507,8 +52543,8 @@
     "historyScore": 76,
     "fetchedAt": 1776217020799,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776667904973,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz000708": {
     "indicators": {
@@ -53204,7 +53240,7 @@
     "historyScore": 62,
     "fetchedAt": 1776394887194,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603248": {
@@ -54115,7 +54151,7 @@
     "historyScore": 43,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600966": {
@@ -55780,7 +55816,7 @@
     "historyScore": 65,
     "fetchedAt": 1776221498522,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600919": {
@@ -56318,7 +56354,7 @@
     "historyScore": 60,
     "fetchedAt": 1776221998619,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600729": {
@@ -56534,7 +56570,7 @@
     "historyScore": 63,
     "fetchedAt": 1776223100073,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776740394926,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000078": {
@@ -57391,7 +57427,9 @@
     },
     "historyScore": 62,
     "fetchedAt": 1776404658440,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600908": {
     "indicators": {
@@ -58136,7 +58174,7 @@
     "historyScore": 45,
     "fetchedAt": 1776396422341,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz001255": {
@@ -59044,7 +59082,9 @@
     },
     "historyScore": 33,
     "fetchedAt": 1776389426986,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752091792,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh605555": {
     "indicators": {
@@ -59367,7 +59407,7 @@
     "historyScore": 65,
     "fetchedAt": 1776232852508,
     "dateKey": "2026-04-15",
-    "lastAttemptAt": 1776736356114,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603871": {
@@ -62318,7 +62358,7 @@
     "historyScore": 80,
     "fetchedAt": 1776305298058,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776740004750,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600156": {
@@ -63233,7 +63273,7 @@
     "historyScore": 64,
     "fetchedAt": 1776393927551,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741071741,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603330": {
@@ -63341,7 +63381,7 @@
     "historyScore": 38,
     "fetchedAt": 1776305504511,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752091792,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603888": {
@@ -63825,7 +63865,9 @@
     },
     "historyScore": 55,
     "fetchedAt": 1776478917113,
-    "dateKey": "2026-04-18"
+    "dateKey": "2026-04-18",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603039": {
     "indicators": {
@@ -64625,7 +64667,7 @@
     "historyScore": 53,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sz000862": {
@@ -65702,7 +65744,9 @@
     },
     "historyScore": 67,
     "fetchedAt": 1776390634437,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752091792,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz000509": {
     "indicators": {
@@ -65809,7 +65853,7 @@
     "historyScore": 54,
     "fetchedAt": 1776391733631,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600295": {
@@ -67034,7 +67078,7 @@
     "historyScore": 29,
     "fetchedAt": 1776310104248,
     "dateKey": "2026-04-16",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776750262554,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600843": {
@@ -69285,7 +69329,9 @@
     },
     "historyScore": 61,
     "fetchedAt": 1776405594936,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh603878": {
     "indicators": {
@@ -70574,7 +70620,7 @@
     "historyScore": 61,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603630": {
@@ -70735,8 +70781,8 @@
     "historyScore": 62,
     "fetchedAt": 1776405047375,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776667287217,
-    "lastAttemptDateKey": "2026-04-20"
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sz000099": {
     "indicators": {
@@ -71323,7 +71369,9 @@
     },
     "historyScore": 54,
     "fetchedAt": 1776389426986,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776750262554,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh601568": {
     "indicators": {
@@ -72015,7 +72063,7 @@
     "historyScore": 68,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776741728838,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603609": {
@@ -72450,56 +72498,56 @@
   },
   "sh603010": {
     "indicators": {
-      "gain60d": 22.12,
-      "gain30d": 18.74,
-      "gain10d": 2.39,
-      "gain5d": 9.72,
-      "high60d": 13.14,
-      "low60d": 9.14,
+      "gain60d": 30.03,
+      "gain30d": 26.19,
+      "gain10d": 7.72,
+      "gain5d": 26.31,
+      "high60d": 13.25,
+      "low60d": 9.21,
       "avg60d": 10.61,
-      "ma5": 11.65,
-      "ma10": 11.83,
-      "ma20": 11.49,
-      "ma30": 11.2,
+      "ma5": 11.79,
+      "ma10": 11.96,
+      "ma20": 11.42,
+      "ma30": 11.19,
       "ma60": 10.61,
-      "priceVsAvg": 17.08,
-      "distanceToHigh60d": -5.48,
-      "deviationFromMA20": 8.1,
-      "deviationFromMA30": 10.89,
-      "deviationFromMA60": 17.08,
-      "avgVolume60d": 72762,
-      "avgAmount60d": 81199751,
-      "avgTurnover60d": 1.27,
-      "avgVolume5d": 73639,
-      "avgAmount5d": 85955679,
-      "avgTurnover5d": 1.25,
-      "volumeRatio5d": 1.01,
-      "amountRatio5d": 1.06,
-      "maxDrawdown": 22.83,
-      "volatility": 7.97,
-      "upDays": 28,
-      "upDaysRatio": 46.67,
-      "consecutiveUpDays": 0,
+      "priceVsAvg": 24.86,
+      "distanceToHigh60d": 0,
+      "deviationFromMA20": 16.06,
+      "deviationFromMA30": 18.4,
+      "deviationFromMA60": 24.86,
+      "avgVolume60d": 78567,
+      "avgAmount60d": 87284905,
+      "avgTurnover60d": 1.38,
+      "avgVolume5d": 101094,
+      "avgAmount5d": 121629258,
+      "avgTurnover5d": 1.72,
+      "volumeRatio5d": 1.29,
+      "amountRatio5d": 1.39,
+      "maxDrawdown": 11.68,
+      "volatility": 8.25,
+      "upDays": 31,
+      "upDaysRatio": 51.67,
+      "consecutiveUpDays": 1,
       "consecutiveDownDays": 0,
-      "isBreakoutHigh": false,
-      "macd": 0.3463,
-      "macdSignal": 0.292,
-      "macdHistogram": 0.0542,
+      "isBreakoutHigh": true,
+      "macd": 0.4425,
+      "macdSignal": 0.3243,
+      "macdHistogram": 0.1181,
       "macdBullish": true,
-      "macdHistogramTrend": 0.0349,
+      "macdHistogramTrend": 0.0811,
       "macdHistogramImproving": true,
-      "rsi": 62.58,
+      "rsi": 65.63,
       "rsiOverbought": false,
       "rsiOversold": false,
-      "limitUpCount": 1,
-      "lowVolumeLimitUpCount": 1,
-      "recent10LimitUps": 1,
+      "limitUpCount": 0,
+      "lowVolumeLimitUpCount": 0,
+      "recent10LimitUps": 0,
       "dataPoints": 60,
-      "latestDate": "2026-04-17"
+      "latestDate": "2026-04-21"
     },
-    "historyScore": 56,
-    "fetchedAt": 1776389426986,
-    "dateKey": "2026-04-17"
+    "historyScore": 32,
+    "fetchedAt": 1776752462505,
+    "dateKey": "2026-04-21"
   },
   "sh603955": {
     "indicators": {
@@ -72981,7 +73029,7 @@
     "historyScore": 71,
     "fetchedAt": 1776389426986,
     "dateKey": "2026-04-17",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh603639": {
@@ -76132,7 +76180,7 @@
     "historyScore": 43,
     "fetchedAt": 1776478917113,
     "dateKey": "2026-04-18",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600173": {
@@ -78112,7 +78160,9 @@
     },
     "historyScore": 61,
     "fetchedAt": 1776404658440,
-    "dateKey": "2026-04-17"
+    "dateKey": "2026-04-17",
+    "lastAttemptAt": 1776752462505,
+    "lastAttemptDateKey": "2026-04-21"
   },
   "sh600905": {
     "indicators": {
@@ -79184,14 +79234,6 @@
     "fetchedAt": 1776740004750,
     "dateKey": "2026-04-21"
   },
-  "sh601888": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776665310327,
-    "dateKey": "2026-04-20"
-  },
   "sh600868": {
     "indicators": {
       "degraded": true
@@ -79200,28 +79242,12 @@
     "fetchedAt": 1776746661057,
     "dateKey": "2026-04-21"
   },
-  "sh600021": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776662913452,
-    "dateKey": "2026-04-20"
-  },
-  "sz000856": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776662913452,
-    "dateKey": "2026-04-20"
-  },
   "sh600157": {
     "indicators": {
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776746661057,
+    "fetchedAt": 1776752091792,
     "dateKey": "2026-04-21"
   },
   "sh600759": {
@@ -79232,29 +79258,13 @@
     "fetchedAt": 1776738389962,
     "dateKey": "2026-04-21"
   },
-  "sh603280": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776659315184,
-    "dateKey": "2026-04-20"
-  },
   "sh600758": {
     "indicators": {
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776742109750,
+    "fetchedAt": 1776752091792,
     "dateKey": "2026-04-21"
-  },
-  "sh600887": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776659315184,
-    "dateKey": "2026-04-20"
   },
   "sh603808": {
     "indicators": {
@@ -79288,28 +79298,12 @@
     "fetchedAt": 1776741071741,
     "dateKey": "2026-04-21"
   },
-  "sh600775": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776664273445,
-    "dateKey": "2026-04-20"
-  },
   "sh603331": {
     "indicators": {
       "degraded": true
     },
     "historyScore": 35,
     "fetchedAt": 1776666305945,
-    "dateKey": "2026-04-20"
-  },
-  "sz001337": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776664273445,
     "dateKey": "2026-04-20"
   },
   "sh600408": {
@@ -79319,14 +79313,6 @@
     "historyScore": 35,
     "fetchedAt": 1776746661057,
     "dateKey": "2026-04-21"
-  },
-  "sz001386": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776662913452,
-    "dateKey": "2026-04-20"
   },
   "sh600310": {
     "indicators": {
@@ -79349,7 +79335,7 @@
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776746661057,
+    "fetchedAt": 1776750262554,
     "dateKey": "2026-04-21"
   },
   "sh600756": {
@@ -79412,7 +79398,7 @@
     "historyScore": 71,
     "fetchedAt": 1776664273445,
     "dateKey": "2026-04-20",
-    "lastAttemptAt": 1776746661057,
+    "lastAttemptAt": 1776752462505,
     "lastAttemptDateKey": "2026-04-21"
   },
   "sh600765": {
@@ -79471,28 +79457,12 @@
     "fetchedAt": 1776736735290,
     "dateKey": "2026-04-21"
   },
-  "sh600495": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776664999050,
-    "dateKey": "2026-04-20"
-  },
   "sz000572": {
     "indicators": {
       "degraded": true
     },
     "historyScore": 35,
     "fetchedAt": 1776668197006,
-    "dateKey": "2026-04-20"
-  },
-  "sh600926": {
-    "indicators": {
-      "degraded": true
-    },
-    "historyScore": 35,
-    "fetchedAt": 1776665310327,
     "dateKey": "2026-04-20"
   },
   "sh600862": {
@@ -79841,7 +79811,7 @@
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776741728838,
+    "fetchedAt": 1776752091792,
     "dateKey": "2026-04-21"
   },
   "sh600533": {
@@ -79873,7 +79843,7 @@
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776746661057,
+    "fetchedAt": 1776752091792,
     "dateKey": "2026-04-21"
   },
   "sh600989": {
@@ -79881,7 +79851,7 @@
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776746661057,
+    "fetchedAt": 1776750262554,
     "dateKey": "2026-04-21"
   },
   "sh601101": {
@@ -79905,7 +79875,7 @@
       "degraded": true
     },
     "historyScore": 35,
-    "fetchedAt": 1776746661057,
+    "fetchedAt": 1776752091792,
     "dateKey": "2026-04-21"
   },
   "sh600153": {
@@ -79970,6 +79940,86 @@
     },
     "historyScore": 35,
     "fetchedAt": 1776742109750,
+    "dateKey": "2026-04-21"
+  },
+  "sh603336": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sz000966": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sh603103": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sh603172": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sh600230": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sz000912": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sh603395": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sz000543": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sh600389": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752091792,
+    "dateKey": "2026-04-21"
+  },
+  "sz000045": {
+    "indicators": {
+      "degraded": true
+    },
+    "historyScore": 35,
+    "fetchedAt": 1776752462505,
     "dateKey": "2026-04-21"
   }
 }

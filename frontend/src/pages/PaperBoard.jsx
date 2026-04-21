@@ -65,6 +65,17 @@ export function PaperBoard() {
 
   useScrollRestore('paper')
 
+  const fetchPortfolioOnly = async () => {
+    try {
+      const portfolioData = await api.getPortfolio()
+      setPortfolio(portfolioData)
+    } catch (err) {
+      console.error('获取持仓数据失败:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const fetchData = async () => {
     try {
       const [portfolioData, stateData, statisticsData, equityData, settlementData, tradesData, alertsData] = await Promise.all([
@@ -95,6 +106,7 @@ export function PaperBoard() {
   }, [])
 
   useAutoRefresh(fetchData, 15000)
+  useAutoRefresh(fetchPortfolioOnly, 3000)
 
   const handleSell = async (position) => {
     const symbol = position.symbol
@@ -412,6 +424,11 @@ export function PaperBoard() {
                       <div className="text-xs text-slate-500">
                         阶段 {pos.positionStage || 'initial'} / 加{pos.addOnCount || 0} / 减{pos.trimCount || 0}
                       </div>
+                      {pos.manualOnlyExit ? (
+                        <div className="text-xs text-amber-300">
+                          手动持仓，仅允许手动卖出
+                        </div>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-4 py-3 text-slate-200">{pos.currentPrice?.toFixed(3)}</td>
@@ -423,14 +440,14 @@ export function PaperBoard() {
                     <div className="text-xs text-slate-500">可卖 {pos.sellableQuantity ?? pos.quantity ?? 0} 股</div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Badge tone={pos.exitShouldExit ? 'warn' : Number(pos.exitUrgency || 0) >= 70 ? 'sky' : 'neutral'}>
-                          紧迫度 {pos.exitUrgency || 0}
-                        </Badge>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Badge tone={pos.exitShouldExit ? 'warn' : Number(pos.exitUrgency || 0) >= 70 ? 'sky' : 'neutral'}>
+                            紧迫度 {pos.exitUrgency || 0}
+                          </Badge>
                         {pos.lastEvaluatedAt ? <span className="text-xs text-slate-500">{pos.lastEvaluatedAt}</span> : null}
-                      </div>
-                      <div className="max-w-[240px] text-xs leading-5 text-slate-400">{pos.exitSummary || '暂无诊断'}</div>
+                        </div>
+                      <div className="max-w-[240px] text-xs leading-5 text-slate-400">{pos.manualOnlyExit ? '手动持仓不参与自动卖出' : (pos.exitSummary || '暂无诊断')}</div>
                       <div className="max-w-[240px] text-xs leading-5 text-slate-500">{pos.managementSummary || '暂无仓位管理动作'}</div>
                     </div>
                   </td>
