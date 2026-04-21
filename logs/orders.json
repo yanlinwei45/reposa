@@ -7,13 +7,13 @@
         "symbol": "sz000422",
         "name": "湖北宜化",
         "entryPrice": 15.89588,
-        "currentPrice": 16.23,
+        "currentPrice": 16.25,
         "quantity": 62900,
-        "value": 1020867,
-        "pnlPct": 2.1019282984018526,
+        "value": 1022125,
+        "pnlPct": 2.227747064019104,
         "entryTs": "2026-04-21T03:24:17.713Z",
         "entryDate": "2026-04-21",
-        "holdRounds": 5,
+        "holdRounds": 6,
         "holdDays": 1,
         "highPrice": 16.27,
         "lowPrice": 15.84,
@@ -26,8 +26,8 @@
         "entryBucket": "main",
         "liveBucket": "rejected",
         "liveBucketLabel": "未达标",
-        "liveSelectedDayScore": 48,
-        "liveCombinedScore": 49.94,
+        "liveSelectedDayScore": 53,
+        "liveCombinedScore": 51.71,
         "exitUrgency": 0,
         "exitShouldExit": false,
         "exitReasons": [
@@ -38,7 +38,7 @@
           }
         ],
         "exitSummary": "手动持仓(仅允许手动卖出)",
-        "lastEvaluatedAt": "2026-04-21 14:20:50",
+        "lastEvaluatedAt": "2026-04-21 14:25:37",
         "continuationFailureStreak": 0,
         "continuationRecoveryStreak": 0,
         "continuationLastFailureAt": null,
@@ -80,8 +80,8 @@
         "manualActionCount": 1,
         "managementSummary": "手动持仓，仅允许手动卖出",
         "manualOnlyExit": true,
-        "changePercent": 2.59,
-        "realtimePriceUpdatedAt": "2026-04-21 14:25:34"
+        "changePercent": 2.65,
+        "realtimePriceUpdatedAt": "2026-04-21 14:30:21"
       }
     ]
   ],
@@ -1750,10 +1750,10 @@
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-21 14:20:50",
+    "ts": "2026-04-21 14:25:37",
     "marketRegime": "BULL",
     "marketOpen": true,
-    "portfolioDrawdown": 6.72,
+    "portfolioDrawdown": 6.7,
     "recoveryMode": false,
     "guardedRecoveryMode": false,
     "allowGuardedRecovery": true,
@@ -1779,5 +1779,5 @@
     "addOns": [],
     "trims": []
   },
-  "savedAt": "2026-04-21T06:25:37.392Z"
+  "savedAt": "2026-04-21T06:30:23.435Z"
 }
