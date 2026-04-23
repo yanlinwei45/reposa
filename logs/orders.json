@@ -7,13 +7,13 @@
         "symbol": "sz000422",
         "name": "湖北宜化",
         "entryPrice": 16.27217129373474,
-        "currentPrice": 16.72,
+        "currentPrice": 16.05,
         "quantity": 122900,
-        "value": 2054887.9999999998,
-        "pnlPct": 2.75211401220737,
+        "value": 1972545,
+        "pnlPct": -1.3653451019181535,
         "entryTs": "2026-04-21T03:24:17.713Z",
         "entryDate": "2026-04-21",
-        "holdRounds": 45,
+        "holdRounds": 81,
         "holdDays": 2,
         "highPrice": 16.74,
         "lowPrice": 15.84,
@@ -24,10 +24,10 @@
         "marketRegime": "BULL",
         "sector": "农化制品",
         "entryBucket": "main",
-        "liveBucket": "rejected",
-        "liveBucketLabel": "未达标",
+        "liveBucket": "main",
+        "liveBucketLabel": "低吸主池",
         "liveSelectedDayScore": 65,
-        "liveCombinedScore": 55.94,
+        "liveCombinedScore": 62.29,
         "exitUrgency": 0,
         "exitShouldExit": false,
         "exitReasons": [
@@ -38,7 +38,7 @@
           }
         ],
         "exitSummary": "手动持仓(仅允许手动卖出)",
-        "lastEvaluatedAt": "2026-04-22 14:02:15",
+        "lastEvaluatedAt": "2026-04-23 10:16:26",
         "continuationFailureStreak": 0,
         "continuationRecoveryStreak": 0,
         "continuationLastFailureAt": null,
@@ -92,8 +92,8 @@
         "manualActionCount": 2,
         "managementSummary": "手动持仓，仅允许手动卖出",
         "manualOnlyExit": true,
-        "changePercent": 2.64,
-        "realtimePriceUpdatedAt": "2026-04-22 14:05:26"
+        "changePercent": -3.83,
+        "realtimePriceUpdatedAt": "2026-04-23 10:02:56"
       }
     ]
   ],
@@ -1784,10 +1784,10 @@
     ]
   },
   "latestTradeDiagnostics": {
-    "ts": "2026-04-22 14:02:15",
+    "ts": "2026-04-23 10:16:26",
     "marketRegime": "BULL",
     "marketOpen": true,
-    "portfolioDrawdown": 6.39,
+    "portfolioDrawdown": 7.18,
     "recoveryMode": false,
     "guardedRecoveryMode": false,
     "allowGuardedRecovery": true,
@@ -1813,5 +1813,5 @@
     "addOns": [],
     "trims": []
   },
-  "savedAt": "2026-04-22T06:05:27.634Z"
+  "savedAt": "2026-04-23T02:17:41.572Z"
 }
